@@ -4,41 +4,193 @@ pub mod feed;
 pub mod reader;
 
 // ============================================================
-// Tauri Command registration (uncomment when Tauri is connected)
+// Non-Tauri entry point (for cargo test / standalone binary)
 // ============================================================
-//
-// use tauri::Manager;
-//
-// pub fn run_tauri() {
-//     tauri::Builder::default()
-//         .setup(|app| {
-//             let db_path = db::default_db_path();
-//             let pool = db::initialize_database(&db_path)
-//                 .expect("Failed to initialize database");
-//             app.manage(pool);
-//             Ok(())
-//         })
-//         .invoke_handler(tauri::generate_handler![
-//             // Feed management
-//             commands::list_feeds_tauri,
-//             commands::add_feed_tauri,
-//             commands::remove_feed_tauri,
-//             commands::refresh_feed_tauri,
-//             // Entry queries
-//             commands::list_entries_tauri,
-//             commands::list_all_entries_tauri,
-//             commands::get_entry_tauri,
-//             commands::mark_read_tauri,
-//             commands::mark_unread_tauri,
-//             commands::mark_all_read_tauri,
-//             // Content
-//             commands::get_entry_content_tauri,
-//             // OPML
-//             commands::import_opml_tauri,
-//             commands::export_opml_tauri,
-//             // Search (Stage 2)
-//             commands::search_entries_tauri,
-//         ])
-//         .run(tauri::generate_context!())
-//         .expect("error while running tauri application");
-// }
+
+#[cfg(not(feature = "tauri-runtime"))]
+pub fn run() {
+    tracing_subscriber::fmt::init();
+    tracing::info!("Womenhenku starting (standalone mode)...");
+
+    let db_path = db::default_db_path();
+    match db::initialize_database(&db_path) {
+        Ok(_pool) => tracing::info!("Database initialized at: {}", db_path.display()),
+        Err(e) => {
+            tracing::error!("Failed to initialize database: {}", e);
+            std::process::exit(1);
+        }
+    }
+
+    tracing::info!("Womenhenku shutdown complete.");
+}
+
+// ============================================================
+// Tauri runtime (--features tauri-runtime)
+// ============================================================
+
+#[cfg(feature = "tauri-runtime")]
+pub fn run() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_shell::init())
+        .setup(|app| {
+            let db_path = db::default_db_path();
+            let pool = db::initialize_database(&db_path)
+                .expect("Failed to initialize database");
+            app.manage(pool);
+            tracing::info!("Tauri + database initialized");
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            // Feed management
+            list_feeds,
+            get_feed,
+            add_feed,
+            remove_feed,
+            refresh_feed,
+            // Entry queries
+            list_entries,
+            list_all_entries,
+            get_entry,
+            mark_read,
+            mark_unread,
+            mark_all_read,
+            // Content
+            get_entry_content,
+            // OPML
+            import_opml,
+            export_opml,
+            // Search (Stage 2)
+            search_entries,
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
+
+// ============================================================
+// Tauri Command wrappers
+// ============================================================
+
+#[cfg(feature = "tauri-runtime")]
+use tauri::State;
+#[cfg(feature = "tauri-runtime")]
+use crate::db::DbPool;
+
+// -- Feed management --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn list_feeds(state: State<'_, DbPool>) -> Result<Vec<crate::db::model::FeedSummary>, String> {
+    commands::list_feeds(&state)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_feed(state: State<'_, DbPool>, id: i64) -> Result<crate::db::model::Feed, String> {
+    commands::get_feed(&state, id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn add_feed(state: State<'_, DbPool>, url: String) -> Result<crate::db::model::Feed, String> {
+    commands::add_feed(&state, &url)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn remove_feed(state: State<'_, DbPool>, id: i64) -> Result<(), String> {
+    commands::remove_feed(&state, id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn refresh_feed(state: State<'_, DbPool>, id: i64) -> Result<usize, String> {
+    commands::refresh_feed(&state, id)
+}
+
+// -- Entry queries --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn list_entries(
+    state: State<'_, DbPool>,
+    feed_id: i64,
+    page: i32,
+    page_size: i32,
+    filter: Option<String>,
+) -> Result<crate::db::model::EntryPage, String> {
+    commands::list_entries(&state, feed_id, page, page_size, filter.as_deref())
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn list_all_entries(
+    state: State<'_, DbPool>,
+    page: i32,
+    page_size: i32,
+    filter: Option<String>,
+) -> Result<crate::db::model::EntryPage, String> {
+    commands::list_all_entries(&state, page, page_size, filter.as_deref())
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_entry(state: State<'_, DbPool>, id: i64) -> Result<crate::db::model::Entry, String> {
+    commands::get_entry(&state, id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn mark_read(state: State<'_, DbPool>, id: i64) -> Result<(), String> {
+    commands::mark_read(&state, id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn mark_unread(state: State<'_, DbPool>, id: i64) -> Result<(), String> {
+    commands::mark_unread(&state, id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn mark_all_read(state: State<'_, DbPool>, feed_id: i64) -> Result<(), String> {
+    commands::mark_all_read(&state, feed_id)
+}
+
+// -- Content --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_entry_content(state: State<'_, DbPool>, entry_id: i64) -> Result<crate::db::model::Content, String> {
+    commands::get_entry_content(&state, entry_id)
+}
+
+// -- OPML --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn import_opml(
+    state: State<'_, DbPool>,
+    file_path: String,
+) -> Result<Vec<crate::db::model::Feed>, String> {
+    commands::import_opml(&state, &file_path)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn export_opml(state: State<'_, DbPool>, file_path: String) -> Result<(), String> {
+    commands::export_opml(&state, &file_path)
+}
+
+// -- Search --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn search_entries(
+    state: State<'_, DbPool>,
+    query: String,
+    page: i32,
+    page_size: i32,
+) -> Result<crate::db::model::EntryPage, String> {
+    commands::search_entries(&state, &query, page, page_size)
+}

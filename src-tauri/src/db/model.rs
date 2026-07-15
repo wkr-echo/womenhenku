@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 // === Feed ===
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Feed {
     pub id: i64,
     pub url: String,
@@ -15,6 +16,7 @@ pub struct Feed {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FeedSummary {
     pub id: i64,
     pub title: String,
@@ -24,6 +26,7 @@ pub struct FeedSummary {
 // === Entry ===
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Entry {
     pub id: i64,
     pub feed_id: i64,
@@ -40,6 +43,7 @@ pub struct Entry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EntryListItem {
     pub id: i64,
     pub feed_id: i64,
@@ -50,6 +54,7 @@ pub struct EntryListItem {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EntryPage {
     pub entries: Vec<EntryListItem>,
     pub total: i64,
@@ -72,6 +77,7 @@ pub struct NewEntry {
 // === Content ===
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Content {
     pub id: i64,
     pub entry_id: i64,

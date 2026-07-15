@@ -1,8 +1,12 @@
 [package]
 name = "womenhenku"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Mercury cross-platform RSS reader clone"
+
+[features]
+default = []
+tauri-runtime = ["dep:tauri", "dep:tauri-build", "dep:tauri-plugin-dialog", "dep:tauri-plugin-shell"]
 
 [dependencies]
 # Serialization
@@ -13,6 +17,11 @@ serde_json = "1"
 rusqlite = { version = "0.31", features = ["bundled"] }
 r2d2 = "0.8"
 r2d2_sqlite = "0.24"
+
+# Tauri (optional — enable with --features tauri-runtime)
+tauri = { version = "2", features = [], optional = true }
+tauri-plugin-dialog = { version = "2", optional = true }
+tauri-plugin-shell = { version = "2", optional = true }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }
@@ -41,3 +50,10 @@ quick-xml = "0.36"
 
 [dev-dependencies]
 tempfile = "3"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [], optional = true }
+
+[lib]
+name = "womenhenku_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]

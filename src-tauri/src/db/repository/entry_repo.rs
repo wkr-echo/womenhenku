@@ -4,7 +4,6 @@ use crate::db::model::{Entry, EntryListItem, EntryPage, NewEntry};
 use crate::db::DbPool;
 use crate::db::error::RepositoryError;
 
-/// Data access layer for the `entries` table.
 pub struct EntryRepository {
     pool: DbPool,
 }
@@ -28,7 +27,9 @@ impl EntryRepository {
             return Ok(None);
         }
         let id = conn.last_insert_rowid();
-        self.find_by_id(id)?.ok_or(RepositoryError::NotFound("Entry not found after insert".into())).map(Some)
+        self.find_by_id(id)?
+            .ok_or(RepositoryError::NotFound("Entry not found after insert".into()))
+            .map(Some)
     }
 
     pub fn find_by_id(&self, id: i64) -> Result<Option<Entry>, RepositoryError> {
@@ -45,7 +46,9 @@ impl EntryRepository {
         }
     }
 
-    pub fn find_by_feed_and_guid(&self, feed_id: i64, guid: &str) -> Result<Option<Entry>, RepositoryError> {
+    pub fn find_by_feed_and_guid(
+        &self, feed_id: i64, guid: &str,
+    ) -> Result<Option<Entry>, RepositoryError> {
         let conn = self.pool.get()?;
         let mut stmt = conn.prepare(
             "SELECT id, feed_id, guid, title, author, link, summary,
@@ -139,7 +142,6 @@ impl EntryRepository {
         let conn = self.pool.get()?;
         let offset = (page - 1) * page_size;
 
-        // Try FTS5 first; fall back to LIKE if the virtual table doesn't exist
         let fts_available = conn
             .query_row(
                 "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='entries_fts'",
@@ -179,7 +181,6 @@ impl EntryRepository {
 
             Ok(EntryPage { entries, total, page, page_size })
         } else {
-            // LIKE fallback
             let like_pattern = format!("%{}%", query);
             let total: i64 = conn.query_row(
                 "SELECT COUNT(*) FROM entries e WHERE e.title LIKE ?1 OR e.summary LIKE ?1",
@@ -266,18 +267,26 @@ mod tests {
     fn setup() -> (EntryRepository, i64) {
         let pool = open_test_db_pool().expect("Failed to create test pool");
         let feed_repo = FeedRepository::new(pool.clone());
-        let feed = feed_repo.insert("https://test.example.com/feed", "Test Feed").expect("feed insert failed");
+        let feed = feed_repo
+            .insert("https://test.example.com/feed", "Test Feed")
+            .expect("feed insert failed");
         (EntryRepository::new(pool), feed.id)
     }
 
     fn seed_entry(repo: &EntryRepository, feed_id: i64, guid: &str, title: &str) -> Entry {
         let entry = NewEntry {
-            feed_id, guid: guid.to_string(), title: title.to_string(),
-            author: "Test Author".into(), link: "https://example.com/1".into(),
+            feed_id,
+            guid: guid.to_string(),
+            title: title.to_string(),
+            author: "Test Author".into(),
+            link: "https://example.com/1".into(),
             summary: "A test entry".into(),
-            published_at: Some("2026-07-15T10:00:00".into()), updated_at: None,
+            published_at: Some("2026-07-15T10:00:00".into()),
+            updated_at: None,
         };
-        repo.insert_or_ignore(&entry).expect("insert failed").expect("entry was duplicate")
+        repo.insert_or_ignore(&entry)
+            .expect("insert failed")
+            .expect("entry was duplicate")
     }
 
     #[test]
@@ -293,9 +302,14 @@ mod tests {
     fn test_insert_duplicate_entry_ignored() {
         let (repo, feed_id) = setup();
         let entry = NewEntry {
-            feed_id, guid: "dup-guid".into(), title: "First".into(),
-            author: "".into(), link: "".into(), summary: "".into(),
-            published_at: None, updated_at: None,
+            feed_id,
+            guid: "dup-guid".into(),
+            title: "First".into(),
+            author: "".into(),
+            link: "".into(),
+            summary: "".into(),
+            published_at: None,
+            updated_at: None,
         };
         let first = repo.insert_or_ignore(&entry).expect("insert failed");
         assert!(first.is_some());
@@ -349,7 +363,7 @@ mod tests {
     fn test_filter_unread_only() {
         let (repo, feed_id) = setup();
         let e1 = seed_entry(&repo, feed_id, "guid-u1", "Unread");
-        let _e2 = seed_entry(&repo, feed_id, "guid-u2", "To Read");
+        seed_entry(&repo, feed_id, "guid-u2", "To Read");
         repo.mark_read(e1.id).expect("mark_read failed");
         let page = repo.list_by_feed(feed_id, 1, 10, Some("unread")).expect("list failed");
         assert_eq!(page.total, 1);
