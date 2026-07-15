@@ -1,13 +1,14 @@
 import { useApp } from "@/contexts/AppContext";
-import { EntryList } from "./EntryList";
+import { t } from "@/lib/utils";
+import { EntryListView } from "./EntryListView";
 import { ReaderView } from "./ReaderView";
-import { SettingsPage } from "./SettingsPage";
+import { SettingsPageView } from "./SettingsPageView";
 
-export function ContentArea() {
+export function ContentAreaView() {
   const { viewMode, entries, selectedEntry } = useApp();
 
   if (viewMode === "settings") {
-    return <SettingsPage />;
+    return <SettingsPageView />;
   }
 
   if (viewMode === "reader" && selectedEntry) {
@@ -20,16 +21,16 @@ export function ContentArea() {
       <div className="px-5 py-3 border-b border-[var(--border-color)] flex items-center justify-between bg-[var(--bg-primary)]">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold">
-            {entries.length > 0 ? `文章 (${entries.length})` : "文章"}
+            {entries.length > 0 ? t("文章 ({count})").replace("{count}", String(entries.length)) : t("文章")}
           </h2>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-[var(--text-tertiary)]">
-            未读 {entries.filter((e) => !e.isRead).length} / 共 {entries.length}
+            {t("未读")} {entries.filter((e) => !e.isRead).length} / {t("共")} {entries.length}
           </span>
         </div>
       </div>
-      <EntryList />
+      <EntryListView />
     </div>
   );
 }

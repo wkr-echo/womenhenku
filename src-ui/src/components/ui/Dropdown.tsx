@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import { cn, t } from "@/lib/utils";
 import { useState, useRef, useEffect } from "react";
 
 interface DropdownItem {
@@ -15,7 +15,7 @@ interface DropdownProps {
   className?: string;
 }
 
-export function Dropdown({ items, value, onChange, placeholder = "请选择", className }: DropdownProps) {
+export function Dropdown({ items, value, onChange, placeholder = t("请选择"), className }: DropdownProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 

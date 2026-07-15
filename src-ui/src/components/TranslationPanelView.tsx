@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui";
+import { t } from "@/lib/utils";
 
 interface TranslationPanelProps {
   entryId: number;
@@ -12,7 +13,7 @@ const mockSegments = [
   { source: "第三阶段：自主编程。AI 理解整个项目架构，独立完成复杂功能。", target: "Phase 3: Autonomous programming. AI understands the entire project architecture and independently completes complex features." },
 ];
 
-export function TranslationPanel({ entryId: _entryId }: TranslationPanelProps) {
+export function TranslationPanelView({ entryId: _entryId }: TranslationPanelProps) {
   const [translating, setTranslating] = useState(false);
   const [segments, setSegments] = useState<typeof mockSegments>([]);
   const [hasTranslation, setHasTranslation] = useState(false);
@@ -40,11 +41,11 @@ export function TranslationPanel({ entryId: _entryId }: TranslationPanelProps) {
   return (
     <div className="max-w-4xl mx-auto px-6 py-6">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-base font-semibold">双语翻译</h2>
+        <h2 className="text-base font-semibold">{t("双语翻译")}</h2>
         <div className="flex items-center gap-2">
           {hasTranslation && (
             <Button variant="ghost" size="sm" onClick={handleClear}>
-              清除翻译
+              {t("清除翻译")}
             </Button>
           )}
           <Button
@@ -59,10 +60,10 @@ export function TranslationPanel({ entryId: _entryId }: TranslationPanelProps) {
                   <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" />
                   <path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor" className="opacity-75" />
                 </svg>
-                翻译中...
+                {t("翻译中...")}
               </>
             ) : (
-              "开始翻译"
+              t("开始翻译")
             )}
           </Button>
         </div>
@@ -70,13 +71,13 @@ export function TranslationPanel({ entryId: _entryId }: TranslationPanelProps) {
 
       {segments.length === 0 && !translating && (
         <div className="text-center py-12 text-[var(--text-tertiary)] text-sm">
-          点击上方按钮开始双语翻译，原文和译文将分栏对照显示
+          {t("点击上方按钮开始双语翻译，原文和译文将分栏对照显示")}
         </div>
       )}
 
       {translating && segments.length === 0 && (
         <div className="text-center py-12 text-[var(--text-tertiary)] text-sm">
-          正在翻译中...
+          {t("正在翻译中...")}
         </div>
       )}
 

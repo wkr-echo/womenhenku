@@ -104,3 +104,14 @@ export interface AgentConfig {
   concurrencyDegree: number;
   primaryModelId: string;
 }
+
+export interface DigestTemplate {
+  id: number;
+  name: string;
+  description: string;
+  body: string;
+  format: string;
+  isDefault: boolean;
+  created_at: string;
+  updated_at: string;
+}

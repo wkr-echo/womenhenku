@@ -1,6 +1,8 @@
 pub mod commands;
 pub mod db;
+pub mod digest;
 pub mod feed;
+pub mod notes;
 pub mod reader;
 
 // ============================================================
@@ -61,6 +63,13 @@ pub fn run() {
             export_opml,
             // Search (Stage 2)
             search_entries,
+            // Notes (Stage 4)
+            save_note,
+            get_note,
+            delete_note,
+            // Digest export (Stage 4)
+            export_single_digest,
+            export_multi_digest,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -200,4 +209,40 @@ fn search_entries(
     page_size: i32,
 ) -> Result<crate::db::model::EntryPage, String> {
     commands::search_entries(&state, &query, page, page_size)
+}
+
+// -- Notes (Stage 4) --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn save_note(state: State<'_, DbPool>, entry_id: i64, content: String) -> Result<crate::db::model::Note, String> {
+    commands::save_note(&state, entry_id, &content)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_note(state: State<'_, DbPool>, entry_id: i64) -> Result<Option<crate::db::model::Note>, String> {
+    commands::get_note(&state, entry_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn delete_note(state: State<'_, DbPool>, entry_id: i64) -> Result<(), String> {
+    commands::delete_note(&state, entry_id)
+}
+
+// -- Digest export (Stage 4) --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn export_single_digest(state: State<'_, DbPool>, entry_id: i64, format: String) -> Result<String, String> {
+    let fmt = crate::digest::DigestFormat::from_str(&format)?;
+    commands::export_single_digest(&state, entry_id, &fmt)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn export_multi_digest(state: State<'_, DbPool>, entry_ids: Vec<i64>, format: String) -> Result<String, String> {
+    let fmt = crate::digest::DigestFormat::from_str(&format)?;
+    commands::export_multi_digest(&state, &entry_ids, &fmt)
 }

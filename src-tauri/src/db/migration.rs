@@ -13,6 +13,11 @@ const MIGRATIONS: &[Migration] = &[
         name: "002_fts_search",
         sql: include_str!("migrations/002_fts_search.sql"),
     },
+    Migration {
+        version: 4,
+        name: "004_notes_digest",
+        sql: include_str!("migrations/004_notes_digest.sql"),
+    },
 ];
 
 struct Migration {
@@ -31,7 +36,7 @@ pub fn run_migrations(pool: &DbPool) -> Result<(), anyhow::Error> {
 
 /// Run migrations on a single connection. Used by pool initialization and tests.
 pub fn run_migrations_on_conn(conn: &Connection) -> Result<(), anyhow::Error> {
-    // Create schema_version table if it doesn't exist yet
+    // Create schema_version table if it does not exist yet
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS schema_version (
             version     INTEGER PRIMARY KEY,
@@ -77,13 +82,13 @@ mod tests {
     fn test_run_migrations_creates_tables() {
         let conn = crate::db::open_test_connection().expect("Failed to open test connection");
 
-        // Verify schema_version table exists and has one record
+        // Verify schema_version table exists and has record
         let version: i32 = conn
             .query_row("SELECT MAX(version) FROM schema_version", [], |row| {
                 row.get(0)
             })
             .expect("Failed to query schema_version");
-        assert_eq!(version, 2);
+        assert_eq!(version, 4);
 
         // Verify core tables exist
         let tables: Vec<String> = conn
@@ -97,6 +102,8 @@ mod tests {
         assert!(tables.contains(&"feeds".to_string()));
         assert!(tables.contains(&"entries".to_string()));
         assert!(tables.contains(&"contents".to_string()));
+        assert!(tables.contains(&"notes".to_string()));
+        assert!(tables.contains(&"digest_templates".to_string()));
         assert!(tables.contains(&"schema_version".to_string()));
     }
 
@@ -113,6 +120,6 @@ mod tests {
         let count: i32 = conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |row| row.get(0))
             .expect("Failed to count schema_version");
-        assert_eq!(count, 2);
+        assert_eq!(count, 3); // 1, 2, 4 — three migrations
     }
 }

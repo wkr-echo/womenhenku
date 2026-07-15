@@ -5,9 +5,9 @@
 
 use std::path::PathBuf;
 
-use womenhenku::db;
-use womenhenku::db::repository::FeedRepository;
-use womenhenku::feed::opml;
+use womenhenku_lib::db;
+use womenhenku_lib::db::repository::FeedRepository;
+use womenhenku_lib::feed::opml;
 
 fn main() {
     tracing_subscriber::fmt::init();

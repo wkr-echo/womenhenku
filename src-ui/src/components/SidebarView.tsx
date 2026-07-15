@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { Button, Input, Modal } from "@/components/ui";
-import { cn } from "@/lib/utils";
+import { cn, t } from "@/lib/utils";
 import type { FeedSummary } from "@/lib/types";
 
-export function Sidebar() {
+export function SidebarView() {
   const {
     feeds,
     selectedFeedId,
@@ -41,7 +41,7 @@ export function Sidebar() {
         <button
           onClick={toggleSidebar}
           className="p-2 rounded-lg hover:bg-[var(--sidebar-hover)] text-[var(--text-secondary)] transition-colors"
-          title="展开侧边栏"
+          title={t("展开侧边栏")}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -50,7 +50,7 @@ export function Sidebar() {
         <button
           onClick={() => setViewMode("settings")}
           className="p-2 rounded-lg hover:bg-[var(--sidebar-hover)] text-[var(--text-secondary)] transition-colors mt-auto"
-          title="设置"
+          title={t("设置")}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -70,7 +70,7 @@ export function Sidebar() {
           <button
             onClick={handleRefreshAll}
             className="p-1.5 rounded-lg hover:bg-[var(--sidebar-hover)] text-[var(--text-secondary)] transition-colors"
-            title="刷新全部"
+            title={t("刷新全部")}
           >
             <svg
               className={cn("w-4 h-4", refreshAnimating && "animate-spin")}
@@ -85,7 +85,7 @@ export function Sidebar() {
           <button
             onClick={toggleSidebar}
             className="p-1.5 rounded-lg hover:bg-[var(--sidebar-hover)] text-[var(--text-secondary)] transition-colors"
-            title="收起侧边栏"
+            title={t("收起侧边栏")}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -98,7 +98,7 @@ export function Sidebar() {
       <div className="flex-1 overflow-y-auto py-2">
         <div className="px-3 mb-2">
           <p className="text-xs font-medium text-[var(--text-tertiary)] uppercase tracking-wider px-2 py-1">
-            订阅源
+            {t("订阅源")}
           </p>
         </div>
         {feeds.map((feed) => (
@@ -112,7 +112,7 @@ export function Sidebar() {
         ))}
         {feeds.length === 0 && (
           <p className="text-sm text-[var(--text-tertiary)] text-center py-8">
-            暂无订阅源，点击下方按钮添加
+            {t("暂无订阅源，点击下方按钮添加")}
           </p>
         )}
       </div>
@@ -128,13 +128,13 @@ export function Sidebar() {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
           </svg>
-          添加订阅
+          {t("添加订阅")}
         </Button>
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setViewMode("settings")}
-          title="设置"
+          title={t("设置")}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -147,21 +147,21 @@ export function Sidebar() {
       <Modal
         open={showAddModal}
         onClose={() => setShowAddModal(false)}
-        title="添加订阅源"
+        title={t("添加订阅源")}
       >
         <div className="space-y-4">
           <Input
-            placeholder="输入 RSS/Atom/JSON Feed 地址..."
+            placeholder={t("输入 RSS/Atom/JSON Feed 地址...")}
             value={feedUrl}
             onChange={(e) => setFeedUrl(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAddFeed()}
           />
           <div className="flex justify-end gap-2">
             <Button variant="ghost" size="sm" onClick={() => setShowAddModal(false)}>
-              取消
+              {t("取消")}
             </Button>
             <Button size="sm" onClick={handleAddFeed}>
-              添加
+              {t("添加")}
             </Button>
           </div>
         </div>
@@ -207,7 +207,7 @@ function FeedItem({
           onRemove();
         }}
         className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-[var(--sidebar-active)] text-[var(--text-tertiary)] hover:text-[var(--danger-color)] transition-all flex-shrink-0"
-        title="删除订阅源"
+        title={t("删除订阅源")}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

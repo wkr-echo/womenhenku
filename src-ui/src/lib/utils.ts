@@ -30,3 +30,11 @@ export function truncate(str: string, len: number): string {
   if (str.length <= len) return str;
   return str.slice(0, len) + "...";
 }
+
+/**
+ * Pseudo-i18n function. v1: Chinese-only pass-through.
+ * v2: replace with react-i18next `useTranslation()`.
+ */
+export function t(key: string): string {
+  return key;
+}

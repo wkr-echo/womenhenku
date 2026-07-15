@@ -89,3 +89,30 @@ pub struct Content {
     pub created_at: String,
     pub updated_at: Option<String>,
 }
+
+// === Note ===
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Note {
+    pub id: i64,
+    pub entry_id: i64,
+    pub content: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+// === DigestTemplate ===
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DigestTemplate {
+    pub id: i64,
+    pub name: String,
+    pub description: String,
+    pub body: String,
+    pub format: String,
+    pub is_default: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}

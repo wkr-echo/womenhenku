@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Button } from "@/components/ui";
 import { mockSummary } from "@/api/mock";
+import { t } from "@/lib/utils";
 
 interface SummaryPanelProps {
   entryId: number;
 }
 
-export function SummaryPanel({ entryId: _entryId }: SummaryPanelProps) {
+export function SummaryPanelView({ entryId: _entryId }: SummaryPanelProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [summary, setSummary] = useState(mockSummary);
   const [streamText, setStreamText] = useState("");
@@ -32,7 +33,7 @@ export function SummaryPanel({ entryId: _entryId }: SummaryPanelProps) {
   return (
     <div className="max-w-3xl mx-auto px-6 py-6">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-base font-semibold">AI 摘要</h2>
+        <h2 className="text-base font-semibold">{t("AI 摘要")}</h2>
         <div className="flex items-center gap-2">
           <Button
             variant="secondary"
@@ -46,12 +47,12 @@ export function SummaryPanel({ entryId: _entryId }: SummaryPanelProps) {
                   <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" />
                   <path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor" className="opacity-75" />
                 </svg>
-                生成中...
+                {t("生成中...")}
               </>
             ) : summary ? (
-              "重新生成"
+              t("重新生成")
             ) : (
-              "生成摘要"
+              t("生成摘要")
             )}
           </Button>
         </div>
@@ -60,21 +61,21 @@ export function SummaryPanel({ entryId: _entryId }: SummaryPanelProps) {
       <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-5 min-h-[120px]">
         {isGenerating ? (
           <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-            {streamText || "正在生成摘要..."}
+            {streamText || t("正在生成摘要...")}
           </p>
         ) : summary ? (
           <p className="text-sm text-[var(--text-primary)] leading-relaxed">{summary.content}</p>
         ) : (
           <p className="text-sm text-[var(--text-tertiary)] text-center py-8">
-            点击上方按钮生成 AI 摘要
+            {t("点击上方按钮生成 AI 摘要")}
           </p>
         )}
       </div>
 
       {summary && !isGenerating && (
         <div className="mt-3 flex items-center gap-4 text-xs text-[var(--text-tertiary)]">
-          <span>语言：{summary.target_language}</span>
-          <span>详细程度：{summary.detail_level}</span>
+          <span>{t("语言：")}{summary.target_language}</span>
+          <span>{t("详细程度：")}{summary.detail_level}</span>
         </div>
       )}
     </div>

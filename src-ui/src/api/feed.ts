@@ -1,7 +1,7 @@
 import type { Feed, Entry, Content, EntryPage, Provider, Summary, Note, FeedSummary } from "@/lib/types";
 
 // 检查是否在 Tauri 环境中
-function isTauri(): boolean {
+export function isTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI__" in window;
 }
 
@@ -164,4 +164,14 @@ export async function getSetting(key: string): Promise<string | null> {
 
 export async function setSetting(key: string, value: string): Promise<void> {
   return invoke("set_setting", { key, value });
+}
+
+// ============ Digest API (Stage 4) ============
+
+export async function exportSingleDigest(entryId: number, format: string = "markdown"): Promise<string> {
+  return invoke<string>("export_single_digest", { entryId, format });
+}
+
+export async function exportMultiDigest(entryIds: number[], format: string = "markdown"): Promise<string> {
+  return invoke<string>("export_multi_digest", { entryIds, format });
 }

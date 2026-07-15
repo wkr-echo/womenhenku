@@ -1,8 +1,8 @@
 import { useApp } from "@/contexts/AppContext";
-import { cn, formatDate, truncate } from "@/lib/utils";
+import { cn, formatDate, truncate, t } from "@/lib/utils";
 import type { EntryListItem } from "@/lib/types";
 
-export function EntryList() {
+export function EntryListView() {
   const { entries, selectedEntry, selectEntry } = useApp();
 
   if (entries.length === 0) {
@@ -15,7 +15,7 @@ export function EntryList() {
             </svg>
           </div>
           <p className="text-[var(--text-tertiary)] text-sm">暂无文章</p>
-          <p className="text-[var(--text-tertiary)] text-xs mt-1">选择一个订阅源或添加新的订阅源</p>
+          <p className="text-[var(--text-tertiary)] text-xs mt-1">{t("选择一个订阅源或添加新的订阅源")}</p>
         </div>
       </div>
     );

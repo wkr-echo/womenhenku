@@ -1,7 +1,7 @@
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AppProvider } from "@/contexts/AppContext";
-import { Sidebar } from "@/components/Sidebar";
-import { ContentArea } from "@/components/ContentArea";
+import { SidebarView } from "@/components/SidebarView";
+import { ContentAreaView } from "@/components/ContentAreaView";
 import { ToastContainer } from "@/components/ui/Toast";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboard";
 
@@ -10,8 +10,8 @@ function AppLayout() {
 
   return (
     <div className="h-screen flex overflow-hidden">
-      <Sidebar />
-      <ContentArea />
+      <SidebarView />
+      <ContentAreaView />
       <ToastContainer />
     </div>
   );

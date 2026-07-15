@@ -175,3 +175,44 @@ pub fn search_entries(
     let repo = EntryRepository::new(pool.clone());
     repo.search(query, page, page_size).map_err(|e| e.to_string())
 }
+
+// ============================================================
+// Notes (Stage 4)
+// ============================================================
+
+/// Save or update a note for an entry.
+pub fn save_note(pool: &DbPool, entry_id: i64, content: &str) -> Result<crate::db::model::Note, String> {
+    crate::notes::save_note(pool, entry_id, content)
+}
+
+/// Get a note by entry_id.
+pub fn get_note(pool: &DbPool, entry_id: i64) -> Result<Option<crate::db::model::Note>, String> {
+    crate::notes::get_note(pool, entry_id)
+}
+
+/// Delete a note by entry_id.
+pub fn delete_note(pool: &DbPool, entry_id: i64) -> Result<(), String> {
+    crate::notes::delete_note(pool, entry_id)
+}
+
+// ============================================================
+// Digest export (Stage 4)
+// ============================================================
+
+/// Export a single entry as digest.
+pub fn export_single_digest(
+    pool: &DbPool,
+    entry_id: i64,
+    format: &crate::digest::DigestFormat,
+) -> Result<String, String> {
+    crate::digest::export_single(pool, entry_id, format)
+}
+
+/// Export multiple entries as digest.
+pub fn export_multi_digest(
+    pool: &DbPool,
+    entry_ids: &[i64],
+    format: &crate::digest::DigestFormat,
+) -> Result<String, String> {
+    crate::digest::export_multi(pool, entry_ids, format)
+}
