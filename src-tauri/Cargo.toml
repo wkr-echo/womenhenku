@@ -1,0 +1,43 @@
+[package]
+name = "womenhenku"
+version = "0.1.0"
+edition = "2021"
+description = "Mercury cross-platform RSS reader clone"
+
+[dependencies]
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Database
+rusqlite = { version = "0.31", features = ["bundled"] }
+r2d2 = "0.8"
+r2d2_sqlite = "0.24"
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# HTTP client (rustls — no system OpenSSL required)
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
+
+# Feed parsing
+feed-rs = "2"
+
+# Content extraction pipeline
+readability = "0.3"
+scraper = "0.20"
+comrak = "0.28"
+
+# Utilities
+url = "2"
+uuid = { version = "1", features = ["v4"] }
+dirs = "5"
+thiserror = "2"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+chrono = { version = "0.4", features = ["serde"] }
+quick-xml = "0.36"
+
+[dev-dependencies]
+tempfile = "3"
