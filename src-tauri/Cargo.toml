@@ -5,7 +5,7 @@ edition = "2021"
 description = "Mercury cross-platform RSS reader clone"
 
 [features]
-default = []
+default = ["tauri-runtime"]
 tauri-runtime = ["dep:tauri", "dep:tauri-build", "dep:tauri-plugin-dialog", "dep:tauri-plugin-shell"]
 
 [dependencies]

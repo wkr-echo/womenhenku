@@ -5,12 +5,11 @@
   "identifier": "com.womenhenku.app",
   "build": {
     "frontendDist": "../src-ui/dist",
-    "devUrl": "http://localhost:5173",
+    "devUrl": "http://127.0.0.1:1420",
     "beforeDevCommand": "cd ../src-ui && npm run dev",
     "beforeBuildCommand": "cd ../src-ui && npm run build"
   },
   "app": {
-    "title": "Womenhenku — RSS Reader",
     "windows": [
       {
         "title": "Womenhenku",
@@ -25,10 +24,5 @@
       "csp": null
     }
   },
-  "plugins": {
-    "dialog": {},
-    "shell": {
-      "open": true
-    }
-  }
+  "plugins": {}
 }

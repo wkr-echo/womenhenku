@@ -31,8 +31,6 @@ pub fn run() {
 #[cfg(feature = "tauri-runtime")]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             let db_path = db::default_db_path();
             let pool = db::initialize_database(&db_path)
@@ -71,6 +69,8 @@ pub fn run() {
 // Tauri Command wrappers
 // ============================================================
 
+#[cfg(feature = "tauri-runtime")]
+use tauri::Manager;
 #[cfg(feature = "tauri-runtime")]
 use tauri::State;
 #[cfg(feature = "tauri-runtime")]
