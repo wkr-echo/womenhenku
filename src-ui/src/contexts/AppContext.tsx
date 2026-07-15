@@ -1,18 +1,18 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
-import type { Feed, Entry, ViewMode } from "@/lib/types";
-import { mockFeeds, mockEntries, mockApi } from "@/api/mock";
+import type { FeedSummary, EntryListItem, Entry, ViewMode } from "@/lib/types";
+import { mockFeedSummaries, mockEntries, mockApi } from "@/api/mock";
 
 interface AppContextType {
-  feeds: Feed[];
+  feeds: FeedSummary[];
   selectedFeedId: number | null;
   selectedEntry: Entry | null;
   viewMode: ViewMode;
-  entries: Entry[];
+  entries: EntryListItem[];
   searchQuery: string;
   sidebarCollapsed: boolean;
 
   selectFeed: (feedId: number) => void;
-  selectEntry: (entry: Entry) => void;
+  selectEntry: (entry: EntryListItem) => void;
   setViewMode: (mode: ViewMode) => void;
   setSearchQuery: (query: string) => void;
   toggleSidebar: () => void;
@@ -25,7 +25,7 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [feeds, setFeeds] = useState<Feed[]>(mockFeeds);
+  const [feeds, setFeeds] = useState<FeedSummary[]>(mockFeedSummaries);
   const [selectedFeedId, setSelectedFeedId] = useState<number | null>(1);
   const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
@@ -45,8 +45,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setSearchQuery("");
   }, []);
 
-  const selectEntry = useCallback((entry: Entry) => {
-    setSelectedEntry(entry);
+  const selectEntry = useCallback((item: EntryListItem) => {
+    const fullEntry = mockApi.getEntry(item.id);
+    setSelectedEntry(fullEntry || null);
     setViewMode("reader");
   }, []);
 
@@ -55,16 +56,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addFeed = useCallback((url: string) => {
-    const newFeed: Feed = {
+    const newFeed: FeedSummary = {
       id: Date.now(),
-      url,
       title: url.replace(/https?:\/\//, "").split("/")[0],
-      description: "",
-      link: url,
-      feed_type: "rss",
-      last_synced_at: null,
-      created_at: new Date().toISOString(),
-      unread_count: 0,
+      unreadCount: 0,
     };
     setFeeds((prev) => [...prev, newFeed]);
   }, []);
@@ -79,18 +74,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [selectedFeedId]);
 
   const refreshFeed = useCallback((_id: number) => {
-    // mock: just update last_synced_at
-    setFeeds((prev) =>
-      prev.map((f) =>
-        f.id === _id ? { ...f, last_synced_at: new Date().toISOString() } : f
-      )
-    );
+    // mock: no-op
   }, []);
 
   const refreshAll = useCallback(() => {
-    setFeeds((prev) =>
-      prev.map((f) => ({ ...f, last_synced_at: new Date().toISOString() }))
-    );
+    // mock: no-op
   }, []);
 
   return (

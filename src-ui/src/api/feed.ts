@@ -1,4 +1,4 @@
-import type { Feed, Entry, Content, PagedResult, Provider, Summary, Note } from "@/lib/types";
+import type { Feed, Entry, Content, EntryPage, Provider, Summary, Note, FeedSummary } from "@/lib/types";
 
 // 检查是否在 Tauri 环境中
 function isTauri(): boolean {
@@ -32,8 +32,8 @@ export async function refreshAllFeeds(): Promise<void> {
   return invoke("refresh_all_feeds");
 }
 
-export async function listFeeds(): Promise<Feed[]> {
-  return invoke<Feed[]>("list_feeds");
+export async function listFeeds(): Promise<FeedSummary[]> {
+  return invoke<FeedSummary[]>("list_feeds");
 }
 
 export async function importOpml(filePath: string): Promise<void> {
@@ -51,8 +51,8 @@ export async function listEntries(
   page: number = 1,
   pageSize: number = 20,
   filter?: string
-): Promise<PagedResult<Entry>> {
-  return invoke<PagedResult<Entry>>("list_entries", {
+): Promise<EntryPage> {
+  return invoke<EntryPage>("list_entries", {
     feedId,
     page,
     pageSize,
@@ -60,24 +60,28 @@ export async function listEntries(
   });
 }
 
+export async function getEntry(id: number): Promise<Entry> {
+  return invoke<Entry>("get_entry", { id });
+}
+
 export async function getEntryContent(entryId: number): Promise<Content> {
   return invoke<Content>("get_entry_content", { entryId });
 }
 
-export async function markRead(entryId: number): Promise<void> {
-  return invoke("mark_read", { entryId });
+export async function markRead(id: number): Promise<void> {
+  return invoke("mark_read", { id });
 }
 
-export async function markUnread(entryId: number): Promise<void> {
-  return invoke("mark_unread", { entryId });
+export async function markUnread(id: number): Promise<void> {
+  return invoke("mark_unread", { id });
 }
 
 export async function searchEntries(
   query: string,
   page: number = 1,
   pageSize: number = 20
-): Promise<PagedResult<Entry>> {
-  return invoke<PagedResult<Entry>>("search_entries", { query, page, pageSize });
+): Promise<EntryPage> {
+  return invoke<EntryPage>("search_entries", { query, page, pageSize });
 }
 
 // ============ Provider API ============
