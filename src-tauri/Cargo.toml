@@ -38,6 +38,7 @@ scraper = "0.20"
 comrak = "0.28"
 
 # Utilities
+regex = "1"
 url = "2"
 uuid = { version = "1", features = ["v4"] }
 dirs = "5"

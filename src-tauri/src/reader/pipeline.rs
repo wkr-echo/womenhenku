@@ -133,32 +133,85 @@ fn serialize_node(node: &scraper::ElementRef, output: &mut String) {
 // Step 3: HTML to Markdown
 // ============================================================
 
-/// Convert sanitized HTML to GFM Markdown.
+/// Convert sanitized HTML to GFM Markdown using simple regex-based conversion.
+/// Handles the common tags from our whitelist: h1-h6, p, a, strong, em, del,
+/// ul, ol, li, blockquote, pre/code, br, img.
 pub fn to_markdown(html: &str) -> String {
-    let mut options = comrak::ComrakOptions::default();
-    options.extension.table = true;
-    options.extension.strikethrough = true;
-    options.extension.tasklist = true;
-    options.extension.autolink = true;
-    options.render.unsafe_ = false;
+    let mut md = html.to_string();
 
-    // comrak converts Markdown to HTML. To convert HTML to Markdown,
-    // we need a different approach. For now, we use the HTML directly
-    // and wrap it in a reader-friendly format.
-    //
-    // Since comrak is primarily a Markdown→HTML renderer, and there's
-    // no reliable pure-Rust HTML→Markdown converter, we keep the
-    // cleaned HTML as-is for rendering. The "markdown" field is stored
-    // as the cleaned HTML for now, and rendered HTML is generated
-    // via comrak if the input is actual Markdown.
-    html.to_string()
+    // Replace inline tags (order matters: nested tags handled from inside out)
+    // <strong> / <b> → **text**
+    let re = regex::Regex::new(r"<(?:strong|b)>(.*?)</(?:strong|b)>").unwrap();
+    md = re.replace_all(&md, "**$1**").to_string();
+
+    // <em> / <i> → *text*
+    let re = regex::Regex::new(r"<(?:em|i)>(.*?)</(?:em|i)>").unwrap();
+    md = re.replace_all(&md, "*$1*").to_string();
+
+    // <del> / <s> → ~~text~~
+    let re = regex::Regex::new(r"<(?:del|s)>(.*?)</(?:del|s)>").unwrap();
+    md = re.replace_all(&md, "~~$1~~").to_string();
+
+    // <a href="url">text</a> → [text](url)
+    let re = regex::Regex::new(r#"<a href="([^"]*)">(.*?)</a>"#).unwrap();
+    md = re.replace_all(&md, "[$2]($1)").to_string();
+
+    // <img src="url" alt="text"> → ![text](url)
+    let re = regex::Regex::new(r#"<img src="([^"]*)"(?: alt="([^"]*)")?>"#).unwrap();
+    md = re.replace_all(&md, "![$2]($1)").to_string();
+
+    // <code>text</code> → `text` (inline code, not inside pre)
+    let re = regex::Regex::new(r"<code>(.*?)</code>").unwrap();
+    md = re.replace_all(&md, "`$1`").to_string();
+
+    // <pre><code>...</code></pre> → ```\n...\n```
+    let re = regex::Regex::new(r"<pre>\s*<code>(.*?)</code>\s*</pre>").unwrap();
+    md = re.replace_all(&md, "\n```\n$1\n```\n").to_string();
+
+    // Block-level tags
+    // <h1> → # , <h2> → ## , etc.
+    for level in (1..=6).rev() {
+        let pattern = format!(r"<h{}>(.*?)</h{}>", level, level);
+        let prefix = "#".repeat(level);
+        let re = regex::Regex::new(&pattern).unwrap();
+        md = re.replace_all(&md, format!("\n{} $1\n", prefix)).to_string();
+    }
+
+    // <li> → - item
+    let re = regex::Regex::new(r"<li>(.*?)</li>").unwrap();
+    md = re.replace_all(&md, "- $1").to_string();
+
+    // <blockquote> → > text
+    let re = regex::Regex::new(r"<blockquote>(.*?)</blockquote>").unwrap();
+    md = re.replace_all(&md, "\n> $1\n").to_string();
+
+    // Remove remaining block tags (keep inner text)
+    for tag in &["p", "ul", "ol", "table", "thead", "tbody", "tr", "th", "td"] {
+        let open = format!("<{}>", tag);
+        let close = format!("</{}>", tag);
+        md = md.replace(&open, "");
+        md = md.replace(&close, "");
+    }
+    md = md.replace("</p>", "\n\n");
+
+    // <br> → \n, <hr> → ---
+    md = md.replace("<br>", "\n");
+    md = md.replace("<hr>", "\n---\n");
+
+    // Clean up: collapse multiple blank lines, trim
+    let re = regex::Regex::new(r"\n{3,}").unwrap();
+    md = re.replace_all(&md, "\n\n").to_string();
+    md = md.trim().to_string();
+
+    md
 }
 
 // ============================================================
 // Step 4: Markdown to rendered HTML
 // ============================================================
 
-/// Render Markdown (GFM) to HTML suitable for reader view display.
+/// Render Markdown (GFM) to HTML wrapped in a reader theme container.
+/// Injects CSS custom properties for light/dark theme support.
 pub fn render(markdown: &str) -> String {
     let mut options = comrak::ComrakOptions::default();
     options.extension.table = true;
@@ -169,7 +222,43 @@ pub fn render(markdown: &str) -> String {
     options.render.unsafe_ = false;
     options.render.hardbreaks = true;
 
-    comrak::markdown_to_html(markdown, &options)
+    let body = comrak::markdown_to_html(markdown, &options);
+
+    format!(
+        r#"<div class="reader-theme" style="
+  --mercury-bg-primary: #ffffff;
+  --mercury-bg-secondary: #f8f9fa;
+  --mercury-text-primary: #1a1a2e;
+  --mercury-text-secondary: #6b7280;
+  --mercury-link-color: #2563eb;
+  --mercury-border-color: #e5e7eb;
+  --mercury-code-bg: #f1f5f9;
+  --mercury-blockquote-border: #2563eb;
+  background: var(--mercury-bg-primary);
+  color: var(--mercury-text-primary);
+  font-family: system-ui, -apple-system, sans-serif;
+  line-height: 1.8;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+">
+  <style>
+    .reader-theme h1, .reader-theme h2, .reader-theme h3 {{ margin-top: 1.5em; margin-bottom: 0.5em; }}
+    .reader-theme p {{ margin-bottom: 1em; }}
+    .reader-theme a {{ color: var(--mercury-link-color); }}
+    .reader-theme pre {{ background: var(--mercury-code-bg); padding: 1em; border-radius: 6px; overflow-x: auto; }}
+    .reader-theme code {{ background: var(--mercury-code-bg); padding: 0.2em 0.4em; border-radius: 3px; font-size: 0.9em; }}
+    .reader-theme blockquote {{ border-left: 3px solid var(--mercury-blockquote-border); padding-left: 1em; margin-left: 0; color: var(--mercury-text-secondary); }}
+    .reader-theme table {{ border-collapse: collapse; width: 100%; margin-bottom: 1em; }}
+    .reader-theme th, .reader-theme td {{ border: 1px solid var(--mercury-border-color); padding: 0.5em 0.75em; text-align: left; }}
+    .reader-theme th {{ background: var(--mercury-bg-secondary); }}
+    .reader-theme img {{ max-width: 100%; height: auto; }}
+    .reader-theme ul, .reader-theme ol {{ padding-left: 1.5em; margin-bottom: 1em; }}
+    .reader-theme hr {{ border: none; border-top: 1px solid var(--mercury-border-color); margin: 2em 0; }}
+  </style>
+  {body}
+</div>"#
+    )
 }
 
 // ============================================================

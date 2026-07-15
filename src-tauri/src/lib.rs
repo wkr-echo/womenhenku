@@ -55,6 +55,7 @@ pub fn run() {
             mark_all_read,
             // Content
             get_entry_content,
+            process_entry_content,
             // OPML
             import_opml,
             export_opml,
@@ -163,6 +164,12 @@ fn mark_all_read(state: State<'_, DbPool>, feed_id: i64) -> Result<(), String> {
 #[tauri::command]
 fn get_entry_content(state: State<'_, DbPool>, entry_id: i64) -> Result<crate::db::model::Content, String> {
     commands::get_entry_content(&state, entry_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn process_entry_content(state: State<'_, DbPool>, entry_id: i64, url: String) -> Result<crate::db::model::Content, String> {
+    commands::process_entry_content(&state, entry_id, &url)
 }
 
 // -- OPML --

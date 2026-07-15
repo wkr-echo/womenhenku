@@ -129,6 +129,12 @@ pub fn get_entry_content(pool: &DbPool, entry_id: i64) -> Result<Content, String
     Ok(content)
 }
 
+/// Run the reader pipeline on an entry and store the results. Stage 2.
+pub fn process_entry_content(pool: &DbPool, entry_id: i64, url: &str) -> Result<Content, String> {
+    let service = crate::reader::service::ReaderService::new(pool.clone());
+    service.process_entry(entry_id, url).map_err(|e| e.to_string())
+}
+
 // ============================================================
 // OPML
 // ============================================================
