@@ -25,7 +25,7 @@ export function ContentArea() {
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-[var(--text-tertiary)]">
-            未读 {entries.filter((e) => e.is_read === 0).length} / 共 {entries.length}
+            未读 {entries.filter((e) => !e.isRead).length} / 共 {entries.length}
           </span>
         </div>
       </div>

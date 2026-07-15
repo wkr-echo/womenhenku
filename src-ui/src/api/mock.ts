@@ -1,56 +1,93 @@
-import type { Feed, Entry, Content, Provider, Note, Summary } from "@/lib/types";
+import type { FeedSummary, EntryListItem, Entry, Content, Provider, Note, Summary } from "@/lib/types";
 
 // ============ Mock Data ============
 
-export const mockFeeds: Feed[] = [
-  {
-    id: 1,
-    url: "https://ruanyifeng.com/blog/atom.xml",
-    title: "阮一峰的网络日志",
-    description: "科技、人文、思考",
-    link: "https://ruanyifeng.com",
-    feed_type: "atom",
-    last_synced_at: new Date().toISOString(),
-    created_at: "2026-07-01T00:00:00Z",
-    unread_count: 12,
-  },
-  {
-    id: 2,
-    url: "https://sspai.com/feed",
-    title: "少数派",
-    description: "数字生活指南",
-    link: "https://sspai.com",
-    feed_type: "rss",
-    last_synced_at: new Date().toISOString(),
-    created_at: "2026-07-02T00:00:00Z",
-    unread_count: 5,
-  },
-  {
-    id: 3,
-    url: "https://hackertalk.net/feed",
-    title: "Hacker Talk",
-    description: "科技前沿讨论",
-    link: "https://hackertalk.net",
-    feed_type: "rss",
-    last_synced_at: new Date().toISOString(),
-    created_at: "2026-07-03T00:00:00Z",
-    unread_count: 0,
-  },
+export const mockFeedSummaries: FeedSummary[] = [
+  { id: 1, title: "阮一峰的网络日志", unreadCount: 12 },
+  { id: 2, title: "少数派", unreadCount: 5 },
+  { id: 3, title: "Hacker Talk", unreadCount: 0 },
 ];
 
-export const mockEntries: Record<number, Entry[]> = {
+export const mockEntries: Record<number, EntryListItem[]> = {
   1: [
-    { id: 101, feed_id: 1, guid: "g1", title: "科技爱好者周刊（第 300 期）：AI 时代的编程新范式", author: "阮一峰", link: "https://example.com/1", summary: "随着 AI 工具的普及，编程的方式正在发生根本性的变化...", published_at: new Date(Date.now() - 3600000).toISOString(), updated_at: null, is_read: 0, is_starred: 0, created_at: "2026-07-14T00:00:00Z" },
-    { id: 102, feed_id: 1, guid: "g2", title: "WebAssembly 入门指南", author: "阮一峰", link: "https://example.com/2", summary: "WebAssembly 是一种新的二进制格式，可以在浏览器中运行...", published_at: new Date(Date.now() - 7200000).toISOString(), updated_at: null, is_read: 0, is_starred: 0, created_at: "2026-07-13T00:00:00Z" },
-    { id: 103, feed_id: 1, guid: "g3", title: "Rust 异步编程深入理解", author: "阮一峰", link: "https://example.com/3", summary: "异步编程是 Rust 的核心特性之一，本文深入探讨...", published_at: new Date(Date.now() - 86400000).toISOString(), updated_at: null, is_read: 1, is_starred: 1, created_at: "2026-07-12T00:00:00Z" },
-    { id: 104, feed_id: 1, guid: "g4", title: "CSS Container Queries 实战", author: "阮一峰", link: "https://example.com/4", summary: "Container Queries 终于在所有主流浏览器中得到支持...", published_at: new Date(Date.now() - 172800000).toISOString(), updated_at: null, is_read: 1, is_starred: 0, created_at: "2026-07-11T00:00:00Z" },
-    { id: 105, feed_id: 1, guid: "g5", title: "每周科技新闻汇总（7月第一周）", author: "阮一峰", link: "https://example.com/5", summary: "本周科技界重要新闻：AI 芯片新突破...", published_at: new Date(Date.now() - 259200000).toISOString(), updated_at: null, is_read: 1, is_starred: 0, created_at: "2026-07-10T00:00:00Z" },
+    { id: 101, feedId: 1, title: "科技爱好者周刊（第 300 期）：AI 时代的编程新范式", author: "阮一峰", publishedAt: new Date(Date.now() - 3600000).toISOString(), isRead: false },
+    { id: 102, feedId: 1, title: "WebAssembly 入门指南", author: "阮一峰", publishedAt: new Date(Date.now() - 7200000).toISOString(), isRead: false },
+    { id: 103, feedId: 1, title: "Rust 异步编程深入理解", author: "阮一峰", publishedAt: new Date(Date.now() - 86400000).toISOString(), isRead: true },
+    { id: 104, feedId: 1, title: "CSS Container Queries 实战", author: "阮一峰", publishedAt: new Date(Date.now() - 172800000).toISOString(), isRead: true },
+    { id: 105, feedId: 1, title: "每周科技新闻汇总（7月第一周）", author: "阮一峰", publishedAt: new Date(Date.now() - 259200000).toISOString(), isRead: true },
   ],
   2: [
-    { id: 201, feed_id: 2, guid: "sg1", title: "如何打造高效的个人工作流", author: "少数派", link: "https://example.com/s1", summary: "一个高效的工作流能让你事半功倍...", published_at: new Date(Date.now() - 1800000).toISOString(), updated_at: null, is_read: 0, is_starred: 0, created_at: "2026-07-14T00:00:00Z" },
-    { id: 202, feed_id: 2, guid: "sg2", title: "macOS 15 新功能全面解析", author: "少数派", link: "https://example.com/s2", summary: "macOS 15 带来了许多令人兴奋的新功能...", published_at: new Date(Date.now() - 43200000).toISOString(), updated_at: null, is_read: 0, is_starred: 0, created_at: "2026-07-13T00:00:00Z" },
+    { id: 201, feedId: 2, title: "如何打造高效的个人工作流", author: "少数派", publishedAt: new Date(Date.now() - 1800000).toISOString(), isRead: false },
+    { id: 202, feedId: 2, title: "macOS 15 新功能全面解析", author: "少数派", publishedAt: new Date(Date.now() - 43200000).toISOString(), isRead: false },
   ],
   3: [],
+};
+
+// 完整 Entry 数据（用于阅读器 mock）
+export const mockEntryDetail: Record<number, Entry> = {
+  101: {
+    id: 101, feed_id: 1, guid: "g1",
+    title: "科技爱好者周刊（第 300 期）：AI 时代的编程新范式",
+    author: "阮一峰", link: "https://example.com/1",
+    summary: "随着 AI 工具的普及，编程的方式正在发生根本性的变化...",
+    published_at: new Date(Date.now() - 3600000).toISOString(),
+    updated_at: null, is_read: false, is_starred: false,
+    created_at: "2026-07-14T00:00:00Z",
+  },
+  102: {
+    id: 102, feed_id: 1, guid: "g2",
+    title: "WebAssembly 入门指南", author: "阮一峰",
+    link: "https://example.com/2",
+    summary: "WebAssembly 是一种新的二进制格式，可以在浏览器中运行...",
+    published_at: new Date(Date.now() - 7200000).toISOString(),
+    updated_at: null, is_read: false, is_starred: false,
+    created_at: "2026-07-13T00:00:00Z",
+  },
+  103: {
+    id: 103, feed_id: 1, guid: "g3",
+    title: "Rust 异步编程深入理解", author: "阮一峰",
+    link: "https://example.com/3",
+    summary: "异步编程是 Rust 的核心特性之一，本文深入探讨...",
+    published_at: new Date(Date.now() - 86400000).toISOString(),
+    updated_at: null, is_read: true, is_starred: true,
+    created_at: "2026-07-12T00:00:00Z",
+  },
+  104: {
+    id: 104, feed_id: 1, guid: "g4",
+    title: "CSS Container Queries 实战", author: "阮一峰",
+    link: "https://example.com/4",
+    summary: "Container Queries 终于在所有主流浏览器中得到支持...",
+    published_at: new Date(Date.now() - 172800000).toISOString(),
+    updated_at: null, is_read: true, is_starred: false,
+    created_at: "2026-07-11T00:00:00Z",
+  },
+  105: {
+    id: 105, feed_id: 1, guid: "g5",
+    title: "每周科技新闻汇总（7月第一周）", author: "阮一峰",
+    link: "https://example.com/5",
+    summary: "本周科技界重要新闻：AI 芯片新突破...",
+    published_at: new Date(Date.now() - 259200000).toISOString(),
+    updated_at: null, is_read: true, is_starred: false,
+    created_at: "2026-07-10T00:00:00Z",
+  },
+  201: {
+    id: 201, feed_id: 2, guid: "sg1",
+    title: "如何打造高效的个人工作流", author: "少数派",
+    link: "https://example.com/s1",
+    summary: "一个高效的工作流能让你事半功倍...",
+    published_at: new Date(Date.now() - 1800000).toISOString(),
+    updated_at: null, is_read: false, is_starred: false,
+    created_at: "2026-07-14T00:00:00Z",
+  },
+  202: {
+    id: 202, feed_id: 2, guid: "sg2",
+    title: "macOS 15 新功能全面解析", author: "少数派",
+    link: "https://example.com/s2",
+    summary: "macOS 15 带来了许多令人兴奋的新功能...",
+    published_at: new Date(Date.now() - 43200000).toISOString(),
+    updated_at: null, is_read: false, is_starred: false,
+    created_at: "2026-07-13T00:00:00Z",
+  },
 };
 
 export const mockContent: Content = {
@@ -91,10 +128,14 @@ export const mockNote: Note = {
 // ============ Mock API 实现 ============
 
 export const mockApi = {
-  listFeeds: (): Feed[] => mockFeeds,
+  listFeeds: (): FeedSummary[] => mockFeedSummaries,
 
-  listEntries: (feedId: number): Entry[] => {
+  listEntries: (feedId: number): EntryListItem[] => {
     return mockEntries[feedId] || [];
+  },
+
+  getEntry: (id: number): Entry | undefined => {
+    return mockEntryDetail[id];
   },
 
   getEntryContent: (_entryId: number): Content => mockContent,
@@ -103,12 +144,11 @@ export const mockApi = {
 
   getNote: (_entryId: number): Note | null => mockNote,
 
-  searchEntries: (query: string): Entry[] => {
+  searchEntries: (query: string): EntryListItem[] => {
     const allEntries = Object.values(mockEntries).flat();
     return allEntries.filter(
       (e) =>
-        e.title.toLowerCase().includes(query.toLowerCase()) ||
-        e.summary.toLowerCase().includes(query.toLowerCase())
+        e.title.toLowerCase().includes(query.toLowerCase())
     );
   },
 

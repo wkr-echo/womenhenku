@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { Button, Input, Modal } from "@/components/ui";
-import { cn, formatDate } from "@/lib/utils";
-import type { Feed } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import type { FeedSummary } from "@/lib/types";
 
 export function Sidebar() {
   const {
@@ -176,7 +176,7 @@ function FeedItem({
   onSelect,
   onRemove,
 }: {
-  feed: Feed;
+  feed: FeedSummary;
   isSelected: boolean;
   onSelect: () => void;
   onRemove: () => void;
@@ -195,13 +195,10 @@ function FeedItem({
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium truncate">{feed.title}</span>
         </div>
-        <p className="text-xs text-[var(--text-tertiary)] truncate mt-0.5">
-          {feed.url}
-        </p>
       </div>
-      {(feed.unread_count ?? 0) > 0 && (
+      {feed.unreadCount > 0 && (
         <span className="flex-shrink-0 min-w-[20px] h-5 rounded-full bg-[var(--accent-color)] text-white text-xs flex items-center justify-center px-1.5">
-          {feed.unread_count}
+          {feed.unreadCount}
         </span>
       )}
       <button

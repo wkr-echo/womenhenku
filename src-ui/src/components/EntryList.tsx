@@ -1,6 +1,6 @@
 import { useApp } from "@/contexts/AppContext";
 import { cn, formatDate, truncate } from "@/lib/utils";
-import type { Entry } from "@/lib/types";
+import type { EntryListItem } from "@/lib/types";
 
 export function EntryList() {
   const { entries, selectedEntry, selectEntry } = useApp();
@@ -42,7 +42,7 @@ function EntryItem({
   isSelected,
   onClick,
 }: {
-  entry: Entry;
+  entry: EntryListItem;
   isSelected: boolean;
   onClick: () => void;
 }) {
@@ -59,13 +59,13 @@ function EntryItem({
       <div className="flex items-start gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            {entry.is_read === 0 && (
+            {!entry.isRead && (
               <span className="w-2 h-2 rounded-full bg-[var(--accent-color)] flex-shrink-0" />
             )}
             <h3
               className={cn(
                 "text-sm leading-snug",
-                entry.is_read === 0
+                !entry.isRead
                   ? "font-semibold text-[var(--text-primary)]"
                   : "font-normal text-[var(--text-secondary)]"
               )}
@@ -73,17 +73,9 @@ function EntryItem({
               {truncate(entry.title, 80)}
             </h3>
           </div>
-          <p className="text-xs text-[var(--text-tertiary)] mt-1.5 line-clamp-2 leading-relaxed">
-            {truncate(entry.summary, 120)}
-          </p>
           <div className="flex items-center gap-3 mt-2 text-xs text-[var(--text-tertiary)]">
             {entry.author && <span>{entry.author}</span>}
-            <span>{formatDate(entry.published_at)}</span>
-            {entry.is_starred === 1 && (
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--warning-color)" stroke="var(--warning-color)" strokeWidth="1.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
-              </svg>
-            )}
+            <span>{formatDate(entry.publishedAt)}</span>
           </div>
         </div>
       </div>

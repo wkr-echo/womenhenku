@@ -7,7 +7,12 @@ export interface Feed {
   feed_type: string;
   last_synced_at: string | null;
   created_at: string;
-  unread_count?: number;
+}
+
+export interface FeedSummary {
+  id: number;
+  title: string;
+  unreadCount: number;
 }
 
 export interface Entry {
@@ -20,9 +25,25 @@ export interface Entry {
   summary: string;
   published_at: string | null;
   updated_at: string | null;
-  is_read: number;
-  is_starred: number;
+  is_read: boolean;
+  is_starred: boolean;
   created_at: string;
+}
+
+export interface EntryListItem {
+  id: number;
+  feedId: number;
+  title: string;
+  author: string;
+  publishedAt: string | null;
+  isRead: boolean;
+}
+
+export interface EntryPage {
+  entries: EntryListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 export interface Content {
@@ -76,13 +97,6 @@ export interface Note {
 
 export type ViewMode = "list" | "reader" | "settings";
 export type Theme = "light" | "dark";
-
-export interface PagedResult<T> {
-  items: T[];
-  total: number;
-  page: number;
-  page_size: number;
-}
 
 export interface AgentConfig {
   targetLanguage: string;
