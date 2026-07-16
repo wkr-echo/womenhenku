@@ -4,6 +4,8 @@ import { mockProviders } from "@/api/mock";
 import type { Provider, AgentConfig } from "@/lib/types";
 import { useTheme } from "@/contexts/ThemeContext";
 import { t } from "@/lib/utils";
+import { isTauri, exportOpml } from "@/api/feed";
+import { toast } from "@/components/ui/Toast";
 
 export function SettingsPageView() {
   const { theme, toggleTheme } = useTheme();
@@ -327,6 +329,17 @@ function AppearanceSettings({ theme, onToggleTheme }: { theme: string; onToggleT
 }
 
 function SyncSettings() {
+  const handleOpmlExport = async () => {
+    try {
+      const home = (window as any).__TAURI__ ? "" : "";
+      const path = home + "subscriptions.opml";
+      await exportOpml(path);
+      toast(t("导出成功"), "success");
+    } catch {
+      toast(t("导出失败"), "error");
+    }
+  };
+
   return (
     <div>
       <h3 className="text-lg font-semibold mb-1">{t("同步设置")}</h3>
@@ -363,7 +376,7 @@ function SyncSettings() {
 
         <div>
           <label className="block text-sm font-medium mb-2">{t("OPML 导出")}</label>
-          <Button variant="secondary" size="sm">
+          <Button variant="secondary" size="sm" onClick={() => handleOpmlExport()}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
