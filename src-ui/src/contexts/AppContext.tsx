@@ -121,6 +121,7 @@ interface AppContextType {
   removeFeed: (id: number) => void;
   refreshFeed: (id: number) => void;
   refreshAll: () => void;
+  reloadFeeds: () => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -266,6 +267,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const reloadFeeds = useCallback(() => {
+    if (isTauri()) {
+      listFeedsReal()
+        .then((data) => dispatch({ type: "SET_FEEDS", feeds: data }))
+        .catch(() => {});
+    }
+  }, []);
+
   const setViewMode = useCallback((mode: ViewMode) => {
     dispatch({ type: "SET_VIEW_MODE", mode });
   }, []);
@@ -287,6 +296,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         removeFeed: removeFeedFn,
         refreshFeed: refreshFeedFn,
         refreshAll: refreshAllFn,
+        reloadFeeds,
       }}
     >
       {children}

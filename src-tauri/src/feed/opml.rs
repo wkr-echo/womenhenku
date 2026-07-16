@@ -182,7 +182,10 @@ pub fn import_feeds(pool: &DbPool, outlines: &[OpmlOutline]) -> Vec<ImportResult
 fn resolve_feed_title(client: &reqwest::Client, url: &str) -> Option<String> {
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().ok()?;
     rt.block_on(async {
-        let bytes = client.get(url).send().await.ok()?.bytes().await.ok()?;
+        let bytes = client.get(url)
+            .timeout(Duration::from_secs(10))
+            .send().await.ok()?
+            .bytes().await.ok()?;
         feed_rs::parser::parse(&bytes[..]).ok()?.title.map(|t| t.content)
     })
 }

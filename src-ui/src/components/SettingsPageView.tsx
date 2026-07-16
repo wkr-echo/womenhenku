@@ -3,6 +3,7 @@ import { Button, Input, Dropdown } from "@/components/ui";
 import { mockProviders } from "@/api/mock";
 import type { Provider, AgentConfig } from "@/lib/types";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useApp } from "@/contexts/AppContext";
 import { t } from "@/lib/utils";
 import { isTauri, exportOpml, importOpml } from "@/api/feed";
 import { toast } from "@/components/ui/Toast";
@@ -329,6 +330,7 @@ function AppearanceSettings({ theme, onToggleTheme }: { theme: string; onToggleT
 }
 
 function SyncSettings() {
+  const { reloadFeeds } = useApp();
   const handleOpmlExport = async () => {
     try {
       if (!isTauri()) { toast(t("仅在桌面应用中可用"), "error"); return; }
@@ -363,6 +365,7 @@ function SyncSettings() {
         ? t(`导入完成: ${ok} 成功, ${fail} 失败`)
         : t(`导入完成: ${ok}/${results.length} 个订阅源`);
       toast(msg, ok > 0 ? "success" : "error");
+      if (ok > 0) reloadFeeds();
     } catch (e: any) {
       toast(t("导入失败: ") + String(e), "error");
     }

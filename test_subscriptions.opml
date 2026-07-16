@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<opml version="2.0">
+  <head>
+    <title>Test Subscriptions</title>
+  </head>
+  <body>
+    <!-- 1. 正常的 HTTPS Feed（有 title + htmlUrl） -->
+    <outline text="Hacker News" title="Hacker News" type="rss"
+             xmlUrl="https://hnrss.org/frontpage"
+             htmlUrl="https://news.ycombinator.com/"/>
+
+    <!-- 2. HTTPS Feed，但与第1条 xmlUrl 重复（测试已存在时更新） -->
+    <outline text="HN（重复）" title="HN（重复）" type="rss"
+             xmlUrl="https://hnrss.org/frontpage"
+             htmlUrl="https://news.ycombinator.com/"/>
+
+    <!-- 3. HTTP Feed（应被跳过并在结果中告知） -->
+    <outline text="HTTP 测试源" type="rss"
+             xmlUrl="http://example.com/feed.xml"/>
+
+    <!-- 4. HTTPS Feed 但无 title（应自动抓取标题） -->
+    <outline text="" type="rss"
+             xmlUrl="https://hnrss.org/newest"/>
+
+    <!-- 5. 另一个正常的 HTTPS Feed -->
+    <outline text="Rust Blog" title="Rust Blog" type="rss"
+             xmlUrl="https://blog.rust-lang.org/feed.xml"
+             htmlUrl="https://blog.rust-lang.org/"/>
+  </body>
+</opml>

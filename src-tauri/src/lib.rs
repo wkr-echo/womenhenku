@@ -194,17 +194,23 @@ fn process_entry_content(state: State<'_, DbPool>, entry_id: i64, url: String) -
 
 #[cfg(feature = "tauri-runtime")]
 #[tauri::command]
-fn import_opml(
+async fn import_opml(
     state: State<'_, DbPool>,
     file_path: String,
 ) -> Result<Vec<crate::feed::opml::ImportResult>, String> {
-    commands::import_opml(&state, &file_path)
+    let pool = state.inner().clone();
+    tokio::task::spawn_blocking(move || commands::import_opml(&pool, &file_path))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[cfg(feature = "tauri-runtime")]
 #[tauri::command]
-fn export_opml(state: State<'_, DbPool>, file_path: String) -> Result<(), String> {
-    commands::export_opml(&state, &file_path)
+async fn export_opml(state: State<'_, DbPool>, file_path: String) -> Result<(), String> {
+    let pool = state.inner().clone();
+    tokio::task::spawn_blocking(move || commands::export_opml(&pool, &file_path))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 // -- Search --
