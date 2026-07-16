@@ -5,6 +5,9 @@ pub mod feed;
 pub mod notes;
 pub mod reader;
 
+#[cfg(feature = "tauri-runtime")]
+use std::str::FromStr;
+
 // ============================================================
 // Non-Tauri entry point (for cargo test / standalone binary)
 // ============================================================

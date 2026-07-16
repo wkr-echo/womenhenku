@@ -75,9 +75,9 @@ pub fn parse_feed(bytes: &[u8], feed_url: &str) -> Result<ParsedFeed, ParseError
 
         let published_at = entry
             .published
-            .map(|dt| format_datetime_utc(dt));
+            .map(format_datetime_utc);
 
-        let updated_at = entry.updated.map(|dt| format_datetime_utc(dt));
+        let updated_at = entry.updated.map(format_datetime_utc);
 
         entries.push(NewEntry {
             feed_id: 0, // caller fills this in

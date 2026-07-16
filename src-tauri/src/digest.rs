@@ -15,9 +15,10 @@ pub enum DigestFormat {
     Plaintext,
 }
 
-impl DigestFormat {
-    /// Parse format from a string (case-insensitive).
-    pub fn from_str(s: &str) -> Result<Self, String> {
+impl std::str::FromStr for DigestFormat {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "markdown" | "md" => Ok(DigestFormat::Markdown),
             "html" => Ok(DigestFormat::Html),
@@ -264,7 +265,7 @@ fn render_multi_plaintext(entries: &[DigestEntry]) -> Result<String, String> {
         if let Some(ref c) = de.content {
             if let Some(ref cleaned) = c.cleaned_markdown {
                 txt.push_str(cleaned);
-                txt.push_str("\n");
+                txt.push('\n');
             }
         }
         if let Some(ref n) = de.note {
