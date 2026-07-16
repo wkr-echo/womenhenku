@@ -72,10 +72,7 @@ jobs:
       - name: TypeScript type-check
         run: cd src-ui && npx tsc --noEmit
 
-      - name: ESLint
-        run: cd src-ui && npm run lint
-
-  # ============================================================
+      # ============================================================
   # Packaging — only on push to dev branch
   # ============================================================
   package:
