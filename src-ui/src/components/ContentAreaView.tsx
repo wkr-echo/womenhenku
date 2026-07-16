@@ -1,11 +1,26 @@
 import { useApp } from "@/contexts/AppContext";
 import { t } from "@/lib/utils";
+import { isTauri } from "@/api/feed";
 import { EntryListView } from "./EntryListView";
 import { ReaderView } from "./ReaderView";
 import { SettingsPageView } from "./SettingsPageView";
 
 export function ContentAreaView() {
-  const { viewMode, entries, selectedEntry } = useApp();
+  const { viewMode, entries, selectedEntry, selectedFeedId, markEntryRead } = useApp();
+
+  const handleMarkAllRead = async () => {
+    if (!selectedFeedId) return;
+    const unread = entries.filter((e) => !e.isRead);
+    for (const e of unread) {
+      markEntryRead(e.id);
+    }
+    if (isTauri()) {
+      // Also tell the backend
+      import("@tauri-apps/api/core").then(({ invoke }) => {
+        invoke("mark_all_read", { feedId: selectedFeedId }).catch(() => {});
+      });
+    }
+  };
 
   if (viewMode === "settings") {
     return <SettingsPageView />;
@@ -28,6 +43,14 @@ export function ContentAreaView() {
           <span className="text-xs text-[var(--text-tertiary)]">
             {t("未读")} {entries.filter((e) => !e.isRead).length} / {t("共")} {entries.length}
           </span>
+          {entries.some((e) => !e.isRead) && (
+            <button
+              onClick={handleMarkAllRead}
+              className="text-xs text-[var(--link-color)] hover:underline"
+            >
+              {t("全部已读")}
+            </button>
+          )}
         </div>
       </div>
       <EntryListView />

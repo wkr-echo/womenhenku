@@ -43,6 +43,24 @@ pub fn run() {
             let db_path = db::default_db_path();
             let pool = db::initialize_database(&db_path)
                 .expect("Failed to initialize database");
+
+            // Spawn background auto-sync task (every 30 minutes)
+            let sync_pool = pool.clone();
+            tauri::async_runtime::spawn(async move {
+                let mut interval = tokio::time::interval(
+                    std::time::Duration::from_secs(30 * 60)
+                );
+                interval.tick().await; // skip first immediate tick
+                loop {
+                    interval.tick().await;
+                    tracing::info!("Auto-sync: refreshing all feeds...");
+                    let svc = crate::feed::service::FeedService::new(sync_pool.clone());
+                    if let Err(e) = svc.refresh_all_feeds() {
+                        tracing::warn!("Auto-sync failed: {}", e);
+                    }
+                }
+            });
+
             app.manage(pool);
             tracing::info!("Tauri + database initialized");
             Ok(())

@@ -3,7 +3,7 @@ import { cn, formatDate, truncate, t } from "@/lib/utils";
 import type { EntryListItem } from "@/lib/types";
 
 export function EntryListView() {
-  const { entries, selectedEntry, selectEntry } = useApp();
+  const { entries, selectedEntry, selectEntry, searchQuery } = useApp();
 
   if (entries.length === 0) {
     return (
@@ -29,6 +29,7 @@ export function EntryListView() {
             key={entry.id}
             entry={entry}
             isSelected={selectedEntry?.id === entry.id}
+            searchQuery={searchQuery}
             onClick={() => selectEntry(entry)}
           />
         ))}
@@ -37,13 +38,30 @@ export function EntryListView() {
   );
 }
 
+function highlightText(text: string, query: string): React.ReactNode {
+  if (!query) return text;
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return text;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className="bg-yellow-300 dark:bg-yellow-600 text-inherit rounded px-0.5">
+        {text.slice(idx, idx + query.length)}
+      </mark>
+      {text.slice(idx + query.length)}
+    </>
+  );
+}
+
 function EntryItem({
   entry,
   isSelected,
+  searchQuery,
   onClick,
 }: {
   entry: EntryListItem;
   isSelected: boolean;
+  searchQuery: string;
   onClick: () => void;
 }) {
   return (
@@ -70,7 +88,7 @@ function EntryItem({
                   : "font-normal text-[var(--text-secondary)]"
               )}
             >
-              {truncate(entry.title, 80)}
+              {highlightText(truncate(entry.title, 80), searchQuery)}
             </h3>
           </div>
           <div className="flex items-center gap-3 mt-2 text-xs text-[var(--text-tertiary)]">
