@@ -136,8 +136,8 @@ pub fn import_feeds(pool: &DbPool, outlines: &[OpmlOutline]) -> Vec<ImportResult
                 .unwrap_or_else(|| outline.title.clone());
 
             if let Ok(Some(existing)) = feed_repo.find_by_url(&outline.xml_url) {
-                // Update existing feed's title and link
-                let _ = feed_repo.update_title(existing.id, &title);
+                let site_url = outline.html_url.as_deref().unwrap_or("");
+                let _ = feed_repo.update_title_and_link(existing.id, &title, site_url);
                 results.push(ImportResult {
                     xml_url: outline.xml_url.clone(), title,
                     success: true, message: format!("Updated (id={})", existing.id),

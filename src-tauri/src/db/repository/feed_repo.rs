@@ -69,7 +69,7 @@ impl FeedRepository {
         let mut stmt = conn.prepare(
             "SELECT f.id, f.title,
                     (SELECT COUNT(*) FROM entries e WHERE e.feed_id = f.id AND e.is_read = 0) AS unread_count
-             FROM feeds f ORDER BY f.title",
+             FROM feeds f ORDER BY f.title COLLATE NOCASE",
         )?;
         let rows = stmt.query_map([], |row| {
             Ok(FeedSummary { id: row.get(0)?, title: row.get(1)?, unread_count: row.get(2)? })
@@ -81,7 +81,7 @@ impl FeedRepository {
         let conn = self.pool.get()?;
         let mut stmt = conn.prepare(
             "SELECT id, url, title, description, link, feed_type, last_synced_at, created_at
-             FROM feeds ORDER BY title",
+             FROM feeds ORDER BY title COLLATE NOCASE",
         )?;
         let rows = stmt.query_map([], map_feed)?;
         rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
@@ -104,6 +104,18 @@ impl FeedRepository {
         let affected = conn.execute(
             "UPDATE feeds SET title = ?1 WHERE id = ?2",
             params![title, id],
+        )?;
+        if affected == 0 {
+            return Err(RepositoryError::NotFound(format!("Feed id={} not found", id)));
+        }
+        Ok(())
+    }
+
+    pub fn update_title_and_link(&self, id: i64, title: &str, link: &str) -> Result<(), RepositoryError> {
+        let conn = self.pool.get()?;
+        let affected = conn.execute(
+            "UPDATE feeds SET title = ?1, link = ?2 WHERE id = ?3",
+            params![title, link, id],
         )?;
         if affected == 0 {
             return Err(RepositoryError::NotFound(format!("Feed id={} not found", id)));

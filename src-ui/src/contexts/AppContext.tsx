@@ -19,6 +19,8 @@ import {
   refreshAllFeeds as refreshAllFeedsReal,
   searchEntries as searchEntriesReal,
 } from "@/api/feed";
+import { toast } from "@/components/ui/Toast";
+import { t } from "@/lib/utils";
 
 // ---- State & Actions ----
 
@@ -221,13 +223,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         .then((feed) => {
           dispatch({ type: "ADD_FEED", feed: { id: feed.id, title: feed.title, unreadCount: 0 } });
         })
-        .catch(() => {
-          const newFeed: FeedSummary = {
-            id: Date.now(),
-            title: url.replace(/https?:\/\//, "").split("/")[0],
-            unreadCount: 0,
-          };
-          dispatch({ type: "ADD_FEED", feed: newFeed });
+        .catch((e) => {
+          toast(t("添加订阅源失败: ") + String(e), "error");
         });
     } else {
       const newFeed: FeedSummary = {
@@ -241,7 +238,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const removeFeedFn = useCallback((id: number) => {
     if (isTauri()) {
-      removeFeedReal(id).catch(() => {});
+      removeFeedReal(id).catch((e) => {
+        toast(t("删除订阅源失败: ") + String(e), "error");
+      });
     }
     dispatch({ type: "REMOVE_FEED", id });
   }, []);
@@ -252,9 +251,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         .then(() => {
           listEntriesReal(id, 1, 50)
             .then((page: EntryPage) => dispatch({ type: "SET_ENTRIES", entries: page.entries }))
-            .catch(() => {});
+            .catch((e) => { toast(t("加载文章列表失败: ") + String(e), "error"); });
         })
-        .catch(() => {});
+        .catch((e) => { toast(t("刷新订阅源失败: ") + String(e), "error"); });
     }
   }, []);
 
@@ -263,7 +262,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       refreshAllFeedsReal()
         .then(() => listFeedsReal())
         .then((data) => dispatch({ type: "SET_FEEDS", feeds: data }))
-        .catch(() => {});
+        .catch((e) => { toast(t("刷新全部失败: ") + String(e), "error"); });
     }
   }, []);
 
