@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button, Input, Dropdown } from "@/components/ui";
 import { mockProviders } from "@/api/mock";
 import type { Provider, AgentConfig } from "@/lib/types";
@@ -268,13 +268,20 @@ function AgentSettings() {
 }
 
 function AppearanceSettings({ theme, onToggleTheme }: { theme: string; onToggleTheme: () => void }) {
-  const fonts = [
-    { label: t("系统默认"), value: "system" },
-    { label: "Inter", value: "Inter" },
-    { label: t("思源黑体"), value: "Noto Sans SC" },
-    { label: t("霞鹜文楷"), value: "LXGW WenKai" },
-    { label: "JetBrains Mono", value: "JetBrains Mono" },
-  ];
+  const { fontFamily, setFontFamily } = useTheme();
+  const [systemFonts, setSystemFonts] = useState<string[]>([
+    "system-ui", "sans-serif", "serif", "monospace",
+    "Inter", "JetBrains Mono", "Fira Code",
+    "Noto Sans SC", "Source Han Sans SC", "LXGW WenKai",
+  ]);
+
+  useEffect(() => {
+    if (isTauri()) {
+      import("@/api/feed").then(({ listSystemFonts }) => {
+        listSystemFonts().then(setSystemFonts).catch(() => {});
+      });
+    }
+  }, []);
 
   return (
     <div>
@@ -306,10 +313,13 @@ function AppearanceSettings({ theme, onToggleTheme }: { theme: string; onToggleT
         <div>
           <label className="block text-sm font-medium mb-2">{t("阅读字体")}</label>
           <Dropdown
-            items={fonts}
-            value="system"
-            onChange={() => {}}
+            items={systemFonts.map(f => ({ label: f, value: f }))}
+            value={fontFamily}
+            onChange={(v) => setFontFamily(v)}
           />
+          <p className="text-xs text-[var(--text-tertiary)] mt-2" style={{ fontFamily }}>
+            {t("预览：")}The quick brown fox  jumps over the lazy dog. 静态动词优化 了编译速度。
+          </p>
         </div>
 
         <div>
@@ -319,6 +329,8 @@ function AppearanceSettings({ theme, onToggleTheme }: { theme: string; onToggleT
               { label: "JetBrains Mono", value: "JetBrains Mono" },
               { label: "Fira Code", value: "Fira Code" },
               { label: "Cascadia Code", value: "Cascadia Code" },
+              { label: "Consolas", value: "Consolas" },
+              { label: "monospace", value: "monospace" },
             ]}
             value="JetBrains Mono"
             onChange={() => {}}

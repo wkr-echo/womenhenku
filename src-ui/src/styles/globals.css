@@ -81,6 +81,7 @@
 
 /* Reader content styles */
 .reader-content {
+  font-family: var(--reader-font, system-ui);
   @apply leading-relaxed text-[15px];
   color: var(--reader-text);
 }

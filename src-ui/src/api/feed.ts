@@ -154,6 +154,10 @@ export async function deleteNote(id: number): Promise<void> {
 
 // ============ Settings API ============
 
+export async function listSystemFonts(): Promise<string[]> {
+  return invoke<string[]>("list_system_fonts");
+}
+
 export async function getTheme(): Promise<string> {
   return invoke<string>("get_theme");
 }

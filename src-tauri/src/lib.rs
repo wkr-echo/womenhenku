@@ -3,6 +3,7 @@ pub mod db;
 pub mod digest;
 pub mod feed;
 pub mod notes;
+pub mod platform;
 pub mod reader;
 
 #[cfg(feature = "tauri-runtime")]
@@ -76,6 +77,8 @@ pub fn run() {
             // Digest export (Stage 4)
             export_single_digest,
             export_multi_digest,
+            // Fonts (Stage 2)
+            list_system_fonts,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -214,6 +217,14 @@ async fn export_opml(state: State<'_, DbPool>, file_path: String) -> Result<(), 
     tokio::task::spawn_blocking(move || commands::export_opml(&pool, &file_path))
         .await
         .map_err(|e| e.to_string())?
+}
+
+// -- System fonts (Stage 2) --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn list_system_fonts() -> Result<Vec<String>, String> {
+    Ok(crate::platform::font::list_fonts())
 }
 
 // -- Search --
