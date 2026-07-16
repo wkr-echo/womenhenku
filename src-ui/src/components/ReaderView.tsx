@@ -127,12 +127,12 @@ export function ReaderView() {
 
   // Mark as read after 1 second of viewing
   useEffect(() => {
-    if (!selectedEntry || !isTauri()) return;
+    if (!selectedEntry) return;
     const timer = setTimeout(() => {
       markEntryRead(selectedEntry.id);
     }, 1000);
     return () => clearTimeout(timer);
-  }, [selectedEntry?.id]);
+  }, [selectedEntry?.id, markEntryRead]);
 
   const tabs: { key: ReaderTab; label: string; shortcut: string }[] = [
     { key: "read", label: t("阅读"), shortcut: "" },

@@ -47,7 +47,7 @@ type Action =
   | { type: "REMOVE_FEED"; id: number }
   | { type: "SELECT_FEED"; feedId: number }
   | { type: "SELECT_ENTRY"; entry: Entry | null }
-  | { type: "MARK_READ"; entryId: number };
+  | { type: "MARK_READ"; entryId: number; feedId: number };
 
 const initialState: State = {
   feeds: [],
@@ -98,6 +98,17 @@ function reducer(state: State, action: Action): State {
       };
     case "SELECT_ENTRY":
       return { ...state, selectedEntry: action.entry, viewMode: "reader" };
+    case "MARK_READ": {
+      const feeds = state.feeds.map((f) =>
+        f.id === action.feedId && f.unreadCount > 0
+          ? { ...f, unreadCount: f.unreadCount - 1 }
+          : f
+      );
+      const entries = state.entries.map((e) =>
+        e.id === action.entryId ? { ...e, isRead: true } : e
+      );
+      return { ...state, feeds, entries };
+    }
     case "MARK_READ":
       return {
         ...state,
@@ -290,14 +301,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const markEntryRead = useCallback((id: number) => {
+    // Find the entry's feed ID from current entries or selected entry
+    const entry = state.entries.find(e => e.id === id);
+    const feedId = entry?.feedId ?? state.selectedEntry?.feedId ?? 0;
     if (isTauri()) {
       markReadReal(id).then(() => {
-        dispatch({ type: "MARK_READ", entryId: id });
+        dispatch({ type: "MARK_READ", entryId: id, feedId });
       }).catch(() => {});
     } else {
-      dispatch({ type: "MARK_READ", entryId: id });
+      dispatch({ type: "MARK_READ", entryId: id, feedId });
     }
-  }, []);
+  }, [state.entries, state.selectedEntry]);
 
   const setViewMode = useCallback((mode: ViewMode) => {
     dispatch({ type: "SET_VIEW_MODE", mode });
