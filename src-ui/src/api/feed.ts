@@ -2,7 +2,7 @@ import type { Feed, Entry, Content, EntryPage, Provider, Summary, Note, FeedSumm
 
 // 检查是否在 Tauri 环境中
 export function isTauri(): boolean {
-  return typeof window !== "undefined" && "__TAURI__" in window;
+  return typeof window !== "undefined" && ("__TAURI__" in window || "__TAURI_INTERNALS__" in window);
 }
 
 // 动态导入 Tauri invoke，避免在非 Tauri 环境报错
