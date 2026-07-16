@@ -65,7 +65,7 @@ export function SidebarView() {
     <div className="w-[280px] h-full flex flex-col border-r border-[var(--border-color)] bg-[var(--sidebar-bg)] animate-slide-in">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)]">
-        <h1 className="font-semibold text-sm text-[var(--text-primary)]">WomenHenKu</h1>
+        <h1 className="font-semibold text-sm text-[var(--text-primary)]">Platinum</h1>
         <div className="flex items-center gap-1">
           <button
             onClick={handleRefreshAll}

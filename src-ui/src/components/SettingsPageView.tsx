@@ -392,7 +392,7 @@ function AboutSection() {
   return (
     <div>
       <h3 className="text-lg font-semibold mb-1">关于</h3>
-      <p className="text-sm text-[var(--text-tertiary)] mb-6">WomenHenKu — Mercury 跨平台复刻</p>
+      <p className="text-sm text-[var(--text-tertiary)] mb-6">Platinum — Mercury 跨平台复刻</p>
 
       <div className="space-y-3 text-sm text-[var(--text-secondary)] max-w-md">
         <div className="flex justify-between py-2 border-b border-[var(--border-color)]">
