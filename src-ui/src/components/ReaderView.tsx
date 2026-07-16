@@ -6,7 +6,7 @@ import { Button } from "@/components/ui";
 import { SummaryPanelView } from "./SummaryPanelView";
 import { TranslationPanelView } from "./TranslationPanelView";
 import { NoteEditorView } from "./NoteEditorView";
-import { isTauri, getEntryContent as getEntryContentReal, exportSingleDigest } from "@/api/feed";
+import { isTauri, getEntryContent as getEntryContentReal, processEntryContent, exportSingleDigest } from "@/api/feed";
 import { toast } from "@/components/ui/Toast";
 import type { Content } from "@/lib/types";
 
@@ -72,19 +72,41 @@ export function ReaderView() {
   const [content, setContent] = useState<Content | null>(null);
   const [contentLoading, setContentLoading] = useState(false);
 
-  // Load real content from backend when entry changes
+  // Load real content from backend when entry changes.
+  // If content hasn't been processed yet, run the reader pipeline first.
   useEffect(() => {
     if (!selectedEntry) return;
+    let cancelled = false;
     setContentLoading(true);
-    if (isTauri()) {
-      getEntryContentReal(selectedEntry.id)
-        .then((c) => setContent(c))
-        .catch(() => setContent(mockContent))
-        .finally(() => setContentLoading(false));
-    } else {
-      setContent(mockContent);
-      setContentLoading(false);
+
+    async function load() {
+      if (!isTauri()) {
+        if (!cancelled) { setContent(mockContent); setContentLoading(false); }
+        return;
+      }
+      try {
+        // Try to get existing cached content
+        const c = await getEntryContentReal(selectedEntry!.id);
+        if (!cancelled) setContent(c);
+      } catch {
+        // Content not yet processed — run the reader pipeline
+        try {
+          const url = selectedEntry!.link || "";
+          if (!url) throw new Error("No article URL");
+          await processEntryContent(selectedEntry!.id, url);
+          const c = await getEntryContentReal(selectedEntry!.id);
+          if (!cancelled) setContent(c);
+        } catch {
+          // Pipeline failed, fall back to summary-only view
+          if (!cancelled) setContent(null);
+        }
+      } finally {
+        if (!cancelled) setContentLoading(false);
+      }
     }
+
+    load();
+    return () => { cancelled = true; };
   }, [selectedEntry?.id]);
 
   const tabs: { key: ReaderTab; label: string; shortcut: string }[] = [

@@ -68,6 +68,10 @@ export async function getEntryContent(entryId: number): Promise<Content> {
   return invoke<Content>("get_entry_content", { entryId });
 }
 
+export async function processEntryContent(entryId: number, url: string): Promise<Content> {
+  return invoke<Content>("process_entry_content", { entryId, url });
+}
+
 export async function markRead(id: number): Promise<void> {
   return invoke("mark_read", { id });
 }
