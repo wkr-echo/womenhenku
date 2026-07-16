@@ -128,11 +128,11 @@ export function ReaderView() {
   // Mark as read after 1 second of viewing
   useEffect(() => {
     if (!selectedEntry) return;
-    const timer = setTimeout(() => {
-      markEntryRead(selectedEntry.id);
-    }, 1000);
+    const id = selectedEntry.id;
+    const timer = setTimeout(() => markEntryRead(id), 1000);
     return () => clearTimeout(timer);
-  }, [selectedEntry?.id, markEntryRead]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEntry?.id]);
 
   const tabs: { key: ReaderTab; label: string; shortcut: string }[] = [
     { key: "read", label: t("阅读"), shortcut: "" },

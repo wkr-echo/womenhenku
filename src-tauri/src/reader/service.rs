@@ -31,7 +31,7 @@ impl ReaderService {
     pub fn new(pool: DbPool) -> Self {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(30))
-            .user_agent("platinum/0.2 (RSS Reader)")
+            .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
             .build()
             .expect("Failed to build reqwest client");
         Self { pool, client }
