@@ -6,7 +6,7 @@ import { Button } from "@/components/ui";
 import { SummaryPanelView } from "./SummaryPanelView";
 import { TranslationPanelView } from "./TranslationPanelView";
 import { NoteEditorView } from "./NoteEditorView";
-import { isTauri, getEntryContent as getEntryContentReal, processEntryContent, exportSingleDigest } from "@/api/feed";
+import { isTauri, getEntryContent as getEntryContentReal, processEntryContent, exportSingleDigest, markRead } from "@/api/feed";
 import { toast } from "@/components/ui/Toast";
 import type { Content } from "@/lib/types";
 
@@ -123,6 +123,15 @@ export function ReaderView() {
 
     load();
     return () => { cancelled = true; };
+  }, [selectedEntry?.id]);
+
+  // Mark as read after 1 second of viewing
+  useEffect(() => {
+    if (!selectedEntry || !isTauri()) return;
+    const timer = setTimeout(() => {
+      markRead(selectedEntry.id).catch(() => {});
+    }, 1000);
+    return () => clearTimeout(timer);
   }, [selectedEntry?.id]);
 
   const tabs: { key: ReaderTab; label: string; shortcut: string }[] = [
