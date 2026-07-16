@@ -326,14 +326,14 @@ function AppearanceSettings({ theme, onToggleTheme }: { theme: string; onToggleT
           <label className="block text-sm font-medium mb-2">{t("代码字体")}</label>
           <Dropdown
             items={[
-              { label: "JetBrains Mono", value: "JetBrains Mono" },
-              { label: "Fira Code", value: "Fira Code" },
-              { label: "Cascadia Code", value: "Cascadia Code" },
-              { label: "Consolas", value: "Consolas" },
-              { label: "monospace", value: "monospace" },
+              { label: "JetBrains Mono", value: "JetBrains Mono", fontFamily: "JetBrains Mono" },
+              { label: "Fira Code", value: "Fira Code", fontFamily: "Fira Code" },
+              { label: "Cascadia Code", value: "Cascadia Code", fontFamily: "Cascadia Code" },
+              { label: "Consolas", value: "Consolas", fontFamily: "Consolas" },
+              { label: "monospace", value: "monospace", fontFamily: "monospace" },
             ]}
-            value="JetBrains Mono"
-            onChange={() => {}}
+            value={fontFamily}
+            onChange={(v) => setFontFamily(v)}
           />
         </div>
       </div>

@@ -236,7 +236,7 @@ pub fn render(markdown: &str) -> String {
   --mercury-blockquote-border: #2563eb;
   background: var(--mercury-bg-primary);
   color: var(--mercury-text-primary);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: var(--reader-font, system-ui);
   line-height: 1.8;
   max-width: 720px;
   margin: 0 auto;
