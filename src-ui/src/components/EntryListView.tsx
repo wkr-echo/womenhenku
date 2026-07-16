@@ -102,10 +102,20 @@ function EntryItem({
               {highlightText(truncate(entry.title, 80), searchQuery)}
             </h3>
           </div>
-          {searchQuery && entry.title.toLowerCase().includes(searchQuery.toLowerCase()) && (
-            <p className="mt-1 text-xs text-[var(--text-tertiary)] truncate">
-              {highlightText(entry.title, searchQuery)}
-            </p>
+          {searchQuery && (
+            (() => {
+              const inTitle = entry.title.toLowerCase().includes(searchQuery.toLowerCase());
+              const inSummary = entry.summary?.toLowerCase().includes(searchQuery.toLowerCase());
+              if (inTitle) return null; // already highlighted in title
+              if (inSummary) {
+                return (
+                  <p className="mt-1 text-xs text-[var(--text-tertiary)] truncate">
+                    {highlightText(entry.summary, searchQuery)}
+                  </p>
+                );
+              }
+              return null;
+            })()
           )}
           <div className="flex items-center gap-3 mt-1 text-xs text-[var(--text-tertiary)]">
             {entry.author && <span>{entry.author}</span>}

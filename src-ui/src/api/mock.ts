@@ -10,15 +10,15 @@ export const mockFeedSummaries: FeedSummary[] = [
 
 export const mockEntries: Record<number, EntryListItem[]> = {
   1: [
-    { id: 101, feedId: 1, title: "科技爱好者周刊（第 300 期）：AI 时代的编程新范式", author: "阮一峰", publishedAt: new Date(Date.now() - 3600000).toISOString(), isRead: false },
-    { id: 102, feedId: 1, title: "WebAssembly 入门指南", author: "阮一峰", publishedAt: new Date(Date.now() - 7200000).toISOString(), isRead: false },
-    { id: 103, feedId: 1, title: "Rust 异步编程深入理解", author: "阮一峰", publishedAt: new Date(Date.now() - 86400000).toISOString(), isRead: true },
-    { id: 104, feedId: 1, title: "CSS Container Queries 实战", author: "阮一峰", publishedAt: new Date(Date.now() - 172800000).toISOString(), isRead: true },
-    { id: 105, feedId: 1, title: "每周科技新闻汇总（7月第一周）", author: "阮一峰", publishedAt: new Date(Date.now() - 259200000).toISOString(), isRead: true },
+    { id: 101, feedId: 1, title: "科技爱好者周刊（第 300 期）：AI 时代的编程新范式", author: "阮一峰", publishedAt: new Date(Date.now() - 3600000).toISOString(), summary: "", isRead: false },
+    { id: 102, feedId: 1, title: "WebAssembly 入门指南", author: "阮一峰", publishedAt: new Date(Date.now() - 7200000).toISOString(), summary: "", isRead: false },
+    { id: 103, feedId: 1, title: "Rust 异步编程深入理解", author: "阮一峰", publishedAt: new Date(Date.now() - 86400000).toISOString(), summary: "", isRead: true },
+    { id: 104, feedId: 1, title: "CSS Container Queries 实战", author: "阮一峰", publishedAt: new Date(Date.now() - 172800000).toISOString(), summary: "", isRead: true },
+    { id: 105, feedId: 1, title: "每周科技新闻汇总（7月第一周）", author: "阮一峰", publishedAt: new Date(Date.now() - 259200000).toISOString(), summary: "", isRead: true },
   ],
   2: [
-    { id: 201, feedId: 2, title: "如何打造高效的个人工作流", author: "少数派", publishedAt: new Date(Date.now() - 1800000).toISOString(), isRead: false },
-    { id: 202, feedId: 2, title: "macOS 15 新功能全面解析", author: "少数派", publishedAt: new Date(Date.now() - 43200000).toISOString(), isRead: false },
+    { id: 201, feedId: 2, title: "如何打造高效的个人工作流", author: "少数派", publishedAt: new Date(Date.now() - 1800000).toISOString(), summary: "", isRead: false },
+    { id: 202, feedId: 2, title: "macOS 15 新功能全面解析", author: "少数派", publishedAt: new Date(Date.now() - 43200000).toISOString(), summary: "", isRead: false },
   ],
   3: [],
 };

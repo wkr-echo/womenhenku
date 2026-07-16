@@ -49,6 +49,7 @@ pub struct EntryListItem {
     pub feed_id: i64,
     pub title: String,
     pub author: String,
+    pub summary: String,
     pub published_at: Option<String>,
     pub is_read: bool,
 }

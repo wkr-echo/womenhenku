@@ -77,7 +77,7 @@ impl EntryRepository {
         let total: i64 = conn.query_row(&count_sql, params![feed_id], |row| row.get(0))?;
 
         let list_sql = format!(
-            "SELECT e.id, e.feed_id, e.title, e.author, e.published_at, e.is_read
+            "SELECT e.id, e.feed_id, e.title, e.author, e.summary, e.published_at, e.is_read
              FROM entries e {} ORDER BY COALESCE(e.published_at, e.created_at) DESC LIMIT ?2 OFFSET ?3",
             where_clause
         );
@@ -89,8 +89,9 @@ impl EntryRepository {
                     feed_id: row.get(1)?,
                     title: row.get(2)?,
                     author: row.get(3)?,
-                    published_at: row.get(4)?,
-                    is_read: row.get::<_, i32>(5)? != 0,
+                    summary: row.get::<_, String>(4).unwrap_or_default(),
+                    published_at: row.get(5)?,
+                    is_read: row.get::<_, i32>(6)? != 0,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -113,7 +114,7 @@ impl EntryRepository {
         let total: i64 = conn.query_row(&count_sql, [], |row| row.get(0))?;
 
         let list_sql = format!(
-            "SELECT e.id, e.feed_id, e.title, e.author, e.published_at, e.is_read
+            "SELECT e.id, e.feed_id, e.title, e.author, e.summary, e.published_at, e.is_read
              FROM entries e {} ORDER BY COALESCE(e.published_at, e.created_at) DESC LIMIT ?1 OFFSET ?2",
             where_clause
         );
@@ -125,8 +126,9 @@ impl EntryRepository {
                     feed_id: row.get(1)?,
                     title: row.get(2)?,
                     author: row.get(3)?,
-                    published_at: row.get(4)?,
-                    is_read: row.get::<_, i32>(5)? != 0,
+                    summary: row.get::<_, String>(4).unwrap_or_default(),
+                    published_at: row.get(5)?,
+                    is_read: row.get::<_, i32>(6)? != 0,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -159,7 +161,7 @@ impl EntryRepository {
             )?;
 
             let mut stmt = conn.prepare(
-                "SELECT e.id, e.feed_id, e.title, e.author, e.published_at, e.is_read
+                "SELECT e.id, e.feed_id, e.title, e.author, e.summary, e.published_at, e.is_read
                  FROM entries_fts f
                  JOIN entries e ON e.id = f.rowid
                  WHERE entries_fts MATCH ?1
@@ -173,8 +175,9 @@ impl EntryRepository {
                         feed_id: row.get(1)?,
                         title: row.get(2)?,
                         author: row.get(3)?,
-                        published_at: row.get(4)?,
-                        is_read: row.get::<_, i32>(5)? != 0,
+                    summary: row.get::<_, String>(4).unwrap_or_default(),
+                        published_at: row.get(5)?,
+                        is_read: row.get::<_, i32>(6)? != 0,
                     })
                 })?
                 .collect::<Result<Vec<_>, _>>()?;
@@ -189,7 +192,7 @@ impl EntryRepository {
             )?;
 
             let mut stmt = conn.prepare(
-                "SELECT e.id, e.feed_id, e.title, e.author, e.published_at, e.is_read
+                "SELECT e.id, e.feed_id, e.title, e.author, e.summary, e.published_at, e.is_read
                  FROM entries e
                  WHERE e.title LIKE ?1 OR e.summary LIKE ?1
                  ORDER BY COALESCE(e.published_at, e.created_at) DESC
@@ -202,8 +205,9 @@ impl EntryRepository {
                         feed_id: row.get(1)?,
                         title: row.get(2)?,
                         author: row.get(3)?,
-                        published_at: row.get(4)?,
-                        is_read: row.get::<_, i32>(5)? != 0,
+                    summary: row.get::<_, String>(4).unwrap_or_default(),
+                        published_at: row.get(5)?,
+                        is_read: row.get::<_, i32>(6)? != 0,
                     })
                 })?
                 .collect::<Result<Vec<_>, _>>()?;

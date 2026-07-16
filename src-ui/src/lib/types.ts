@@ -35,6 +35,7 @@ export interface EntryListItem {
   feedId: number;
   title: string;
   author: string;
+  summary: string;
   publishedAt: string | null;
   isRead: boolean;
 }
