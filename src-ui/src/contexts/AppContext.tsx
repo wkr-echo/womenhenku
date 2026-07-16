@@ -107,19 +107,12 @@ function reducer(state: State, action: Action): State {
       const entries = state.entries.map((e) =>
         e.id === action.entryId ? { ...e, isRead: true } : e
       );
-      return { ...state, feeds, entries };
+      const selectedEntry =
+        state.selectedEntry?.id === action.entryId
+          ? { ...state.selectedEntry, isRead: true }
+          : state.selectedEntry;
+      return { ...state, feeds, entries, selectedEntry };
     }
-    case "MARK_READ":
-      return {
-        ...state,
-        entries: state.entries.map((e) =>
-          e.id === action.entryId ? { ...e, isRead: true } : e
-        ),
-        selectedEntry:
-          state.selectedEntry?.id === action.entryId
-            ? { ...state.selectedEntry, isRead: true }
-            : state.selectedEntry,
-      };
     default:
       return state;
   }

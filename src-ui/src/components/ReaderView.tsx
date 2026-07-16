@@ -180,15 +180,19 @@ export function ReaderView() {
               <span>{formatDate(selectedEntry.publishedAt)}</span>
               {selectedEntry.link && (
                 <button
-                  onClick={async () => {
+                  onClick={() => {
                     if (isTauri()) {
-                      const { open } = await import("@tauri-apps/plugin-shell");
-                      await open(selectedEntry!.link);
+                      // Use Tauri invoke to open URL in system browser
+                      import("@tauri-apps/api/core").then(({ invoke }) => {
+                        invoke("open_url", { url: selectedEntry!.link }).catch(() => {
+                          window.open(selectedEntry!.link, "_blank");
+                        });
+                      });
                     } else {
                       window.open(selectedEntry!.link, "_blank");
                     }
                   }}
-                  className="text-[var(--link-color)] hover:underline"
+                  className="text-[var(--link-color)] hover:underline cursor-pointer"
                 >
                   {t("原文")}
                 </button>

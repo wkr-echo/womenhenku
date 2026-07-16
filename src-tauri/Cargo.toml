@@ -23,6 +23,9 @@ tauri = { version = "2", features = [], optional = true }
 tauri-plugin-dialog = { version = "2", optional = true }
 tauri-plugin-shell = { version = "2", optional = true }
 
+# System browser
+webbrowser = "1"
+
 # Async runtime
 tokio = { version = "1", features = ["full"] }
 
