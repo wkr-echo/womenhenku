@@ -28,7 +28,7 @@ pub struct ReaderService {
 }
 
 /// Pipeline version — bump to invalidate all cached rendered HTML.
-const PIPELINE_VERSION: i32 = 2;
+const PIPELINE_VERSION: i32 = 3;
 
 impl ReaderService {
     pub fn new(pool: DbPool) -> Self {

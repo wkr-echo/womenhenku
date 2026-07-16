@@ -226,14 +226,14 @@ pub fn render(markdown: &str) -> String {
 
     format!(
         r#"<div class="reader-theme" style="
-  --mercury-bg-primary: #ffffff;
-  --mercury-bg-secondary: #f8f9fa;
-  --mercury-text-primary: #1a1a2e;
-  --mercury-text-secondary: #6b7280;
-  --mercury-link-color: #2563eb;
-  --mercury-border-color: #e5e7eb;
-  --mercury-code-bg: #f1f5f9;
-  --mercury-blockquote-border: #2563eb;
+  --mercury-bg-primary: var(--bg-primary);
+  --mercury-bg-secondary: var(--bg-secondary);
+  --mercury-text-primary: var(--text-primary);
+  --mercury-text-secondary: var(--text-secondary);
+  --mercury-link-color: var(--link-color);
+  --mercury-border-color: var(--border-color);
+  --mercury-code-bg: var(--bg-tertiary);
+  --mercury-blockquote-border: var(--accent-color);
   background: var(--mercury-bg-primary);
   color: var(--mercury-text-primary);
   font-family: var(--reader-font, system-ui);

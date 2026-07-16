@@ -102,7 +102,7 @@ export function ReaderView() {
       }
 
       // Helper: check if Content has usable rendered output with current pipeline version
-      const PIPELINE_VERSION = 2;
+      const PIPELINE_VERSION = 3;
       const hasContent = (c: Content) =>
         (!!c.renderedHtml || !!c.cleanedHtml || !!c.rawHtml)
         && c.readabilityVersion >= PIPELINE_VERSION;
