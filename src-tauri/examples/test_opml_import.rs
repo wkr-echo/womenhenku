@@ -16,7 +16,7 @@ fn main() {
     let pool = db::initialize_database(&db_path).expect("Failed to init DB");
 
     // Step 1: Create a test OPML file
-    let opml_path = PathBuf::from("/tmp/test.opml");
+    let opml_path = std::env::temp_dir().join("test.opml");
     let opml_content = r#"<?xml version="1.0" encoding="UTF-8"?>
 <opml version="2.0">
   <head><title>Test Subscriptions</title></head>
