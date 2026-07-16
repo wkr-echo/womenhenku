@@ -9,6 +9,8 @@ export function SidebarView() {
     feeds,
     selectedFeedId,
     selectFeed,
+    searchQuery,
+    setSearchQuery,
     sidebarCollapsed,
     toggleSidebar,
     addFeed,
@@ -92,6 +94,16 @@ export function SidebarView() {
             </svg>
           </button>
         </div>
+      </div>
+
+      {/* Search */}
+      <div className="px-3 py-2">
+        <Input
+          placeholder={t("搜索文章...")}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="text-xs"
+        />
       </div>
 
       {/* Feed list */}

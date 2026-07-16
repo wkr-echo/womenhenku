@@ -33,29 +33,43 @@ export function ReaderView() {
         ? await exportSingleDigest(selectedEntry!.id, format)
         : mockDigestExport(selectedEntry!, format);
 
-      const mimeTypes: Record<ExportFormat, string> = {
-        markdown: "text/markdown",
-        html: "text/html",
-        plaintext: "text/plain",
-      };
       const extensions: Record<ExportFormat, string> = {
         markdown: ".md",
         html: ".html",
         plaintext: ".txt",
       };
 
-      const blob = new Blob([content], { type: mimeTypes[format] });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${selectedEntry!.title}${extensions[format]}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast(t(`已导出 ${EXPORT_LABELS[format]}`), "success");
-    } catch {
-      toast(t("导出失败"), "error");
+      if (isTauri()) {
+        const { save } = await import("@tauri-apps/plugin-dialog");
+        const { homeDir } = await import("@tauri-apps/api/path");
+        const home = await homeDir();
+        const filePath = await save({
+          defaultPath: `${home}${selectedEntry!.title}${extensions[format]}`,
+          filters: [{ name: EXPORT_LABELS[format], extensions: [extensions[format].slice(1)] }],
+        });
+        if (!filePath) { setExporting(false); return; }
+        // Write via backend
+        await exportSingleDigest(selectedEntry!.id, format);
+        toast(t(`已导出到 ${filePath}`), "success");
+      } else {
+        const mimeTypes: Record<ExportFormat, string> = {
+          markdown: "text/markdown",
+          html: "text/html",
+          plaintext: "text/plain",
+        };
+        const blob = new Blob([content], { type: mimeTypes[format] });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${selectedEntry!.title}${extensions[format]}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast(t(`已导出 ${EXPORT_LABELS[format]}`), "success");
+      }
+    } catch (e: any) {
+      toast(t("导出失败: ") + String(e), "error");
     } finally {
       setExporting(false);
     }
