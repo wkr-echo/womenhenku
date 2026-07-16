@@ -179,14 +179,19 @@ export function ReaderView() {
               {selectedEntry.author && <span>{selectedEntry.author}</span>}
               <span>{formatDate(selectedEntry.publishedAt)}</span>
               {selectedEntry.link && (
-                <a
-                  href={selectedEntry.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={async () => {
+                    if (isTauri()) {
+                      const { open } = await import("@tauri-apps/plugin-shell");
+                      await open(selectedEntry!.link);
+                    } else {
+                      window.open(selectedEntry!.link, "_blank");
+                    }
+                  }}
                   className="text-[var(--link-color)] hover:underline"
                 >
                   {t("原文")}
-                </a>
+                </button>
               )}
             </div>
           </div>
