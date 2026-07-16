@@ -27,6 +27,9 @@ pub struct ReaderService {
     client: reqwest::Client,
 }
 
+/// Pipeline version — bump to invalidate all cached rendered HTML.
+const PIPELINE_VERSION: i32 = 2;
+
 impl ReaderService {
     pub fn new(pool: DbPool) -> Self {
         let client = reqwest::Client::builder()
@@ -40,7 +43,7 @@ impl ReaderService {
     /// Process an entry through the full reader pipeline and store results.
     ///
     /// Three-tier logic:
-    /// 1. Cache hit (cleaned_html exists) → return immediately.
+    /// 1. Cache hit (cleaned_html exists + version matches) → return immediately.
     /// 2. raw_html exists in DB → run pipeline from cached raw HTML.
     /// 3. No raw_html → fetch article from URL, store, then run pipeline.
     pub fn process_entry(&self, entry_id: i64, url: &str) -> Result<Content, ReaderServiceError> {
@@ -48,9 +51,11 @@ impl ReaderService {
 
         tracing::debug!("process_entry: entry_id={}, url={}", entry_id, url);
 
-        // Tier 1: Return cached content if already processed
+        // Tier 1: Return cached content if already processed with current version
         if let Some(c) = repo.find_by_entry_id(entry_id)? {
-            if c.cleaned_html.as_ref().is_some_and(|h| !h.is_empty()) {
+            if c.cleaned_html.as_ref().is_some_and(|h| !h.is_empty())
+                && c.readability_version >= PIPELINE_VERSION
+            {
                 tracing::debug!("Content cache hit for entry_id={}", entry_id);
                 return Ok(c);
             }
@@ -84,7 +89,7 @@ impl ReaderService {
             &output.cleaned_html,
             &output.markdown,
             &output.rendered_html,
-            1,
+            PIPELINE_VERSION,
         )?;
 
         repo.find_by_entry_id(entry_id)?
