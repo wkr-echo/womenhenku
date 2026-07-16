@@ -46,12 +46,12 @@ impl ReaderService {
     pub fn process_entry(&self, entry_id: i64, url: &str) -> Result<Content, ReaderServiceError> {
         let repo = ContentRepository::new(self.pool.clone());
 
-        tracing::info!("process_entry: entry_id={}, url={}", entry_id, url);
+        tracing::debug!("process_entry: entry_id={}, url={}", entry_id, url);
 
         // Tier 1: Return cached content if already processed
         if let Some(c) = repo.find_by_entry_id(entry_id)? {
             if c.cleaned_html.as_ref().is_some_and(|h| !h.is_empty()) {
-                tracing::info!("Content cache hit for entry_id={}", entry_id);
+                tracing::debug!("Content cache hit for entry_id={}", entry_id);
                 return Ok(c);
             }
         }
@@ -59,7 +59,7 @@ impl ReaderService {
         // Tier 2 & 3: Get raw HTML (from DB cache or fetch from URL)
         let raw_html = match repo.find_by_entry_id(entry_id)? {
             Some(c) if !c.raw_html.is_empty() => {
-                tracing::info!("Using cached raw_html for entry_id={}", entry_id);
+                tracing::debug!("Using cached raw_html for entry_id={}", entry_id);
                 c.raw_html
             }
             _ => {
