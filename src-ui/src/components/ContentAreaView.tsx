@@ -1,25 +1,15 @@
 import { useApp } from "@/contexts/AppContext";
 import { t } from "@/lib/utils";
-import { isTauri } from "@/api/feed";
 import { EntryListView } from "./EntryListView";
 import { ReaderView } from "./ReaderView";
 import { SettingsPageView } from "./SettingsPageView";
 
 export function ContentAreaView() {
-  const { viewMode, entries, selectedEntry, selectedFeedId, markEntryRead } = useApp();
+  const { viewMode, entries, selectedEntry, selectedFeedId, markAllRead } = useApp();
 
-  const handleMarkAllRead = async () => {
+  const handleMarkAllRead = () => {
     if (!selectedFeedId) return;
-    const unread = entries.filter((e) => !e.isRead);
-    for (const e of unread) {
-      markEntryRead(e.id);
-    }
-    if (isTauri()) {
-      // Also tell the backend
-      import("@tauri-apps/api/core").then(({ invoke }) => {
-        invoke("mark_all_read", { feedId: selectedFeedId }).catch(() => {});
-      });
-    }
+    markAllRead(selectedFeedId);
   };
 
   if (viewMode === "settings") {

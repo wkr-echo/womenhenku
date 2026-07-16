@@ -47,7 +47,8 @@ type Action =
   | { type: "REMOVE_FEED"; id: number }
   | { type: "SELECT_FEED"; feedId: number }
   | { type: "SELECT_ENTRY"; entry: Entry | null }
-  | { type: "MARK_READ"; entryId: number; feedId: number };
+  | { type: "MARK_READ"; entryId: number; feedId: number }
+  | { type: "MARK_ALL_READ"; feedId: number };
 
 const initialState: State = {
   feeds: [],
@@ -113,6 +114,15 @@ function reducer(state: State, action: Action): State {
           : state.selectedEntry;
       return { ...state, feeds, entries, selectedEntry };
     }
+    case "MARK_ALL_READ": {
+      const feeds = state.feeds.map((f) =>
+        f.id === action.feedId ? { ...f, unreadCount: 0 } : f
+      );
+      const entries = state.entries.map((e) =>
+        e.feedId === action.feedId ? { ...e, isRead: true } : e
+      );
+      return { ...state, feeds, entries };
+    }
     default:
       return state;
   }
@@ -140,6 +150,7 @@ interface AppContextType {
   refreshAll: () => void;
   reloadFeeds: () => void;
   markEntryRead: (id: number) => void;
+  markAllRead: (feedId: number) => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -306,6 +317,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [state.entries, state.selectedEntry]);
 
+  const markAllRead = useCallback((feedId: number) => {
+    if (isTauri()) {
+      import("@tauri-apps/api/core").then(({ invoke }) => {
+        invoke("mark_all_read", { feedId }).catch(() => {});
+      });
+    }
+    dispatch({ type: "MARK_ALL_READ", feedId });
+  }, []);
+
   const setViewMode = useCallback((mode: ViewMode) => {
     dispatch({ type: "SET_VIEW_MODE", mode });
   }, []);
@@ -329,6 +349,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         refreshAll: refreshAllFn,
         reloadFeeds,
         markEntryRead,
+        markAllRead,
       }}
     >
       {children}

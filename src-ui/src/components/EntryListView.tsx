@@ -40,15 +40,26 @@ export function EntryListView() {
 
 function highlightText(text: string, query: string): React.ReactNode {
   if (!query) return text;
-  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  const lower = text.toLowerCase();
+  const q = query.toLowerCase();
+  const idx = lower.indexOf(q);
   if (idx === -1) return text;
+
+  // Show context: ~20 chars before and after the match
+  const ctxStart = Math.max(0, idx - 20);
+  const ctxEnd = Math.min(text.length, idx + q.length + 20);
+  const before = ctxStart > 0 ? "..." : "";
+  const after = ctxEnd < text.length ? "..." : "";
+
   return (
     <>
-      {text.slice(0, idx)}
+      {before}
+      {text.slice(ctxStart, idx)}
       <mark className="bg-yellow-300 dark:bg-yellow-600 text-inherit rounded px-0.5">
-        {text.slice(idx, idx + query.length)}
+        {text.slice(idx, idx + q.length)}
       </mark>
-      {text.slice(idx + query.length)}
+      {text.slice(idx + q.length, ctxEnd)}
+      {after}
     </>
   );
 }
