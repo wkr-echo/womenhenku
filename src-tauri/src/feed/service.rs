@@ -150,24 +150,20 @@ impl FeedService {
 
     /// Fetch a URL and parse the response body as a feed.
     fn fetch_and_parse(&self, url: &str) -> ServiceResult<ParsedFeed> {
-        let response = self
-            .client
-            .get(url)
-            .send();
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("Failed to create tokio runtime");
 
-        let bytes = if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            // Already inside a Tokio runtime (Tauri)
-            handle.block_on(async {
-                response.await?.error_for_status()?.bytes().await
-            })?
-        } else {
-            // Standalone mode: create new runtime
-            let rt = tokio::runtime::Runtime::new()
-                .expect("Failed to create tokio runtime");
-            rt.block_on(async {
-                response.await?.error_for_status()?.bytes().await
-            })?
-        };
+        let bytes = rt.block_on(async {
+            self.client
+                .get(url)
+                .send()
+                .await?
+                .error_for_status()?
+                .bytes()
+                .await
+        })?;
 
         let parsed = parser::parse_feed(&bytes, url)?;
         Ok(parsed)
