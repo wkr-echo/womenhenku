@@ -4,9 +4,9 @@ export interface Feed {
   title: string;
   description: string;
   link: string;
-  feed_type: string;
-  last_synced_at: string | null;
-  created_at: string;
+  feedType: string;
+  lastSyncedAt: string | null;
+  createdAt: string;
 }
 
 export interface FeedSummary {
@@ -17,17 +17,17 @@ export interface FeedSummary {
 
 export interface Entry {
   id: number;
-  feed_id: number;
+  feedId: number;
   guid: string;
   title: string;
   author: string;
   link: string;
   summary: string;
-  published_at: string | null;
-  updated_at: string | null;
-  is_read: boolean;
-  is_starred: boolean;
-  created_at: string;
+  publishedAt: string | null;
+  updatedAt: string | null;
+  isRead: boolean;
+  isStarred: boolean;
+  createdAt: string;
 }
 
 export interface EntryListItem {
@@ -48,14 +48,14 @@ export interface EntryPage {
 
 export interface Content {
   id: number;
-  entry_id: number;
-  raw_html: string;
-  cleaned_html: string;
-  cleaned_markdown: string;
-  rendered_html: string;
-  readability_version: number;
-  created_at: string;
-  updated_at: string | null;
+  entryId: number;
+  rawHtml: string;
+  cleanedHtml: string | null;
+  cleanedMarkdown: string | null;
+  renderedHtml: string | null;
+  readabilityVersion: number;
+  createdAt: string;
+  updatedAt: string | null;
 }
 
 export interface ImportResult {
@@ -68,38 +68,38 @@ export interface ImportResult {
 export interface Provider {
   id: number;
   name: string;
-  base_url: string;
-  api_key: string;
-  default_model: string;
-  thinking_model: string;
-  created_at: string;
+  baseUrl: string;
+  apiKey: string;
+  defaultModel: string;
+  thinkingModel: string;
+  createdAt: string;
 }
 
 export interface Summary {
   id: number;
-  entry_id: number;
+  entryId: number;
   content: string;
-  target_language: string;
-  detail_level: string;
+  targetLanguage: string;
+  detailLevel: string;
   status: string;
-  created_at: string;
+  createdAt: string;
 }
 
 export interface Translation {
   id: number;
-  entry_id: number;
-  segment_index: number;
-  source_text: string;
-  translated_text: string;
+  entryId: number;
+  segmentIndex: number;
+  sourceText: string;
+  translatedText: string;
   status: string;
 }
 
 export interface Note {
   id: number;
-  entry_id: number;
+  entryId: number;
   content: string;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type ViewMode = "list" | "reader" | "settings";

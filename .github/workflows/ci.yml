@@ -64,6 +64,13 @@ jobs:
       - name: Cargo test
         run: cd src-tauri && cargo test --lib
 
+      # ---- Clippy ----
+      - name: Cargo clippy
+        run: cd src-tauri && cargo clippy --lib -- -D warnings
+
       # ---- Lint ----
       - name: TypeScript type-check
         run: cd src-ui && npx tsc --noEmit
+
+      - name: ESLint
+        run: cd src-ui && npm run lint

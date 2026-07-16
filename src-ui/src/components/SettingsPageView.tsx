@@ -57,21 +57,21 @@ function ProviderSettings() {
   const [providers, setProviders] = useState<Provider[]>(mockProviders);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ name: "", base_url: "", api_key: "", default_model: "", thinking_model: "" });
+  const [form, setForm] = useState({ name: "", baseUrl: "", apiKey: "", defaultModel: "", thinkingModel: "" });
 
   const handleAdd = () => {
-    if (!form.name || !form.base_url) return;
+    if (!form.name || !form.baseUrl) return;
     const newProvider: Provider = {
       id: Date.now(),
       name: form.name,
-      base_url: form.base_url,
-      api_key: form.api_key,
-      default_model: form.default_model,
-      thinking_model: form.thinking_model,
-      created_at: new Date().toISOString(),
+      baseUrl: form.baseUrl,
+      apiKey: form.apiKey,
+      defaultModel: form.defaultModel,
+      thinkingModel: form.thinkingModel,
+      createdAt: new Date().toISOString(),
     };
     setProviders([...providers, newProvider]);
-    setForm({ name: "", base_url: "", api_key: "", default_model: "", thinking_model: "" });
+    setForm({ name: "", baseUrl: "", apiKey: "", defaultModel: "", thinkingModel: "" });
     setShowAdd(false);
   };
 
@@ -118,10 +118,10 @@ function ProviderSettings() {
                       {t("已连接")}
                     </span>
                   </div>
-                  <p className="text-xs text-[var(--text-tertiary)] mt-1">{p.base_url}</p>
+                  <p className="text-xs text-[var(--text-tertiary)] mt-1">{p.baseUrl}</p>
                   <div className="flex items-center gap-4 mt-2 text-xs text-[var(--text-tertiary)]">
-                    <span>{t("默认模型：")}{p.default_model}</span>
-                    <span>{t("思考模型：")}{p.thinking_model}</span>
+                    <span>{t("默认模型：")}{p.defaultModel}</span>
+                    <span>{t("思考模型：")}{p.thinkingModel}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
@@ -146,10 +146,10 @@ function ProviderSettings() {
           <h4 className="font-medium text-sm mb-3">{t("新建 Provider")}</h4>
           <div className="grid grid-cols-2 gap-3">
             <Input placeholder={t("名称（如 Ollama）")} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            <Input placeholder={t("Base URL（如 http://localhost:11434/v1）")} value={form.base_url} onChange={(e) => setForm({ ...form, base_url: e.target.value })} />
-            <Input placeholder={t("API Key（可选）")} type="password" value={form.api_key} onChange={(e) => setForm({ ...form, api_key: e.target.value })} />
-            <Input placeholder={t("默认模型")} value={form.default_model} onChange={(e) => setForm({ ...form, default_model: e.target.value })} />
-            <Input placeholder={t("思考模型")} value={form.thinking_model} onChange={(e) => setForm({ ...form, thinking_model: e.target.value })} />
+            <Input placeholder={t("Base URL（如 http://localhost:11434/v1）")} value={form.baseUrl} onChange={(e) => setForm({ ...form, baseUrl: e.target.value })} />
+            <Input placeholder={t("API Key（可选）")} type="password" value={form.apiKey} onChange={(e) => setForm({ ...form, apiKey: e.target.value })} />
+            <Input placeholder={t("默认模型")} value={form.defaultModel} onChange={(e) => setForm({ ...form, defaultModel: e.target.value })} />
+            <Input placeholder={t("思考模型")} value={form.thinkingModel} onChange={(e) => setForm({ ...form, thinkingModel: e.target.value })} />
           </div>
           <div className="flex justify-end gap-2 mt-3">
             <Button variant="ghost" size="sm" onClick={() => setShowAdd(false)}>{t("取消")}</Button>
@@ -175,10 +175,10 @@ function EditProviderForm({
     <div>
       <div className="grid grid-cols-2 gap-3">
         <Input placeholder={t("名称")} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        <Input placeholder="Base URL" value={form.base_url} onChange={(e) => setForm({ ...form, base_url: e.target.value })} />
-        <Input placeholder="API Key" type="password" value={form.api_key} onChange={(e) => setForm({ ...form, api_key: e.target.value })} />
-        <Input placeholder={t("默认模型")} value={form.default_model} onChange={(e) => setForm({ ...form, default_model: e.target.value })} />
-        <Input placeholder={t("思考模型")} value={form.thinking_model} onChange={(e) => setForm({ ...form, thinking_model: e.target.value })} />
+        <Input placeholder="Base URL" value={form.baseUrl} onChange={(e) => setForm({ ...form, baseUrl: e.target.value })} />
+        <Input placeholder="API Key" type="password" value={form.apiKey} onChange={(e) => setForm({ ...form, apiKey: e.target.value })} />
+        <Input placeholder={t("默认模型")} value={form.defaultModel} onChange={(e) => setForm({ ...form, defaultModel: e.target.value })} />
+        <Input placeholder={t("思考模型")} value={form.thinkingModel} onChange={(e) => setForm({ ...form, thinkingModel: e.target.value })} />
       </div>
       <div className="flex justify-end gap-2 mt-3">
         <Button variant="ghost" size="sm" onClick={onCancel}>{t("取消")}</Button>

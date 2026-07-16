@@ -136,7 +136,7 @@ export function ReaderView() {
             </h1>
             <div className="flex items-center gap-3 mt-1 text-xs text-[var(--text-tertiary)]">
               {selectedEntry.author && <span>{selectedEntry.author}</span>}
-              <span>{formatDate(selectedEntry.published_at)}</span>
+              <span>{formatDate(selectedEntry.publishedAt)}</span>
               {selectedEntry.link && (
                 <a
                   href={selectedEntry.link}
@@ -204,10 +204,10 @@ export function ReaderView() {
           <div className="max-w-3xl mx-auto px-6 py-6">
             {contentLoading ? (
               <p className="text-sm text-[var(--text-tertiary)]">{t("加载中...")}</p>
-            ) : content?.rendered_html || content?.cleaned_html || content?.raw_html ? (
+            ) : content?.renderedHtml || content?.cleanedHtml || content?.rawHtml ? (
               <div
                 className="reader-content"
-                dangerouslySetInnerHTML={{ __html: (content.rendered_html || content.cleaned_html || content.raw_html)! }}
+                dangerouslySetInnerHTML={{ __html: (content.renderedHtml || content.cleanedHtml || content.rawHtml)! }}
               />
             ) : (
               <div className="text-sm text-[var(--text-secondary)] leading-relaxed whitespace-pre-wrap">

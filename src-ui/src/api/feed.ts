@@ -90,7 +90,7 @@ export async function searchEntries(
 
 // ============ Provider API ============
 
-export async function addProvider(provider: Omit<Provider, "id" | "created_at">): Promise<Provider> {
+export async function addProvider(provider: Omit<Provider, "id" | "createdAt">): Promise<Provider> {
   return invoke<Provider>("add_provider", { provider });
 }
 

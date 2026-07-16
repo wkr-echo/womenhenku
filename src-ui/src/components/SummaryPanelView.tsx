@@ -74,8 +74,8 @@ export function SummaryPanelView({ entryId: _entryId }: SummaryPanelProps) {
 
       {summary && !isGenerating && (
         <div className="mt-3 flex items-center gap-4 text-xs text-[var(--text-tertiary)]">
-          <span>{t("语言：")}{summary.target_language}</span>
-          <span>{t("详细程度：")}{summary.detail_level}</span>
+          <span>{t("语言：")}{summary.targetLanguage}</span>
+          <span>{t("详细程度：")}{summary.detailLevel}</span>
         </div>
       )}
     </div>

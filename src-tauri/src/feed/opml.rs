@@ -38,6 +38,7 @@ pub struct OpmlOutline {
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ImportResult {
     pub xml_url: String,
     pub title: String,

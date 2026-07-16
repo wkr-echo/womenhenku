@@ -50,6 +50,7 @@ pub fn run() {
             add_feed,
             remove_feed,
             refresh_feed,
+            refresh_all_feeds,
             // Entry queries
             list_entries,
             list_all_entries,
@@ -118,6 +119,12 @@ fn remove_feed(state: State<'_, DbPool>, id: i64) -> Result<(), String> {
 #[tauri::command]
 fn refresh_feed(state: State<'_, DbPool>, id: i64) -> Result<usize, String> {
     commands::refresh_feed(&state, id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn refresh_all_feeds(state: State<'_, DbPool>) -> Result<(), String> {
+    commands::refresh_all_feeds(&state)
 }
 
 // -- Entry queries --
