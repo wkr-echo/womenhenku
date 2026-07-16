@@ -246,8 +246,8 @@ pub fn render(markdown: &str) -> String {
     .reader-theme h1, .reader-theme h2, .reader-theme h3 {{ margin-top: 1.5em; margin-bottom: 0.5em; }}
     .reader-theme p {{ margin-bottom: 1em; }}
     .reader-theme a {{ color: var(--mercury-link-color); }}
-    .reader-theme pre {{ background: var(--mercury-code-bg); padding: 1em; border-radius: 6px; overflow-x: auto; }}
-    .reader-theme code {{ background: var(--mercury-code-bg); padding: 0.2em 0.4em; border-radius: 3px; font-size: 0.9em; }}
+    .reader-theme pre {{ background: var(--mercury-code-bg); padding: 1em; border-radius: 6px; overflow-x: auto; font-family: var(--reader-code-font, monospace); }}
+    .reader-theme code {{ background: var(--mercury-code-bg); padding: 0.2em 0.4em; border-radius: 3px; font-size: 0.9em; font-family: var(--reader-code-font, monospace); }}
     .reader-theme blockquote {{ border-left: 3px solid var(--mercury-blockquote-border); padding-left: 1em; margin-left: 0; color: var(--mercury-text-secondary); }}
     .reader-theme table {{ border-collapse: collapse; width: 100%; margin-bottom: 1em; }}
     .reader-theme th, .reader-theme td {{ border: 1px solid var(--mercury-border-color); padding: 0.5em 0.75em; text-align: left; }}

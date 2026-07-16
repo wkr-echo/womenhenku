@@ -268,7 +268,7 @@ function AgentSettings() {
 }
 
 function AppearanceSettings({ theme, onToggleTheme }: { theme: string; onToggleTheme: () => void }) {
-  const { fontFamily, setFontFamily } = useTheme();
+  const { fontFamily, setFontFamily, codeFontFamily, setCodeFontFamily } = useTheme();
   const [systemFonts, setSystemFonts] = useState<string[]>([
     "system-ui", "sans-serif", "serif", "monospace",
     "Inter", "JetBrains Mono", "Fira Code",
@@ -332,8 +332,8 @@ function AppearanceSettings({ theme, onToggleTheme }: { theme: string; onToggleT
               { label: "Consolas", value: "Consolas", fontFamily: "Consolas" },
               { label: "monospace", value: "monospace", fontFamily: "monospace" },
             ]}
-            value={fontFamily}
-            onChange={(v) => setFontFamily(v)}
+            value={codeFontFamily}
+            onChange={(v) => setCodeFontFamily(v)}
           />
         </div>
       </div>

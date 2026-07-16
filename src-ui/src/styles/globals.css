@@ -107,12 +107,14 @@
 }
 
 .reader-content pre {
+  font-family: var(--reader-code-font, "JetBrains Mono", monospace);
   background: var(--code-bg);
   @apply rounded-lg p-4 my-4 overflow-x-auto text-sm;
 }
 .reader-content code {
+  font-family: var(--reader-code-font, "JetBrains Mono", monospace);
   background: var(--code-bg);
-  @apply rounded px-1.5 py-0.5 text-sm font-mono;
+  @apply rounded px-1.5 py-0.5 text-sm;
 }
 .reader-content pre code {
   background: transparent;

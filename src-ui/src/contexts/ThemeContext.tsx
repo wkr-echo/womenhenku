@@ -4,17 +4,21 @@ import type { Theme } from "@/lib/types";
 interface ThemeContextType {
   theme: Theme;
   fontFamily: string;
+  codeFontFamily: string;
   toggleTheme: () => void;
   setTheme: (theme: Theme) => void;
   setFontFamily: (font: string) => void;
+  setCodeFontFamily: (font: string) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType>({
   theme: "light",
   fontFamily: "system-ui",
+  codeFontFamily: "JetBrains Mono",
   toggleTheme: () => {},
   setTheme: () => {},
   setFontFamily: () => {},
+  setCodeFontFamily: () => {},
 });
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -25,6 +29,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const [fontFamily, setFontFamilyState] = useState<string>(() => {
     return localStorage.getItem("fontFamily") || "system-ui";
+  });
+
+  const [codeFontFamily, setCodeFontFamilyState] = useState<string>(() => {
+    return localStorage.getItem("codeFontFamily") || "JetBrains Mono";
   });
 
   useEffect(() => {
@@ -38,6 +46,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("fontFamily", fontFamily);
   }, [fontFamily]);
 
+  useEffect(() => {
+    document.documentElement.style.setProperty("--reader-code-font", codeFontFamily);
+    localStorage.setItem("codeFontFamily", codeFontFamily);
+  }, [codeFontFamily]);
+
   const toggleTheme = () => {
     setThemeState((prev) => (prev === "light" ? "dark" : "light"));
   };
@@ -50,8 +63,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setFontFamilyState(font);
   };
 
+  const setCodeFontFamily = (font: string) => {
+    setCodeFontFamilyState(font);
+  };
+
   return (
-    <ThemeContext.Provider value={{ theme, fontFamily, toggleTheme, setTheme, setFontFamily }}>
+    <ThemeContext.Provider value={{ theme, fontFamily, codeFontFamily, toggleTheme, setTheme, setFontFamily, setCodeFontFamily }}>
       {children}
     </ThemeContext.Provider>
   );
