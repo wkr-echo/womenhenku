@@ -136,13 +136,9 @@ jobs:
       - name: Tauri build
         run: cargo tauri build
         env:
-          # Skip macOS code signing (CI builds are unsigned)
-          APPLE_CERTIFICATE: ""
-          APPLE_CERTIFICATE_PASSWORD: ""
+          # Use ad-hoc signing on macOS (no certificate needed)
+          CI: "true"
           APPLE_SIGNING_IDENTITY: "-"
-          APPLE_ID: ""
-          APPLE_PASSWORD: ""
-          APPLE_TEAM_ID: ""
 
       # ---- Upload artifacts ----
       - name: Upload Linux artifacts
