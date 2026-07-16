@@ -313,7 +313,7 @@ function AppearanceSettings({ theme, onToggleTheme }: { theme: string; onToggleT
         <div>
           <label className="block text-sm font-medium mb-2">{t("阅读字体")}</label>
           <Dropdown
-            items={systemFonts.map(f => ({ label: f, value: f }))}
+            items={systemFonts.map(f => ({ label: f, value: f, fontFamily: f }))}
             value={fontFamily}
             onChange={(v) => setFontFamily(v)}
           />

@@ -5,6 +5,7 @@ interface DropdownItem {
   label: string;
   value: string;
   icon?: React.ReactNode;
+  fontFamily?: string;
 }
 
 interface DropdownProps {
@@ -36,6 +37,7 @@ export function Dropdown({ items, value, onChange, placeholder = t("请选择"),
       <button
         onClick={() => setOpen(!open)}
         className="w-full h-9 rounded-lg border border-[var(--border-color)] bg-[var(--bg-secondary)] px-3 text-sm text-left flex items-center justify-between hover:border-[var(--text-tertiary)] transition-colors"
+        style={selected?.fontFamily ? { fontFamily: selected.fontFamily } : undefined}
       >
         <span className={selected ? "text-[var(--text-primary)]" : "text-[var(--text-tertiary)]"}>
           {selected?.label ?? placeholder}
@@ -60,6 +62,7 @@ export function Dropdown({ items, value, onChange, placeholder = t("请选择"),
                 "w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-[var(--bg-tertiary)] transition-colors",
                 item.value === value && "bg-[var(--bg-tertiary)] text-[var(--accent-color)]"
               )}
+              style={item.fontFamily ? { fontFamily: item.fontFamily } : undefined}
             >
               {item.icon}
               {item.label}
