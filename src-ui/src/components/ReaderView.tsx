@@ -71,6 +71,7 @@ export function ReaderView() {
 
   const [content, setContent] = useState<Content | null>(null);
   const [contentLoading, setContentLoading] = useState(false);
+  const [contentError, setContentError] = useState<string | null>(null);
 
   // Load real content from backend when entry changes.
   // If content hasn't been processed yet, run the reader pipeline first.
@@ -78,6 +79,7 @@ export function ReaderView() {
     if (!selectedEntry) return;
     let cancelled = false;
     setContentLoading(true);
+    setContentError(null);
 
     async function load() {
       if (!isTauri()) {
@@ -96,9 +98,12 @@ export function ReaderView() {
           await processEntryContent(selectedEntry!.id, url);
           const c = await getEntryContentReal(selectedEntry!.id);
           if (!cancelled) setContent(c);
-        } catch {
-          // Pipeline failed, fall back to summary-only view
-          if (!cancelled) setContent(null);
+        } catch (e: any) {
+          // Pipeline failed — show error detail for debugging
+          if (!cancelled) {
+            setContent(null);
+            setContentError(String(e));
+          }
         }
       } finally {
         if (!cancelled) setContentLoading(false);
@@ -211,7 +216,14 @@ export function ReaderView() {
               />
             ) : (
               <div className="text-sm text-[var(--text-secondary)] leading-relaxed whitespace-pre-wrap">
-                {selectedEntry.summary || t("暂无内容")}
+                {contentError ? (
+                  <div className="text-[var(--text-tertiary)]">
+                    <p className="text-red-500 mb-2">加载失败: {contentError}</p>
+                    <p>{selectedEntry.summary || t("暂无内容")}</p>
+                  </div>
+                ) : (
+                  selectedEntry.summary || t("暂无内容")
+                )}
               </div>
             )}
           </div>
