@@ -101,9 +101,11 @@ export function ReaderView() {
         return;
       }
 
-      // Helper: check if Content has usable rendered output
+      // Helper: check if Content has usable rendered output with current pipeline version
+      const PIPELINE_VERSION = 2;
       const hasContent = (c: Content) =>
-        !!c.renderedHtml || !!c.cleanedHtml || !!c.rawHtml;
+        (!!c.renderedHtml || !!c.cleanedHtml || !!c.rawHtml)
+        && c.readabilityVersion >= PIPELINE_VERSION;
 
       try {
         // Try to get existing cached content
