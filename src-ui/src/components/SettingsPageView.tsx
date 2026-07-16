@@ -331,28 +331,40 @@ function AppearanceSettings({ theme, onToggleTheme }: { theme: string; onToggleT
 function SyncSettings() {
   const handleOpmlExport = async () => {
     try {
-      const home = (window as any).__TAURI__
-        ? await import("@tauri-apps/api/path").then(m => m.homeDir())
-        : "";
-      const path = `${home}subscriptions.opml`;
-      await exportOpml(path);
-      toast(t("已导出到 ") + path, "success");
-    } catch {
-      toast(t("导出失败"), "error");
+      if (!isTauri()) { toast(t("仅在桌面应用中可用"), "error"); return; }
+      const { save } = await import("@tauri-apps/plugin-dialog");
+      const { homeDir } = await import("@tauri-apps/api/path");
+      const home = await homeDir();
+      const filePath = await save({
+        defaultPath: `${home}subscriptions.opml`,
+        filters: [{ name: "OPML", extensions: ["opml"] }],
+      });
+      if (!filePath) return; // user cancelled
+      await exportOpml(filePath);
+      toast(t("已导出到 ") + filePath, "success");
+    } catch (e: any) {
+      toast(t("导出失败: ") + String(e), "error");
     }
   };
 
   const handleOpmlImport = async () => {
     try {
-      const home = (window as any).__TAURI__
-        ? await import("@tauri-apps/api/path").then(m => m.homeDir())
-        : "";
-      const path = `${home}subscriptions.opml`;
-      const results = await importOpml(path);
-      const ok = results.filter((r: any) => r.success).length;
-      toast(t(`导入完成: ${ok}/${results.length} 个订阅源`), ok > 0 ? "success" : "error");
-    } catch {
-      toast(t("导入失败"), "error");
+      if (!isTauri()) { toast(t("仅在桌面应用中可用"), "error"); return; }
+      const { open } = await import("@tauri-apps/plugin-dialog");
+      const filePath = await open({
+        multiple: false,
+        filters: [{ name: "OPML", extensions: ["opml", "xml"] }],
+      });
+      if (!filePath) return; // user cancelled
+      const results = await importOpml(filePath as string);
+      const ok = results.filter((r) => r.success).length;
+      const fail = results.length - ok;
+      const msg = fail > 0
+        ? t(`导入完成: ${ok} 成功, ${fail} 失败`)
+        : t(`导入完成: ${ok}/${results.length} 个订阅源`);
+      toast(msg, ok > 0 ? "success" : "error");
+    } catch (e: any) {
+      toast(t("导入失败: ") + String(e), "error");
     }
   };
 

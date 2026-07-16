@@ -34,6 +34,7 @@ pub fn run() {
 pub fn run() {
     tracing_subscriber::fmt::init();
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let db_path = db::default_db_path();
             let pool = db::initialize_database(&db_path)
