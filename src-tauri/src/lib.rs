@@ -32,6 +32,7 @@ pub fn run() {
 
 #[cfg(feature = "tauri-runtime")]
 pub fn run() {
+    tracing_subscriber::fmt::init();
     tauri::Builder::default()
         .setup(|app| {
             let db_path = db::default_db_path();
