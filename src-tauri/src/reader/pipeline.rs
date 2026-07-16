@@ -243,7 +243,7 @@ pub fn render(markdown: &str) -> String {
   padding: 2rem 1rem;
 ">
   <style>
-    .reader-theme h1, .reader-theme h2, .reader-theme h3 {{ margin-top: 1.5em; margin-bottom: 0.5em; }}
+    .reader-theme h1, .reader-theme h2, .reader-theme h3, .reader-theme h4, .reader-theme h5, .reader-theme h6 {{ font-family: inherit; margin-top: 1.5em; margin-bottom: 0.5em; }}
     .reader-theme p {{ margin-bottom: 1em; }}
     .reader-theme a {{ color: var(--mercury-link-color); }}
     .reader-theme pre {{ background: var(--mercury-code-bg); padding: 1em; border-radius: 6px; overflow-x: auto; font-family: var(--reader-code-font, monospace); }}

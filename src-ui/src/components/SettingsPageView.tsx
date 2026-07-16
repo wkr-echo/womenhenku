@@ -270,9 +270,12 @@ function AgentSettings() {
 function AppearanceSettings({ theme, onToggleTheme }: { theme: string; onToggleTheme: () => void }) {
   const { fontFamily, setFontFamily, codeFontFamily, setCodeFontFamily } = useTheme();
   const [systemFonts, setSystemFonts] = useState<string[]>([
-    "system-ui", "sans-serif", "serif", "monospace",
-    "Inter", "JetBrains Mono", "Fira Code",
-    "Noto Sans SC", "Source Han Sans SC", "LXGW WenKai",
+    "system-ui, sans-serif",
+    "Georgia, Noto Serif SC, serif",
+    "Inter, Noto Sans SC, sans-serif",
+    "Source Han Sans SC, sans-serif",
+    "LXGW WenKai, serif",
+    "Noto Serif SC, serif",
   ]);
 
   useEffect(() => {
@@ -313,7 +316,10 @@ function AppearanceSettings({ theme, onToggleTheme }: { theme: string; onToggleT
         <div>
           <label className="block text-sm font-medium mb-2">{t("阅读字体")}</label>
           <Dropdown
-            items={systemFonts.map(f => ({ label: f, value: f, fontFamily: f }))}
+            items={systemFonts.map(f => {
+              const primaryName = f.split(",")[0].trim();
+              return { label: primaryName, value: f, fontFamily: f };
+            })}
             value={fontFamily}
             onChange={(v) => setFontFamily(v)}
           />

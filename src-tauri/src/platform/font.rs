@@ -1,59 +1,48 @@
-/// Returns a curated list of common system fonts for the current platform.
-/// Falls back to a default cross-platform font list if detection fails.
+/// Returns a curated list of font-family stacks for reading.
+/// Each entry includes fallback fonts so Chinese text renders correctly.
 pub fn list_fonts() -> Vec<String> {
     let mut fonts = vec![
-        // Always-available generic families
-        "system-ui".to_string(),
-        "sans-serif".to_string(),
-        "serif".to_string(),
-        "monospace".to_string(),
+        // System default
+        "system-ui, sans-serif".to_string(),
+        // Serif
+        "Georgia, Noto Serif SC, serif".to_string(),
     ];
 
     #[cfg(target_os = "windows")]
     {
         fonts.extend(vec![
-            "Segoe UI".into(),
-            "Microsoft YaHei".into(),
-            "SimSun".into(),
-            "KaiTi".into(),
-            "Consolas".into(),
-            "Courier New".into(),
+            "Microsoft YaHei, sans-serif".into(),
+            "Segoe UI, Microsoft YaHei, sans-serif".into(),
+            "SimSun, serif".into(),
+            "KaiTi, serif".into(),
         ]);
     }
 
     #[cfg(target_os = "macos")]
     {
         fonts.extend(vec![
-            "SF Pro".into(),
-            "Helvetica Neue".into(),
-            "PingFang SC".into(),
-            "Hiragino Sans GB".into(),
-            "Menlo".into(),
-            "Monaco".into(),
+            "PingFang SC, sans-serif".into(),
+            "Hiragino Sans GB, sans-serif".into(),
+            "SF Pro, PingFang SC, sans-serif".into(),
         ]);
     }
 
     #[cfg(target_os = "linux")]
     {
         fonts.extend(vec![
-            "Noto Sans".into(),
-            "Noto Sans SC".into(),
-            "DejaVu Sans".into(),
-            "DejaVu Serif".into(),
-            "WenQuanYi Micro Hei".into(),
-            "Ubuntu".into(),
+            "Noto Sans SC, sans-serif".into(),
+            "Noto Serif SC, serif".into(),
+            "WenQuanYi Micro Hei, sans-serif".into(),
+            "WenQuanYi Zen Hei, sans-serif".into(),
         ]);
     }
 
-    // Cross-platform developer/reading fonts
+    // Cross-platform: popular reading fonts with Chinese fallback
     fonts.extend(vec![
-        "Inter".into(),
-        "JetBrains Mono".into(),
-        "Fira Code".into(),
-        "Cascadia Code".into(),
-        "Source Han Sans SC".into(),
-        "LXGW WenKai".into(),
-        "Noto Serif SC".into(),
+        "Inter, Noto Sans SC, sans-serif".into(),
+        "Source Han Sans SC, sans-serif".into(),
+        "LXGW WenKai, serif".into(),
+        "Noto Serif SC, serif".into(),
     ]);
 
     fonts
