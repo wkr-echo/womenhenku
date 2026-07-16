@@ -58,6 +58,13 @@ export interface Content {
   updated_at: string | null;
 }
 
+export interface ImportResult {
+  xmlUrl: string;
+  title: string;
+  success: boolean;
+  message: string;
+}
+
 export interface Provider {
   id: number;
   name: string;

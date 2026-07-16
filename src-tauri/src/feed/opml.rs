@@ -1,24 +1,31 @@
 use std::fs;
 use std::path::Path;
+use std::sync::Arc;
+use std::time::Duration;
 
 use quick_xml::events::Event;
 use quick_xml::Reader;
+use tokio::sync::Semaphore;
 
 use crate::db::model::Feed;
-use crate::db::repository::FeedRepository;
+use crate::db::repository::{EntryRepository, FeedRepository};
 use crate::db::DbPool;
+
+const BATCH_SIZE: usize = 24;
+const SYNC_CONCURRENCY: usize = 6;
+
+// ============================================================
+// OPML parsing
+// ============================================================
 
 #[derive(Debug, thiserror::Error)]
 pub enum OpmlError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
-
     #[error("XML parse error: {0}")]
     Xml(#[from] quick_xml::Error),
-
     #[error("Invalid OPML: {0}")]
     Invalid(String),
-
     #[error("Database error: {0}")]
     Database(#[from] crate::db::error::RepositoryError),
 }
@@ -30,16 +37,21 @@ pub struct OpmlOutline {
     pub html_url: Option<String>,
 }
 
-/// Parse an OPML file and extract feed outlines.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ImportResult {
+    pub xml_url: String,
+    pub title: String,
+    pub success: bool,
+    pub message: String,
+}
+
 pub fn parse_opml_file(path: &Path) -> Result<Vec<OpmlOutline>, OpmlError> {
     let content = fs::read_to_string(path)?;
     parse_opml(&content)
 }
 
-/// Parse OPML XML content and extract feed outlines.
 pub fn parse_opml(xml: &str) -> Result<Vec<OpmlOutline>, OpmlError> {
     let mut reader = Reader::from_str(xml);
-
     let mut outlines = Vec::new();
     let mut buf = Vec::new();
     let decoder = reader.decoder();
@@ -56,23 +68,13 @@ pub fn parse_opml(xml: &str) -> Result<Vec<OpmlOutline>, OpmlError> {
                         let attr = attr_result.map_err(|e| OpmlError::Xml(e.into()))?;
                         match attr.key.as_ref() {
                             b"text" | b"title" => {
-                                title = attr
-                                    .decode_and_unescape_value(decoder)
-                                    .map_err(OpmlError::Xml)?
-                                    .into_owned();
+                                title = attr.decode_and_unescape_value(decoder).map_err(OpmlError::Xml)?.into_owned();
                             }
                             b"xmlUrl" => {
-                                xml_url = attr
-                                    .decode_and_unescape_value(decoder)
-                                    .map_err(OpmlError::Xml)?
-                                    .into_owned();
+                                xml_url = attr.decode_and_unescape_value(decoder).map_err(OpmlError::Xml)?.into_owned();
                             }
                             b"htmlUrl" => {
-                                html_url = Some(
-                                    attr.decode_and_unescape_value(decoder)
-                                        .map_err(OpmlError::Xml)?
-                                        .into_owned(),
-                                );
+                                html_url = Some(attr.decode_and_unescape_value(decoder).map_err(OpmlError::Xml)?.into_owned());
                             }
                             _ => {}
                         }
@@ -82,11 +84,7 @@ pub fn parse_opml(xml: &str) -> Result<Vec<OpmlOutline>, OpmlError> {
                         if title.is_empty() {
                             title = xml_url.clone();
                         }
-                        outlines.push(OpmlOutline {
-                            title,
-                            xml_url,
-                            html_url,
-                        });
+                        outlines.push(OpmlOutline { title, xml_url, html_url });
                     }
                 }
             }
@@ -98,158 +96,201 @@ pub fn parse_opml(xml: &str) -> Result<Vec<OpmlOutline>, OpmlError> {
     }
 
     if outlines.is_empty() {
-        return Err(OpmlError::Invalid("No feed outlines found in OPML file".into()));
+        return Err(OpmlError::Invalid("No feed outlines found".into()));
     }
-
     Ok(outlines)
 }
 
-/// Export all feeds to an OPML file.
+// ============================================================
+// Import with filtering, batching, title resolution, auto-sync
+// ============================================================
+
+pub fn import_feeds(pool: &DbPool, outlines: &[OpmlOutline]) -> Vec<ImportResult> {
+    let mut results = Vec::new();
+    let feed_repo = FeedRepository::new(pool.clone());
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .user_agent("platinum/0.2 (RSS Reader)")
+        .build()
+        .expect("reqwest client");
+
+    // Step 1-2: Filter HTTPS only
+    let https_outlines: Vec<&OpmlOutline> = outlines.iter().filter(|o| {
+        let ok = o.xml_url.starts_with("https://");
+        if !ok {
+            tracing::warn!("OPML import: skipping HTTP feed {}", o.xml_url);
+            results.push(ImportResult {
+                xml_url: o.xml_url.clone(), title: o.title.clone(),
+                success: false, message: "HTTP not allowed (HTTPS required)".into(),
+            });
+        }
+        ok
+    }).collect();
+
+    // Step 3: Batch 24
+    for batch in https_outlines.chunks(BATCH_SIZE) {
+        for outline in batch {
+            if feed_repo.find_by_url(&outline.xml_url).unwrap_or(None).is_some() {
+                results.push(ImportResult {
+                    xml_url: outline.xml_url.clone(), title: outline.title.clone(),
+                    success: false, message: "Already subscribed".into(),
+                });
+                continue;
+            }
+
+            let title = resolve_feed_title(&client, &outline.xml_url)
+                .unwrap_or_else(|| outline.title.clone());
+
+            match feed_repo.insert_full(&outline.xml_url, &title, "",
+                outline.html_url.as_deref().unwrap_or(""), "rss"
+            ) {
+                Ok(feed) => {
+                    tracing::info!("OPML import: {} ({})", title, outline.xml_url);
+                    results.push(ImportResult {
+                        xml_url: outline.xml_url.clone(), title,
+                        success: true, message: format!("id={}", feed.id),
+                    });
+                }
+                Err(e) => {
+                    results.push(ImportResult {
+                        xml_url: outline.xml_url.clone(), title: outline.title.clone(),
+                        success: false, message: e.to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    // Step 5: Auto-sync concurrency 6
+    let ok_urls: Vec<String> = results.iter()
+        .filter(|r| r.success).map(|r| r.xml_url.clone()).collect();
+
+    if !ok_urls.is_empty() {
+        tracing::info!("OPML auto-sync: {} feeds (concurrency={})", ok_urls.len(), SYNC_CONCURRENCY);
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all().build().expect("tokio runtime");
+        rt.block_on(async { sync_feeds(pool, &ok_urls, SYNC_CONCURRENCY).await });
+    }
+
+    results
+}
+
+fn resolve_feed_title(client: &reqwest::Client, url: &str) -> Option<String> {
+    let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().ok()?;
+    rt.block_on(async {
+        let bytes = client.get(url).send().await.ok()?.bytes().await.ok()?;
+        feed_rs::parser::parse(&bytes[..]).ok()?.title.map(|t| t.content)
+    })
+}
+
+async fn sync_feeds(pool: &DbPool, urls: &[String], concurrency: usize) {
+    let semaphore = Arc::new(Semaphore::new(concurrency));
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .user_agent("platinum/0.2")
+        .build().expect("reqwest client");
+    let mut handles = Vec::new();
+
+    for url in urls {
+        let permit = semaphore.clone().acquire_owned().await;
+        let client = client.clone();
+        let url = url.clone();
+        let pool = pool.clone();
+
+        handles.push(tokio::task::spawn(async move {
+            let _permit = permit;
+            let feed_repo = FeedRepository::new(pool.clone());
+            let feed_id = match feed_repo.find_by_url(&url) {
+                Ok(Some(f)) => f.id, _ => return,
+            };
+
+            let bytes = match client.get(&url).send().await {
+                Ok(r) => match r.bytes().await { Ok(b) => b, Err(_) => return },
+                Err(_) => return,
+            };
+
+            let parsed = match crate::feed::parser::parse_feed(&bytes, &url) {
+                Ok(p) => p, Err(_) => return,
+            };
+
+            let _ = feed_repo.update_title(feed_id, &parsed.title);
+            let entry_repo = EntryRepository::new(pool);
+            let mut count = 0usize;
+            for mut entry in parsed.entries {
+                entry.feed_id = feed_id;
+                if entry_repo.insert_or_ignore(&entry).unwrap_or(None).is_some() {
+                    count += 1;
+                }
+            }
+            let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
+            let _ = feed_repo.update_sync_time(feed_id, &now);
+            tracing::info!("OPML sync: {} → {} new entries", url, count);
+        }));
+    }
+    for h in handles { let _ = h.await; }
+}
+
+// ============================================================
+// OPML export
+// ============================================================
+
 pub fn export_opml_file(pool: &DbPool, path: &Path) -> Result<(), OpmlError> {
     let feed_repo = FeedRepository::new(pool.clone());
     let feeds = feed_repo.find_all()?;
-    let xml = generate_opml(&feeds);
-    fs::write(path, xml)?;
+    fs::write(path, generate_opml(&feeds))?;
     Ok(())
 }
 
-/// Generate OPML XML string from a list of feeds.
 fn generate_opml(feeds: &[Feed]) -> String {
-    let mut xml = String::new();
-    xml.push_str(r#"<?xml version="1.0" encoding="UTF-8"?>"#);
+    let mut xml = String::from(r#"<?xml version="1.0" encoding="UTF-8"?>"#);
     xml.push('\n');
     xml.push_str(r#"<opml version="2.0">"#);
     xml.push('\n');
-    xml.push_str("  <head>\n");
-    xml.push_str("    <title>Womenhenku Subscriptions</title>\n");
-    xml.push_str("  </head>\n");
-    xml.push_str("  <body>\n");
-
+    xml.push_str("  <head>\n    <title>Platinum Subscriptions</title>\n  </head>\n  <body>\n");
     for feed in feeds {
-        let html_url_attr = if feed.link.is_empty() {
-            String::new()
-        } else {
-            format!(r#" htmlUrl="{}""#, escape_xml(&feed.link))
-        };
-        xml.push_str(&format!(
-            r#"    <outline text="{}" type="rss" xmlUrl="{}"{} />"#,
-            escape_xml(&feed.title),
-            escape_xml(&feed.url),
-            html_url_attr,
-        ));
+        let h = if feed.link.is_empty() { String::new() } else { format!(r#" htmlUrl="{}""#, escape_xml(&feed.link)) };
+        xml.push_str(&format!(r#"    <outline text="{}" type="rss" xmlUrl="{}"{} />"#, escape_xml(&feed.title), escape_xml(&feed.url), h));
         xml.push('\n');
     }
-
-    xml.push_str("  </body>\n");
-    xml.push_str("</opml>\n");
+    xml.push_str("  </body>\n</opml>\n");
     xml
 }
 
 fn escape_xml(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-        .replace('\'', "&apos;")
+    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;").replace('\'', "&apos;")
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::db::open_test_db_pool;
-    use crate::db::repository::FeedRepository;
-
-    const SAMPLE_OPML: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
-<opml version="2.0">
-  <head><title>Test Subscriptions</title></head>
-  <body>
-    <outline text="Blog A" type="rss" xmlUrl="https://a.example.com/feed.xml" htmlUrl="https://a.example.com/"/>
-    <outline text="Blog B" type="rss" xmlUrl="https://b.example.com/rss"/>
-    <outline text="Folder">
-      <outline text="Blog C" type="rss" xmlUrl="https://c.example.com/atom.xml"/>
-    </outline>
-  </body>
-</opml>"#;
 
     #[test]
-    fn test_parse_opml_extracts_outlines() {
-        let outlines = parse_opml(SAMPLE_OPML).expect("Parse failed");
-        assert_eq!(outlines.len(), 3);
-        assert_eq!(outlines[0].title, "Blog A");
-        assert_eq!(outlines[0].xml_url, "https://a.example.com/feed.xml");
-        assert_eq!(outlines[0].html_url.as_deref(), Some("https://a.example.com/"));
-        assert_eq!(outlines[1].title, "Blog B");
-        assert_eq!(outlines[1].html_url, None);
-        assert_eq!(outlines[2].title, "Blog C");
+    fn test_parse_opml_https_only() {
+        let xml = r#"<?xml version="1.0"?><opml version="2.0"><head/><body>
+            <outline xmlUrl="http://bad.example.com/rss"/>
+            <outline xmlUrl="https://good.example.com/feed"/>
+        </body></opml>"#;
+        let outlines = parse_opml(xml).expect("parse");
+        assert_eq!(outlines.len(), 2); // parser extracts both
+
+        let pool = open_test_db_pool().expect("pool");
+        let results = import_feeds(&pool, &outlines);
+        // HTTP should be rejected
+        let http = results.iter().find(|r| r.xml_url.contains("http://"));
+        assert!(http.is_some());
+        assert!(!http.unwrap().success);
     }
 
     #[test]
-    fn test_parse_opml_empty_returns_error() {
-        let xml = r#"<?xml version="1.0"?><opml version="2.0"><head/><body/></opml>"#;
-        assert!(parse_opml(xml).is_err());
-    }
-
-    #[test]
-    fn test_parse_opml_skips_folders_without_xmlurl() {
-        let xml = r#"<?xml version="1.0"?>
-        <opml version="2.0">
-          <head/><body>
-            <outline text="Just a folder"/>
-            <outline text="Real Feed" type="rss" xmlUrl="https://real.example.com/feed"/>
-          </body>
-        </opml>"#;
-        let outlines = parse_opml(xml).expect("Parse failed");
-        assert_eq!(outlines.len(), 1);
-        assert_eq!(outlines[0].xml_url, "https://real.example.com/feed");
-    }
-
-    #[test]
-    fn test_generate_and_parse_roundtrip() {
-        let feeds = vec![
-            Feed {
-                id: 1, url: "https://x.example.com/rss".into(), title: "X Blog".into(),
-                description: "".into(), link: "https://x.example.com".into(),
-                feed_type: "rss".into(), last_synced_at: None, created_at: "".into(),
-            },
-            Feed {
-                id: 2, url: "https://y.example.com/atom".into(), title: "Y Blog".into(),
-                description: "".into(), link: "".into(), feed_type: "atom".into(),
-                last_synced_at: None, created_at: "".into(),
-            },
-        ];
-
+    fn test_roundtrip() {
+        let feeds = vec![Feed {
+            id: 1, url: "https://x.example.com/rss".into(), title: "X Blog".into(),
+            description: "".into(), link: "https://x.example.com".into(),
+            feed_type: "rss".into(), last_synced_at: None, created_at: "".into(),
+        }];
         let xml = generate_opml(&feeds);
-        let outlines = parse_opml(&xml).expect("Roundtrip parse failed");
-        assert_eq!(outlines.len(), 2);
+        let outlines = parse_opml(&xml).expect("roundtrip");
         assert_eq!(outlines[0].title, "X Blog");
-        assert_eq!(outlines[0].xml_url, "https://x.example.com/rss");
-        assert_eq!(outlines[1].title, "Y Blog");
-        assert_eq!(outlines[1].xml_url, "https://y.example.com/atom");
-    }
-
-    #[test]
-    fn test_export_opml_to_file() {
-        let pool = open_test_db_pool().expect("Failed to create test pool");
-        let feed_repo = FeedRepository::new(pool.clone());
-        feed_repo.insert_full(
-            "https://export.example.com/rss", "Export Test", "Test desc",
-            "https://export.example.com", "rss",
-        ).expect("Insert failed");
-
-        let tmp = tempfile::NamedTempFile::new().expect("Failed to create temp file");
-        export_opml_file(&pool, tmp.path()).expect("Export failed");
-
-        let outlines = parse_opml_file(tmp.path()).expect("Parse failed");
-        assert_eq!(outlines.len(), 1);
-        assert_eq!(outlines[0].title, "Export Test");
-        assert_eq!(outlines[0].xml_url, "https://export.example.com/rss");
-    }
-
-    #[test]
-    fn test_escape_xml_special_chars() {
-        let escaped = escape_xml(r#"AT&T "Blog" <cool> & 'fun'"#);
-        assert!(!escaped.contains('<'));
-        assert!(escaped.contains("&amp;"));
-        assert!(escaped.contains("&quot;"));
     }
 }

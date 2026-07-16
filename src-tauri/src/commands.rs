@@ -139,20 +139,11 @@ pub fn process_entry_content(pool: &DbPool, entry_id: i64, url: &str) -> Result<
 // OPML
 // ============================================================
 
-/// Import feeds from an OPML file.
-pub fn import_opml(pool: &DbPool, file_path: &str) -> Result<Vec<crate::db::model::Feed>, String> {
+/// Import feeds from an OPML file with batching, HTTPS filter, and auto-sync.
+pub fn import_opml(pool: &DbPool, file_path: &str) -> Result<Vec<crate::feed::opml::ImportResult>, String> {
     let outlines =
         crate::feed::opml::parse_opml_file(std::path::Path::new(file_path)).map_err(|e| e.to_string())?;
-
-    let mut feeds = Vec::new();
-    let service = crate::feed::service::FeedService::new(pool.clone());
-    for outline in &outlines {
-        match service.add_feed(&outline.xml_url) {
-            Ok(feed) => feeds.push(feed),
-            Err(e) => tracing::warn!("OPML import skipped {}: {}", outline.xml_url, e),
-        }
-    }
-    Ok(feeds)
+    Ok(crate::feed::opml::import_feeds(pool, &outlines))
 }
 
 /// Export all feeds to an OPML file.

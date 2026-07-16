@@ -189,7 +189,7 @@ fn process_entry_content(state: State<'_, DbPool>, entry_id: i64, url: String) -
 fn import_opml(
     state: State<'_, DbPool>,
     file_path: String,
-) -> Result<Vec<crate::db::model::Feed>, String> {
+) -> Result<Vec<crate::feed::opml::ImportResult>, String> {
     commands::import_opml(&state, &file_path)
 }
 

@@ -1,4 +1,4 @@
-import type { Feed, Entry, Content, EntryPage, Provider, Summary, Note, FeedSummary } from "@/lib/types";
+import type { Feed, Entry, Content, EntryPage, Provider, Summary, Note, FeedSummary, ImportResult } from "@/lib/types";
 
 // 检查是否在 Tauri 环境中
 export function isTauri(): boolean {
@@ -36,8 +36,8 @@ export async function listFeeds(): Promise<FeedSummary[]> {
   return invoke<FeedSummary[]>("list_feeds");
 }
 
-export async function importOpml(filePath: string): Promise<void> {
-  return invoke("import_opml", { filePath });
+export async function importOpml(filePath: string): Promise<ImportResult[]> {
+  return invoke<ImportResult[]>("import_opml", { filePath });
 }
 
 export async function exportOpml(filePath: string): Promise<void> {

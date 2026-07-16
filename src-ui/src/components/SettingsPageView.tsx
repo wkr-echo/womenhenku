@@ -4,7 +4,7 @@ import { mockProviders } from "@/api/mock";
 import type { Provider, AgentConfig } from "@/lib/types";
 import { useTheme } from "@/contexts/ThemeContext";
 import { t } from "@/lib/utils";
-import { isTauri, exportOpml } from "@/api/feed";
+import { isTauri, exportOpml, importOpml } from "@/api/feed";
 import { toast } from "@/components/ui/Toast";
 
 export function SettingsPageView() {
@@ -331,7 +331,6 @@ function AppearanceSettings({ theme, onToggleTheme }: { theme: string; onToggleT
 function SyncSettings() {
   const handleOpmlExport = async () => {
     try {
-      // Default to user's home directory
       const home = (window as any).__TAURI__
         ? await import("@tauri-apps/api/path").then(m => m.homeDir())
         : "";
@@ -340,6 +339,20 @@ function SyncSettings() {
       toast(t("已导出到 ") + path, "success");
     } catch {
       toast(t("导出失败"), "error");
+    }
+  };
+
+  const handleOpmlImport = async () => {
+    try {
+      const home = (window as any).__TAURI__
+        ? await import("@tauri-apps/api/path").then(m => m.homeDir())
+        : "";
+      const path = `${home}subscriptions.opml`;
+      const results = await importOpml(path);
+      const ok = results.filter((r: any) => r.success).length;
+      toast(t(`导入完成: ${ok}/${results.length} 个订阅源`), ok > 0 ? "success" : "error");
+    } catch {
+      toast(t("导入失败"), "error");
     }
   };
 
@@ -375,6 +388,13 @@ function SyncSettings() {
             value="5"
             onChange={() => {}}
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2">{t("OPML 导入")}</label>
+          <Button variant="secondary" size="sm" onClick={() => handleOpmlImport()}>
+            {t("导入订阅源")}
+          </Button>
         </div>
 
         <div>
