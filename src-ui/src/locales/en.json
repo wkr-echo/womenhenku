@@ -1,0 +1,81 @@
+{
+  "app": {
+    "title": "WomenHenKu",
+    "addFeed": "Add Feed",
+    "settings": "Settings",
+    "refresh": "Refresh",
+    "read": "Read",
+    "summary": "Summary",
+    "translate": "Translate",
+    "notes": "Notes",
+    "noArticles": "No articles",
+    "selectArticle": "Select an article to start reading",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "back": "Back"
+  },
+  "settings": {
+    "title": "Settings",
+    "aiProvider": "AI Provider",
+    "agentParams": "Agent Parameters",
+    "appearance": "Appearance",
+    "sync": "Sync",
+    "about": "About",
+    "lightMode": "Light Mode",
+    "darkMode": "Dark Mode",
+    "theme": "Theme",
+    "font": "Reading Font",
+    "codeFont": "Code Font",
+    "autoSync": "Auto-sync Interval",
+    "concurrency": "Concurrency",
+    "exportOpml": "Export OPML",
+    "version": "Version",
+    "techStack": "Tech Stack",
+    "platform": "Platform",
+    "license": "License"
+  },
+  "provider": {
+    "add": "Add Provider",
+    "name": "Name",
+    "baseUrl": "Base URL",
+    "apiKey": "API Key",
+    "defaultModel": "Default Model",
+    "thinkingModel": "Thinking Model",
+    "validate": "Validate",
+    "connected": "Connected"
+  },
+  "agent": {
+    "targetLanguage": "Summary Target Language",
+    "detailLevel": "Summary Detail Level",
+    "concurrency": "Translation Concurrency",
+    "model": "Default AI Model",
+    "brief": "Brief",
+    "standard": "Standard",
+    "detailed": "Detailed"
+  },
+  "note": {
+    "saved": "Note saved",
+    "unsaved": "Unsaved",
+    "savedAt": "Saved at",
+    "placeholder": "Write your Markdown notes here...",
+    "preview": "Preview",
+    "quickSave": "Quick save"
+  },
+  "summary": {
+    "generate": "Generate Summary",
+    "regenerate": "Regenerate",
+    "generating": "Generating...",
+    "hint": "Click the button above to generate AI summary",
+    "language": "Language",
+    "detail": "Detail Level"
+  },
+  "translation": {
+    "translate": "Start Translation",
+    "translating": "Translating...",
+    "clear": "Clear Translation",
+    "retry": "Retry Failed Segments",
+    "hint": "Click the button above to start bilingual translation"
+  }
+}
