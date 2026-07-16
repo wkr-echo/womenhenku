@@ -54,10 +54,10 @@ pub fn refresh_feed(pool: &DbPool, id: i64) -> Result<usize, String> {
     service.refresh_feed(id).map_err(|e| e.to_string())
 }
 
-/// Refresh all feeds (not implemented yet — placeholder).
-pub fn refresh_all_feeds(_pool: &DbPool) -> Result<(), String> {
-    // TODO: concurrent refresh with Semaphore(5)
-    Err("refresh_all_feeds not yet implemented".into())
+/// Refresh all feeds concurrently with max 5 concurrent fetches.
+pub fn refresh_all_feeds(pool: &DbPool) -> Result<(), String> {
+    let service = crate::feed::service::FeedService::new(pool.clone());
+    service.refresh_all_feeds().map_err(|e| e.to_string())
 }
 
 // ============================================================
