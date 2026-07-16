@@ -130,16 +130,19 @@ pub fn import_feeds(pool: &DbPool, outlines: &[OpmlOutline]) -> Vec<ImportResult
     // Step 3: Batch 24
     for batch in https_outlines.chunks(BATCH_SIZE) {
         for outline in batch {
-            if feed_repo.find_by_url(&outline.xml_url).unwrap_or(None).is_some() {
+            // Resolve title first
+            let title = resolve_feed_title(&client, &outline.xml_url)
+                .unwrap_or_else(|| outline.title.clone());
+
+            if let Ok(Some(existing)) = feed_repo.find_by_url(&outline.xml_url) {
+                // Update existing feed's title and link
+                let _ = feed_repo.update_title(existing.id, &title);
                 results.push(ImportResult {
-                    xml_url: outline.xml_url.clone(), title: outline.title.clone(),
-                    success: false, message: "Already subscribed".into(),
+                    xml_url: outline.xml_url.clone(), title,
+                    success: true, message: format!("Updated (id={})", existing.id),
                 });
                 continue;
             }
-
-            let title = resolve_feed_title(&client, &outline.xml_url)
-                .unwrap_or_else(|| outline.title.clone());
 
             match feed_repo.insert_full(&outline.xml_url, &title, "",
                 outline.html_url.as_deref().unwrap_or(""), "rss"
@@ -246,10 +249,13 @@ fn generate_opml(feeds: &[Feed]) -> String {
     xml.push('\n');
     xml.push_str(r#"<opml version="2.0">"#);
     xml.push('\n');
-    xml.push_str("  <head>\n    <title>Platinum Subscriptions</title>\n  </head>\n  <body>\n");
+    xml.push_str("  <head>\n    <title>Mercury Subscriptions</title>\n  </head>\n  <body>\n");
     for feed in feeds {
         let h = if feed.link.is_empty() { String::new() } else { format!(r#" htmlUrl="{}""#, escape_xml(&feed.link)) };
-        xml.push_str(&format!(r#"    <outline text="{}" type="rss" xmlUrl="{}"{} />"#, escape_xml(&feed.title), escape_xml(&feed.url), h));
+        xml.push_str(&format!(
+            r#"    <outline text="{}" title="{}" type="rss" xmlUrl="{}"{} />"#,
+            escape_xml(&feed.title), escape_xml(&feed.title), escape_xml(&feed.url), h
+        ));
         xml.push('\n');
     }
     xml.push_str("  </body>\n</opml>\n");
