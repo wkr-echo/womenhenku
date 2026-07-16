@@ -18,6 +18,7 @@ import {
   refreshFeed as refreshFeedReal,
   refreshAllFeeds as refreshAllFeedsReal,
   searchEntries as searchEntriesReal,
+  markRead as markReadReal,
 } from "@/api/feed";
 import { toast } from "@/components/ui/Toast";
 import { t } from "@/lib/utils";
@@ -45,7 +46,8 @@ type Action =
   | { type: "ADD_FEED"; feed: FeedSummary }
   | { type: "REMOVE_FEED"; id: number }
   | { type: "SELECT_FEED"; feedId: number }
-  | { type: "SELECT_ENTRY"; entry: Entry | null };
+  | { type: "SELECT_ENTRY"; entry: Entry | null }
+  | { type: "MARK_READ"; entryId: number };
 
 const initialState: State = {
   feeds: [],
@@ -96,6 +98,17 @@ function reducer(state: State, action: Action): State {
       };
     case "SELECT_ENTRY":
       return { ...state, selectedEntry: action.entry, viewMode: "reader" };
+    case "MARK_READ":
+      return {
+        ...state,
+        entries: state.entries.map((e) =>
+          e.id === action.entryId ? { ...e, isRead: true } : e
+        ),
+        selectedEntry:
+          state.selectedEntry?.id === action.entryId
+            ? { ...state.selectedEntry, isRead: true }
+            : state.selectedEntry,
+      };
     default:
       return state;
   }
@@ -122,6 +135,7 @@ interface AppContextType {
   refreshFeed: (id: number) => void;
   refreshAll: () => void;
   reloadFeeds: () => void;
+  markEntryRead: (id: number) => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -275,6 +289,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const markEntryRead = useCallback((id: number) => {
+    if (isTauri()) {
+      markReadReal(id).then(() => {
+        dispatch({ type: "MARK_READ", entryId: id });
+      }).catch(() => {});
+    } else {
+      dispatch({ type: "MARK_READ", entryId: id });
+    }
+  }, []);
+
   const setViewMode = useCallback((mode: ViewMode) => {
     dispatch({ type: "SET_VIEW_MODE", mode });
   }, []);
@@ -297,6 +321,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         refreshFeed: refreshFeedFn,
         refreshAll: refreshAllFn,
         reloadFeeds,
+        markEntryRead,
       }}
     >
       {children}

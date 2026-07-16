@@ -6,7 +6,7 @@ import { Button } from "@/components/ui";
 import { SummaryPanelView } from "./SummaryPanelView";
 import { TranslationPanelView } from "./TranslationPanelView";
 import { NoteEditorView } from "./NoteEditorView";
-import { isTauri, getEntryContent as getEntryContentReal, processEntryContent, exportSingleDigest, markRead } from "@/api/feed";
+import { isTauri, getEntryContent as getEntryContentReal, processEntryContent, exportSingleDigest } from "@/api/feed";
 import { toast } from "@/components/ui/Toast";
 import type { Content } from "@/lib/types";
 
@@ -20,7 +20,7 @@ const EXPORT_LABELS: Record<ExportFormat, string> = {
 };
 
 export function ReaderView() {
-  const { selectedEntry, setViewMode } = useApp();
+  const { selectedEntry, setViewMode, markEntryRead } = useApp();
   const [activeTab, setActiveTab] = useState<ReaderTab>("read");
   const [exporting, setExporting] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -129,7 +129,7 @@ export function ReaderView() {
   useEffect(() => {
     if (!selectedEntry || !isTauri()) return;
     const timer = setTimeout(() => {
-      markRead(selectedEntry.id).catch(() => {});
+      markEntryRead(selectedEntry.id);
     }, 1000);
     return () => clearTimeout(timer);
   }, [selectedEntry?.id]);
