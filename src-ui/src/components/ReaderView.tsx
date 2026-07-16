@@ -86,10 +86,22 @@ export function ReaderView() {
         if (!cancelled) { setContent(mockContent); setContentLoading(false); }
         return;
       }
+
+      // Helper: check if Content has usable rendered output
+      const hasContent = (c: Content) =>
+        !!c.renderedHtml || !!c.cleanedHtml || !!c.rawHtml;
+
       try {
         // Try to get existing cached content
         const c = await getEntryContentReal(selectedEntry!.id);
-        if (!cancelled) setContent(c);
+        if (hasContent(c)) {
+          // Content is already processed and cached
+          if (!cancelled) setContent(c);
+          return;
+        }
+        // Content row exists but is empty — run pipeline
+        if (!cancelled) setContentLoading(true);
+        throw new Error("Empty cache");
       } catch {
         // Content not yet processed — run the reader pipeline
         try {
@@ -99,7 +111,6 @@ export function ReaderView() {
           const c = await getEntryContentReal(selectedEntry!.id);
           if (!cancelled) setContent(c);
         } catch (e: any) {
-          // Pipeline failed — show error detail for debugging
           if (!cancelled) {
             setContent(null);
             setContentError(String(e));
