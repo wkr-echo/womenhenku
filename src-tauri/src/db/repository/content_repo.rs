@@ -24,6 +24,18 @@ impl ContentRepository {
             .ok_or(RepositoryError::NotFound("Content not found after insert".into()))
     }
 
+    /// Insert or replace raw HTML row for an entry.
+    /// If a row already exists for this entry_id, update its raw_html.
+    pub fn upsert_raw(&self, entry_id: i64, raw_html: &str) -> Result<(), RepositoryError> {
+        let conn = self.pool.get()?;
+        conn.execute(
+            "INSERT INTO contents (entry_id, raw_html) VALUES (?1, ?2)
+             ON CONFLICT(entry_id) DO UPDATE SET raw_html = excluded.raw_html, updated_at = datetime('now')",
+            params![entry_id, raw_html],
+        )?;
+        Ok(())
+    }
+
     pub fn find_by_entry_id(&self, entry_id: i64) -> Result<Option<Content>, RepositoryError> {
         let conn = self.pool.get()?;
         let mut stmt = conn.prepare(

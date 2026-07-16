@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::db::model::Content;
 use crate::db::repository::ContentRepository;
 use crate::db::DbPool;
@@ -9,59 +11,76 @@ pub enum ReaderServiceError {
     #[error("Pipeline error: {0}")]
     Pipeline(#[from] pipeline::PipelineError),
 
+    #[error("Network error: {0}")]
+    Network(#[from] reqwest::Error),
+
     #[error("Database error: {0}")]
     Database(#[from] crate::db::error::RepositoryError),
+
+    #[error("No article URL for entry_id={0}")]
+    NoUrl(i64),
 }
 
 /// Orchestrates the reader pipeline and persists results to the database.
 pub struct ReaderService {
     pool: DbPool,
+    client: reqwest::Client,
 }
 
 impl ReaderService {
     pub fn new(pool: DbPool) -> Self {
-        Self { pool }
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(30))
+            .user_agent("platinum/0.2 (RSS Reader)")
+            .build()
+            .expect("Failed to build reqwest client");
+        Self { pool, client }
     }
 
-    /// Process an entry's raw HTML through the full reader pipeline
-    /// and store the results in the contents table.
+    /// Process an entry through the full reader pipeline and store results.
     ///
-    /// Expects that a content row already exists for this entry
-    /// (created during feed ingestion with raw_html populated).
-    /// If it doesn't exist, creates one first with empty raw_html.
+    /// Three-tier logic:
+    /// 1. Cache hit (cleaned_html exists) → return immediately.
+    /// 2. raw_html exists in DB → run pipeline from cached raw HTML.
+    /// 3. No raw_html → fetch article from URL, store, then run pipeline.
     pub fn process_entry(&self, entry_id: i64, url: &str) -> Result<Content, ReaderServiceError> {
         let repo = ContentRepository::new(self.pool.clone());
 
-        // Get existing raw HTML or create a placeholder
+        // Tier 1: Return cached content if already processed
+        if let Some(c) = repo.find_by_entry_id(entry_id)? {
+            if c.cleaned_html.as_ref().is_some_and(|h| !h.is_empty()) {
+                tracing::debug!("Content cache hit for entry_id={}", entry_id);
+                return Ok(c);
+            }
+        }
+
+        // Tier 2 & 3: Get raw HTML (from DB cache or fetch from URL)
         let raw_html = match repo.find_by_entry_id(entry_id)? {
-            Some(c) => c.raw_html,
-            None => {
-                tracing::warn!(
-                    "No content row for entry_id={}, creating placeholder",
-                    entry_id
-                );
-                repo.insert_raw(entry_id, "")?;
-                String::new()
+            Some(c) if !c.raw_html.is_empty() => {
+                tracing::debug!("Using cached raw_html for entry_id={}", entry_id);
+                c.raw_html
+            }
+            _ => {
+                if url.is_empty() {
+                    return Err(ReaderServiceError::NoUrl(entry_id));
+                }
+                tracing::debug!("Fetching article from {} for entry_id={}", url, entry_id);
+                let html = self.fetch_article(url)?;
+                repo.upsert_raw(entry_id, &html)?;
+                html
             }
         };
 
-        if raw_html.is_empty() {
-            return Err(ReaderServiceError::Database(
-                crate::db::error::RepositoryError::InvalidInput(format!(
-                    "No raw HTML for entry_id={}",
-                    entry_id
-                )),
-            ));
-        }
-
+        // Run the pipeline
         let output = pipeline::run_full_pipeline(&raw_html, url)?;
 
+        // Store cleaned results
         repo.update_cleaned(
             entry_id,
             &output.cleaned_html,
             &output.markdown,
             &output.rendered_html,
-            1, // readability_version
+            1,
         )?;
 
         repo.find_by_entry_id(entry_id)?
@@ -71,6 +90,31 @@ impl ReaderService {
                     entry_id
                 )),
             ))
+    }
+
+    /// Fetch article HTML from URL.
+    fn fetch_article(&self, url: &str) -> Result<String, ReaderServiceError> {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("Failed to create tokio runtime");
+
+        let bytes = rt.block_on(async {
+            self.client
+                .get(url)
+                .send()
+                .await?
+                .error_for_status()?
+                .bytes()
+                .await
+        })?;
+
+        // Try UTF-8 first, fall back to lossy conversion
+        let text = String::from_utf8(bytes.to_vec())
+            .unwrap_or_else(|e| String::from_utf8_lossy(&e.into_bytes()).into_owned());
+
+        tracing::debug!("Fetched article from {} ({} chars)", url, text.len());
+        Ok(text)
     }
 }
 
