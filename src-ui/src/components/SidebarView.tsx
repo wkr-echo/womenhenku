@@ -3,7 +3,6 @@ import { useApp } from "@/contexts/AppContext";
 import { Button, Input, Modal } from "@/components/ui";
 import { cn, t } from "@/lib/utils";
 import type { FeedSummary } from "@/lib/types";
-import { isTauri } from "@/api/feed";
 
 export function SidebarView() {
   const {
@@ -67,7 +66,6 @@ export function SidebarView() {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)]">
         <h1 className="font-semibold text-sm text-[var(--text-primary)]">WomenHenKu</h1>
-        <span className="text-[9px] px-1 rounded ml-1" style={{background: isTauri() ? "#4caf50" : "#ff9800", color:"#fff"}}>{isTauri() ? "TAURI" : "MOCK"}</span>
         <div className="flex items-center gap-1">
           <button
             onClick={handleRefreshAll}

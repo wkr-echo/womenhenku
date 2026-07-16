@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { mockContent, mockSummary } from "@/api/mock";
 import { formatDate, t } from "@/lib/utils";
@@ -6,8 +6,9 @@ import { Button } from "@/components/ui";
 import { SummaryPanelView } from "./SummaryPanelView";
 import { TranslationPanelView } from "./TranslationPanelView";
 import { NoteEditorView } from "./NoteEditorView";
-import { isTauri, exportSingleDigest } from "@/api/feed";
+import { isTauri, getEntryContent as getEntryContentReal, exportSingleDigest } from "@/api/feed";
 import { toast } from "@/components/ui/Toast";
+import type { Content } from "@/lib/types";
 
 type ReaderTab = "read" | "summary" | "translate" | "notes";
 type ExportFormat = "markdown" | "html" | "plaintext";
@@ -68,7 +69,23 @@ export function ReaderView() {
     );
   }
 
-  const content = mockContent;
+  const [content, setContent] = useState<Content | null>(null);
+  const [contentLoading, setContentLoading] = useState(false);
+
+  // Load real content from backend when entry changes
+  useEffect(() => {
+    if (!selectedEntry) return;
+    setContentLoading(true);
+    if (isTauri()) {
+      getEntryContentReal(selectedEntry.id)
+        .then((c) => setContent(c))
+        .catch(() => setContent(mockContent))
+        .finally(() => setContentLoading(false));
+    } else {
+      setContent(mockContent);
+      setContentLoading(false);
+    }
+  }, [selectedEntry?.id]);
 
   const tabs: { key: ReaderTab; label: string; shortcut: string }[] = [
     { key: "read", label: t("阅读"), shortcut: "" },
@@ -163,10 +180,18 @@ export function ReaderView() {
       <div className="flex-1 overflow-y-auto">
         {activeTab === "read" && (
           <div className="max-w-3xl mx-auto px-6 py-6">
-            <div
-              className="reader-content"
-              dangerouslySetInnerHTML={{ __html: content.rendered_html || content.cleaned_html || content.raw_html }}
-            />
+            {contentLoading ? (
+              <p className="text-sm text-[var(--text-tertiary)]">{t("加载中...")}</p>
+            ) : content?.rendered_html || content?.cleaned_html || content?.raw_html ? (
+              <div
+                className="reader-content"
+                dangerouslySetInnerHTML={{ __html: (content.rendered_html || content.cleaned_html || content.raw_html)! }}
+              />
+            ) : (
+              <div className="text-sm text-[var(--text-secondary)] leading-relaxed whitespace-pre-wrap">
+                {selectedEntry.summary || t("暂无内容")}
+              </div>
+            )}
           </div>
         )}
         {activeTab === "summary" && <SummaryPanelView entryId={selectedEntry.id} />}
