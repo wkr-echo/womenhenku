@@ -102,7 +102,12 @@ function EntryItem({
               {highlightText(truncate(entry.title, 80), searchQuery)}
             </h3>
           </div>
-          <div className="flex items-center gap-3 mt-2 text-xs text-[var(--text-tertiary)]">
+          {searchQuery && entry.title.toLowerCase().includes(searchQuery.toLowerCase()) && (
+            <p className="mt-1 text-xs text-[var(--text-tertiary)] truncate">
+              {highlightText(entry.title, searchQuery)}
+            </p>
+          )}
+          <div className="flex items-center gap-3 mt-1 text-xs text-[var(--text-tertiary)]">
             {entry.author && <span>{entry.author}</span>}
             <span>{formatDate(entry.publishedAt)}</span>
           </div>
