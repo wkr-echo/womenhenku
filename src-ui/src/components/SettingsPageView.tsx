@@ -331,10 +331,13 @@ function AppearanceSettings({ theme, onToggleTheme }: { theme: string; onToggleT
 function SyncSettings() {
   const handleOpmlExport = async () => {
     try {
-      const home = (window as any).__TAURI__ ? "" : "";
-      const path = home + "subscriptions.opml";
+      // Default to user's home directory
+      const home = (window as any).__TAURI__
+        ? await import("@tauri-apps/api/path").then(m => m.homeDir())
+        : "";
+      const path = `${home}subscriptions.opml`;
       await exportOpml(path);
-      toast(t("导出成功"), "success");
+      toast(t("已导出到 ") + path, "success");
     } catch {
       toast(t("导出失败"), "error");
     }
