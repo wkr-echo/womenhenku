@@ -3,8 +3,6 @@
 //
 // Creates a test OPML file, parses it, writes feeds directly to DB.
 
-use std::path::PathBuf;
-
 use womenhenku_lib::db;
 use womenhenku_lib::db::repository::FeedRepository;
 use womenhenku_lib::feed::opml;
