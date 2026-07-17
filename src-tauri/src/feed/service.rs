@@ -35,7 +35,7 @@ pub struct FeedService {
 impl FeedService {
     pub fn new(pool: DbPool) -> Self {
         let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(15))
+            .timeout(Duration::from_secs(8))
             .user_agent("womenhenku/0.1 (RSS Reader)")
             .build()
             .expect("Failed to build reqwest client");

@@ -114,7 +114,7 @@ pub fn import_feeds(
     let mut results = Vec::new();
     let feed_repo = FeedRepository::new(pool.clone());
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(15))
+        .timeout(Duration::from_secs(8))
         .user_agent("platinum/0.2 (RSS Reader)")
         .build()
         .expect("reqwest client");
@@ -192,7 +192,7 @@ fn resolve_feed_title(client: &reqwest::Client, url: &str) -> Option<String> {
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().ok()?;
     rt.block_on(async {
         let bytes = client.get(url)
-            .timeout(Duration::from_secs(10))
+            .timeout(Duration::from_secs(5))
             .send().await.ok()?
             .bytes().await.ok()?;
         feed_rs::parser::parse(&bytes[..]).ok()?.title.map(|t| t.content)
@@ -202,7 +202,7 @@ fn resolve_feed_title(client: &reqwest::Client, url: &str) -> Option<String> {
 async fn sync_feeds(pool: &DbPool, urls: &[String], concurrency: usize) {
     let semaphore = Arc::new(Semaphore::new(concurrency));
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(15))
+        .timeout(Duration::from_secs(8))
         .user_agent("platinum/0.2")
         .build().expect("reqwest client");
     let mut handles = Vec::new();
