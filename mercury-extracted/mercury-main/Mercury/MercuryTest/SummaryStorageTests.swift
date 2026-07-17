@@ -1,0 +1,301 @@
+import Foundation
+import GRDB
+import Testing
+@testable import Mercury
+
+@Suite("Summary Storage")
+@MainActor
+struct SummaryStorageTests {
+    @Test("A/B workflow + global cap + cleanup")
+    @MainActor
+    func summaryStorageWorkflow() async throws {
+        try await AppModelTestHarness.withInMemory(
+            credentialStore: InMemoryCredentialStore()
+        ) { harness in
+            let appModel = harness.appModel
+            let (entryA, entryB) = try await seedTwoEntries(using: appModel)
+            let profileId = try #require((try await appModel.refreshAgentConfigurationSnapshot()).summaryProfile.id)
+            let targetLanguage = "en"
+            let detailLevel: SummaryDetailLevel = .medium
+            let step1Snapshot = ["mode": "step-1", "detail": detailLevel.rawValue]
+
+            let first = try await appModel.persistSuccessfulSummaryResult(
+                entryId: entryA,
+                agentProfileId: profileId,
+                providerProfileId: nil,
+                modelProfileId: nil,
+                promptVersion: "summary-agent-v1",
+                targetLanguage: targetLanguage,
+                detailLevel: detailLevel,
+                outputLanguage: targetLanguage,
+                outputText: "summary A v1",
+                templateId: "summary.default",
+                templateVersion: "v1",
+                runtimeParameterSnapshot: step1Snapshot,
+                durationMs: 100
+            )
+            let firstResultTargetLanguage = first.result.targetLanguage
+            let firstResultDetailLevel = first.result.detailLevel
+            let firstResultEntryID = first.result.entryId
+            let firstRunTemplateID = first.run.templateId
+            let firstRunTemplateVersion = first.run.templateVersion
+            let firstRunRuntimeSnapshot = first.run.runtimeParameterSnapshot
+            let firstResultRunID = first.result.taskRunId
+
+            #expect(firstResultTargetLanguage == targetLanguage)
+            #expect(firstResultDetailLevel == detailLevel)
+            #expect(firstResultEntryID == entryA)
+            #expect(firstRunTemplateID == "summary.default")
+            #expect(firstRunTemplateVersion == "v1")
+            #expect(first.run.agentProfileId == profileId)
+            #expect(firstRunRuntimeSnapshot == "{\"detail\":\"medium\",\"mode\":\"step-1\"}")
+            #expect(try await countSummarySlot(appModel, entryId: entryA, targetLanguage: targetLanguage, detailLevel: detailLevel) == 1)
+            #expect(try await countSummaryTotal(appModel) == 1)
+            #expect(try await countSummaryTaskRunTotal(appModel) == 1)
+
+            let second = try await appModel.persistSuccessfulSummaryResult(
+                entryId: entryA,
+                agentProfileId: nil,
+                providerProfileId: nil,
+                modelProfileId: nil,
+                promptVersion: "summary-agent-v1",
+                targetLanguage: targetLanguage,
+                detailLevel: detailLevel,
+                outputLanguage: targetLanguage,
+                outputText: "summary A v2",
+                templateId: "summary.default",
+                templateVersion: "v1",
+                runtimeParameterSnapshot: [:],
+                durationMs: 120
+            )
+            let secondResultRunID = second.result.taskRunId
+            #expect(secondResultRunID != firstResultRunID)
+            #expect(try await countSummarySlot(appModel, entryId: entryA, targetLanguage: targetLanguage, detailLevel: detailLevel) == 1)
+            #expect(try await taskRunExists(appModel, runId: firstResultRunID) == false)
+            #expect(try await countSummaryTaskRunTotal(appModel) == 1)
+
+            _ = try await appModel.persistSuccessfulSummaryResult(
+                entryId: entryB,
+                agentProfileId: nil,
+                providerProfileId: nil,
+                modelProfileId: nil,
+                promptVersion: "summary-agent-v1",
+                targetLanguage: targetLanguage,
+                detailLevel: detailLevel,
+                outputLanguage: targetLanguage,
+                outputText: "summary B v1",
+                templateId: "summary.default",
+                templateVersion: "v1",
+                runtimeParameterSnapshot: [:],
+                durationMs: 90
+            )
+            #expect(try await countSummaryTotal(appModel) == 2)
+            let removedFirstCap = try await appModel.enforceSummaryStorageCap(limit: 1)
+            #expect(removedFirstCap == 1)
+            #expect(try await appModel.loadSummaryRecord(entryId: entryA, targetLanguage: targetLanguage, detailLevel: detailLevel) == nil)
+            #expect(try await appModel.loadSummaryRecord(entryId: entryB, targetLanguage: targetLanguage, detailLevel: detailLevel) != nil)
+
+            _ = try await appModel.persistSuccessfulSummaryResult(
+                entryId: entryA,
+                agentProfileId: nil,
+                providerProfileId: nil,
+                modelProfileId: nil,
+                promptVersion: "summary-agent-v1",
+                targetLanguage: targetLanguage,
+                detailLevel: detailLevel,
+                outputLanguage: targetLanguage,
+                outputText: "summary A v3",
+                templateId: "summary.default",
+                templateVersion: "v1",
+                runtimeParameterSnapshot: [:],
+                durationMs: 110
+            )
+            let removedSecondCap = try await appModel.enforceSummaryStorageCap(limit: 1)
+            #expect(removedSecondCap == 1)
+            #expect(try await appModel.loadSummaryRecord(entryId: entryA, targetLanguage: targetLanguage, detailLevel: detailLevel) != nil)
+            #expect(try await appModel.loadSummaryRecord(entryId: entryB, targetLanguage: targetLanguage, detailLevel: detailLevel) == nil)
+
+            let cleanup = try await appModel.database.write { db in
+                let removedSummary = try SummaryResult.deleteAll(db)
+                let removedRuns = try AgentTaskRun
+                    .filter(Column("taskType") == AgentTaskType.summary.rawValue)
+                    .deleteAll(db)
+                return (removedSummary, removedRuns)
+            }
+            #expect(cleanup.0 >= 1)
+            #expect(cleanup.1 >= 1)
+            #expect(try await countSummaryTotal(appModel) == 0)
+        }
+    }
+
+    @Test("Clear summary removes current slot payload and task run")
+    @MainActor
+    func clearSummaryRecordRemovesSlot() async throws {
+        try await AppModelTestHarness.withInMemory(
+            credentialStore: InMemoryCredentialStore()
+        ) { harness in
+            let appModel = harness.appModel
+            let (entryA, _) = try await seedTwoEntries(using: appModel)
+            let targetLanguage = "en"
+            let detailLevel: SummaryDetailLevel = .medium
+
+            let first = try await appModel.persistSuccessfulSummaryResult(
+                entryId: entryA,
+                agentProfileId: nil,
+                providerProfileId: nil,
+                modelProfileId: nil,
+                promptVersion: "summary-agent-v1",
+                targetLanguage: targetLanguage,
+                detailLevel: detailLevel,
+                outputLanguage: targetLanguage,
+                outputText: "to be cleared",
+                templateId: "summary.default",
+                templateVersion: "v1",
+                runtimeParameterSnapshot: [:],
+                durationMs: 50
+            )
+            guard let firstRunID = first.run.id else {
+                Issue.record("Expected task run ID after summary insert.")
+                return
+            }
+            #expect(try await countSummarySlot(appModel, entryId: entryA, targetLanguage: targetLanguage, detailLevel: detailLevel) == 1)
+            #expect(try await taskRunExists(appModel, runId: firstRunID) == true)
+
+            let cleared = try await appModel.clearSummaryRecord(
+                entryId: entryA,
+                targetLanguage: targetLanguage,
+                detailLevel: detailLevel
+            )
+            #expect(cleared == true)
+            #expect(try await countSummarySlot(appModel, entryId: entryA, targetLanguage: targetLanguage, detailLevel: detailLevel) == 0)
+            #expect(try await taskRunExists(appModel, runId: firstRunID) == false)
+        }
+    }
+
+    private func seedTwoEntries(using appModel: AppModel) async throws -> (Int64, Int64) {
+        try await appModel.database.write { db in
+            var feed = Feed(
+                id: nil,
+                title: "Test Feed",
+                feedURL: "https://example.com/test-feed-\(UUID().uuidString)",
+                siteURL: "https://example.com",
+                lastFetchedAt: nil,
+                createdAt: Date()
+            )
+            try feed.insert(db)
+            guard let feedId = feed.id else {
+                throw TestError.missingFeedID
+            }
+
+            var entryA = Entry(
+                id: nil,
+                feedId: feedId,
+                guid: "a-\(UUID().uuidString)",
+                url: "https://example.com/a",
+                title: "Entry A",
+                author: "tester",
+                publishedAt: Date(),
+                summary: "A",
+                isRead: false,
+                createdAt: Date()
+            )
+            try entryA.insert(db)
+            guard let firstEntryID = entryA.id else {
+                throw TestError.missingEntryID
+            }
+
+            var entryB = Entry(
+                id: nil,
+                feedId: feedId,
+                guid: "b-\(UUID().uuidString)",
+                url: "https://example.com/b",
+                title: "Entry B",
+                author: "tester",
+                publishedAt: Date().addingTimeInterval(1),
+                summary: "B",
+                isRead: false,
+                createdAt: Date().addingTimeInterval(1)
+            )
+            try entryB.insert(db)
+            guard let secondEntryID = entryB.id else {
+                throw TestError.missingEntryID
+            }
+
+            return (firstEntryID, secondEntryID)
+        }
+    }
+
+    private func countSummaryTotal(_ appModel: AppModel) async throws -> Int {
+        try await appModel.database.read { db in
+            try SummaryResult.fetchCount(db)
+        }
+    }
+
+    private func countSummaryTaskRunTotal(_ appModel: AppModel) async throws -> Int {
+        try await appModel.database.read { db in
+            try AgentTaskRun
+                .filter(Column("taskType") == AgentTaskType.summary.rawValue)
+                .fetchCount(db)
+        }
+    }
+
+    private func countSummarySlot(
+        _ appModel: AppModel,
+        entryId: Int64,
+        targetLanguage: String,
+        detailLevel: SummaryDetailLevel
+    ) async throws -> Int {
+        try await appModel.database.read { db in
+            try Int.fetchOne(
+                db,
+                sql: """
+                SELECT COUNT(*)
+                FROM summary_result
+                WHERE entryId = ? AND targetLanguage = ? AND detailLevel = ?
+                """,
+                arguments: [entryId, targetLanguage, detailLevel.rawValue]
+            ) ?? 0
+        }
+    }
+
+    private func taskRunExists(_ appModel: AppModel, runId: Int64) async throws -> Bool {
+        try await appModel.database.read { db in
+            try Bool.fetchOne(
+                db,
+                sql: "SELECT EXISTS(SELECT 1 FROM agent_task_run WHERE id = ?)",
+                arguments: [runId]
+            ) ?? false
+        }
+    }
+}
+
+private enum TestError: Error {
+    case missingFeedID
+    case missingEntryID
+}
+
+private final class InMemoryCredentialStore: CredentialStore, @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [String: String] = [:]
+
+    func save(secret: String, for ref: String) throws {
+        lock.lock()
+        defer { lock.unlock() }
+        storage[ref] = secret
+    }
+
+    func readSecret(for ref: String) throws -> String {
+        lock.lock()
+        defer { lock.unlock() }
+        if let value = storage[ref] {
+            return value
+        }
+        throw CredentialStoreError.itemNotFound
+    }
+
+    func deleteSecret(for ref: String) throws {
+        lock.lock()
+        defer { lock.unlock() }
+        storage.removeValue(forKey: ref)
+    }
+}

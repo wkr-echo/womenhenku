@@ -1,7 +1,14 @@
 import { useState, useEffect } from "react";
 import { Button, Input, Dropdown } from "@/components/ui";
-import { mockProviders } from "@/api/mock";
-import type { Provider, AgentConfig, ImportResult } from "@/lib/types";
+import {
+  listProviders,
+  addProvider as apiAddProvider,
+  updateProvider as apiUpdateProvider,
+  deleteProvider as apiDeleteProvider,
+  listProviderModels,
+  addProviderModel,
+} from "@/api/provider";
+import type { Provider, AgentConfig } from "@/lib/types";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useApp } from "@/contexts/AppContext";
 import { t } from "@/lib/utils";
@@ -55,30 +62,95 @@ export function SettingsPageView() {
 }
 
 function ProviderSettings() {
-  const [providers, setProviders] = useState<Provider[]>(mockProviders);
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [providersLoading, setProvidersLoading] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ name: "", baseUrl: "", apiKey: "", defaultModel: "", thinkingModel: "" });
+  const [form, setForm] = useState({ name: "", baseUrl: "", apiKeyRef: "", isDefault: false, defaultModel: "" });
+  const [models, setModels] = useState<Record<number, string[]>>({});
 
-  const handleAdd = () => {
+  const loadProviders = async () => {
+    if (!isTauri()) return;
+    try {
+      const data = await listProviders();
+      setProviders(data);
+
+      // 加载每个 provider 的模型列表
+      const modelsMap: Record<number, string[]> = {};
+      for (const p of data) {
+        try {
+          const ms = await listProviderModels(p.id);
+          modelsMap[p.id] = ms.map((m: any) => m.modelName);
+        } catch {
+          modelsMap[p.id] = [];
+        }
+      }
+      setModels(modelsMap);
+    } catch (e: any) {
+      console.error("Failed to load providers", e);
+    } finally {
+      setProvidersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadProviders();
+  }, []);
+
+  const handleAdd = async () => {
     if (!form.name || !form.baseUrl) return;
-    const newProvider: Provider = {
-      id: Date.now(),
-      name: form.name,
-      baseUrl: form.baseUrl,
-      apiKey: form.apiKey,
-      defaultModel: form.defaultModel,
-      thinkingModel: form.thinkingModel,
-      createdAt: new Date().toISOString(),
-    };
-    setProviders([...providers, newProvider]);
-    setForm({ name: "", baseUrl: "", apiKey: "", defaultModel: "", thinkingModel: "" });
-    setShowAdd(false);
+    if (!isTauri()) return;
+
+    try {
+      const newProv = await apiAddProvider({
+        name: form.name,
+        baseUrl: form.baseUrl,
+        apiKeyRef: form.apiKeyRef,
+        isDefault: providers.length === 0 ? true : form.isDefault,
+      });
+
+      // 如果填写了默认模型，添加到 provider_models
+      if (form.defaultModel) {
+        await addProviderModel({
+          providerId: newProv.id,
+          modelName: form.defaultModel,
+          isDefault: true,
+        });
+      }
+
+      setForm({ name: "", baseUrl: "", apiKeyRef: "", isDefault: false, defaultModel: "" });
+      setShowAdd(false);
+      await loadProviders();
+    } catch (e: any) {
+      toast(t("添加失败: ") + String(e), "error");
+    }
   };
 
-  const handleDelete = (id: number) => {
-    setProviders(providers.filter((p) => p.id !== id));
+  const handleDelete = async (id: number) => {
+    if (!isTauri()) return;
+    try {
+      await apiDeleteProvider(id);
+      await loadProviders();
+    } catch (e: any) {
+      toast(t("删除失败: ") + String(e), "error");
+    }
   };
+
+  const handleUpdate = async (id: number, update: any) => {
+    if (!isTauri()) return;
+    try {
+      await apiUpdateProvider(id, update);
+      setEditingId(null);
+      await loadProviders();
+      toast(t("更新成功"), "success");
+    } catch (e: any) {
+      toast(t("更新失败: ") + String(e), "error");
+    }
+  };
+
+  if (providersLoading) {
+    return <div className="text-center py-8 text-sm text-[var(--text-tertiary)]">{t("加载中...")}</div>;
+  }
 
   return (
     <div>
@@ -99,15 +171,18 @@ function ProviderSettings() {
 
       {/* Provider list */}
       <div className="space-y-3">
+        {providers.length === 0 && (
+          <div className="text-center py-8 text-sm text-[var(--text-tertiary)]">
+            {t("还没有配置 AI 服务，点击上方按钮添加")}
+          </div>
+        )}
         {providers.map((p) => (
           <div key={p.id} className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-4">
             {editingId === p.id ? (
-              <EditProviderForm
+              <EditProviderFormInline
                 provider={p}
-                onSave={(updated) => {
-                  setProviders(providers.map((x) => (x.id === p.id ? updated : x)));
-                  setEditingId(null);
-                }}
+                models={models[p.id] || []}
+                onSave={(update) => handleUpdate(p.id, update)}
                 onCancel={() => setEditingId(null)}
               />
             ) : (
@@ -115,15 +190,20 @@ function ProviderSettings() {
                 <div>
                   <div className="flex items-center gap-2">
                     <h4 className="font-medium text-sm">{p.name}</h4>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300">
-                      {t("已连接")}
-                    </span>
+                    {p.isDefault && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--accent-color)]/10 text-[var(--accent-color)]">
+                        {t("默认")}
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-[var(--text-tertiary)] mt-1">{p.baseUrl}</p>
-                  <div className="flex items-center gap-4 mt-2 text-xs text-[var(--text-tertiary)]">
-                    <span>{t("默认模型：")}{p.defaultModel}</span>
-                    <span>{t("思考模型：")}{p.thinkingModel}</span>
-                  </div>
+                  {models[p.id] && models[p.id]!.length > 0 && (
+                    <div className="flex items-center gap-2 mt-2 text-xs text-[var(--text-tertiary)]">
+                      <span>{t("模型：")}</span>
+                      {models[p.id]!.slice(0, 3).join(", ")}
+                      {models[p.id]!.length > 3 && <span>+{models[p.id]!.length - 3}</span>}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-1">
                   <Button variant="ghost" size="sm" onClick={() => setEditingId(p.id)}>
@@ -148,9 +228,8 @@ function ProviderSettings() {
           <div className="grid grid-cols-2 gap-3">
             <Input placeholder={t("名称（如 Ollama）")} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             <Input placeholder={t("Base URL（如 http://localhost:11434/v1）")} value={form.baseUrl} onChange={(e) => setForm({ ...form, baseUrl: e.target.value })} />
-            <Input placeholder={t("API Key（可选）")} type="password" value={form.apiKey} onChange={(e) => setForm({ ...form, apiKey: e.target.value })} />
-            <Input placeholder={t("默认模型")} value={form.defaultModel} onChange={(e) => setForm({ ...form, defaultModel: e.target.value })} />
-            <Input placeholder={t("思考模型")} value={form.thinkingModel} onChange={(e) => setForm({ ...form, thinkingModel: e.target.value })} />
+            <Input placeholder={t("API Key（可选）")} type="password" value={form.apiKeyRef} onChange={(e) => setForm({ ...form, apiKeyRef: e.target.value })} />
+            <Input placeholder={t("默认模型名")} value={form.defaultModel} onChange={(e) => setForm({ ...form, defaultModel: e.target.value })} />
           </div>
           <div className="flex justify-end gap-2 mt-3">
             <Button variant="ghost" size="sm" onClick={() => setShowAdd(false)}>{t("取消")}</Button>
@@ -158,6 +237,41 @@ function ProviderSettings() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function EditProviderFormInline({
+  provider,
+  models,
+  onSave,
+  onCancel,
+}: {
+  provider: Provider;
+  models: string[];
+  onSave: (update: any) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState(provider.name);
+  const [baseUrl, setBaseUrl] = useState(provider.baseUrl);
+  const [apiKeyRef, setApiKeyRef] = useState(provider.apiKeyRef);
+  return (
+    <div>
+      <div className="grid grid-cols-2 gap-3">
+        <Input placeholder={t("名称")} value={name} onChange={(e) => setName(e.target.value)} />
+        <Input placeholder="Base URL" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} />
+        <Input placeholder="API Key" type="password" value={apiKeyRef} onChange={(e) => setApiKeyRef(e.target.value)} />
+      </div>
+      {models.length > 0 && (
+        <p className="text-xs text-[var(--text-tertiary)] mt-2">
+          {t("模型：")}
+          {models.join(", ")}
+        </p>
+      )}
+      <div className="flex justify-end gap-2 mt-3">
+        <Button variant="ghost" size="sm" onClick={onCancel}>{t("取消")}</Button>
+        <Button size="sm" onClick={() => onSave({ name, baseUrl, apiKeyRef })}>{t("保存")}</Button>
+      </div>
     </div>
   );
 }

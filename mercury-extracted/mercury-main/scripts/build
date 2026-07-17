@@ -1,0 +1,14 @@
+#!/bin/zsh
+set -euo pipefail
+
+REPO_DIR=$(cd "$(dirname "$0")/.." && pwd)
+PROJECT_PATH="$REPO_DIR/Mercury/Mercury.xcodeproj"
+SCHEME="Mercury"
+CONFIGURATION="Debug"
+
+xcodebuild \
+  -project "$PROJECT_PATH" \
+  -scheme "$SCHEME" \
+  -configuration "$CONFIGURATION" \
+  -destination "platform=macOS,arch=arm64" \
+  build

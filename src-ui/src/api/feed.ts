@@ -88,54 +88,10 @@ export async function searchEntries(
   return invoke<EntryPage>("search_entries", { query, page, pageSize });
 }
 
-// ============ Provider API ============
+// ============ Summary API (deprecated — use api/provider.ts) ============
 
-export async function addProvider(provider: Omit<Provider, "id" | "createdAt">): Promise<Provider> {
-  return invoke<Provider>("add_provider", { provider });
-}
-
-export async function listProviders(): Promise<Provider[]> {
-  return invoke<Provider[]>("list_providers");
-}
-
-export async function updateProvider(provider: Provider): Promise<void> {
-  return invoke("update_provider", { provider });
-}
-
-export async function deleteProvider(id: number): Promise<void> {
-  return invoke("delete_provider", { id });
-}
-
-export async function validateProvider(baseUrl: string, apiKey: string): Promise<boolean> {
-  return invoke<boolean>("validate_provider", { baseUrl, apiKey });
-}
-
-// ============ Summary API ============
-
-export async function generateSummary(entryId: number): Promise<void> {
-  return invoke("generate_summary", { entryId });
-}
-
-export async function getSummary(entryId: number): Promise<Summary | null> {
-  return invoke<Summary | null>("get_summary", { entryId });
-}
-
-export async function cancelSummary(entryId: number): Promise<void> {
-  return invoke("cancel_summary", { entryId });
-}
-
-// ============ Translation API ============
-
-export async function translateEntry(entryId: number): Promise<void> {
-  return invoke("translate_entry", { entryId });
-}
-
-export async function retryFailedSegments(entryId: number): Promise<void> {
-  return invoke("retry_failed_segments", { entryId });
-}
-
-export async function clearTranslation(entryId: number): Promise<void> {
-  return invoke("clear_translation", { entryId });
+export async function getSummary(entryId: number): Promise<string | null> {
+  return invoke<string | null>("get_summary", { entryId });
 }
 
 // ============ Note API ============
@@ -153,18 +109,6 @@ export async function deleteNote(id: number): Promise<void> {
 }
 
 // ============ Settings API ============
-
-export async function listSystemFonts(): Promise<string[]> {
-  return invoke<string[]>("list_system_fonts");
-}
-
-export async function getTheme(): Promise<string> {
-  return invoke<string>("get_theme");
-}
-
-export async function setTheme(theme: string): Promise<void> {
-  return invoke("set_theme", { theme });
-}
 
 export async function getSetting(key: string): Promise<string | null> {
   return invoke<string | null>("get_setting", { key });

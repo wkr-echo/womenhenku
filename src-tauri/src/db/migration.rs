@@ -14,6 +14,11 @@ const MIGRATIONS: &[Migration] = &[
         sql: include_str!("migrations/002_fts_search.sql"),
     },
     Migration {
+        version: 3,
+        name: "003_providers",
+        sql: include_str!("migrations/003_providers.sql"),
+    },
+    Migration {
         version: 4,
         name: "004_notes_digest",
         sql: include_str!("migrations/004_notes_digest.sql"),
@@ -120,6 +125,6 @@ mod tests {
         let count: i32 = conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |row| row.get(0))
             .expect("Failed to count schema_version");
-        assert_eq!(count, 3); // 1, 2, 4 — three migrations
+        assert_eq!(count, 4); // 1, 2, 3, 4 — four migrations
     }
 }

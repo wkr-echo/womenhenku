@@ -31,7 +31,11 @@
     "icon": [
       "icons/icon.png",
       "icons/icon.ico"
-    ]
+    ],
+        "resources": {
+      "resources/prompts/summary.yaml": "resources/prompts/summary.yaml",
+      "resources/prompts/translation.yaml": "resources/prompts/translation.yaml"
+    }
   },
   "plugins": {}
 }

@@ -1,0 +1,42 @@
+id: single-markdown
+version: v1
+requiredPlaceholders:
+  - exportDateTimeISO8601
+  - digestTitle
+  - fileSlug
+  - articleTitle
+  - articleURL
+optionalPlaceholders:
+  - articleAuthor
+  - labelSource
+  - labelAuthor
+  - includeSummary
+  - summaryTextBlockquote
+  - includeNote
+  - noteText
+  - labelNote
+  - generatedByLine
+defaultParameters:
+  - labelSource=Source
+  - labelAuthor=Author
+  - labelNote=My Take
+template: |
+  +++
+  date = '{{exportDateTimeISO8601}}'
+  draft = false
+  title = '{{digestTitle}}'
+  slug = '{{fileSlug}}'
+  +++
+
+  **{{labelSource}}**: [{{articleTitle}}]({{articleURL}})<br>
+  **{{labelAuthor}}**: {{articleAuthor}}
+
+  {{#includeSummary}}
+  > {{summaryTextBlockquote}}
+  {{/includeSummary}}
+
+  {{#includeNote}}
+  **{{labelNote}}**: {{noteText}}
+  {{/includeNote}}
+
+  *{{generatedByLine}}*

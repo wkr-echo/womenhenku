@@ -70,10 +70,10 @@ export interface Provider {
   id: number;
   name: string;
   baseUrl: string;
-  apiKey: string;
-  defaultModel: string;
-  thinkingModel: string;
+  apiKeyRef: string;
+  isDefault: boolean;
   createdAt: string;
+  updatedAt: string | null;
 }
 
 export interface Summary {

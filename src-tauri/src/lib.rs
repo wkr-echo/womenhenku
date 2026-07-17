@@ -1,3 +1,4 @@
+pub mod agent;
 pub mod commands;
 pub mod db;
 pub mod digest;
@@ -63,8 +64,43 @@ pub fn run() {
                 }
             });
 
+            // 初始化 Prompt 管理器
+            let mut prompt_dirs = Vec::new();
+            if let Ok(dir) = app.path().resource_dir() {
+                prompt_dirs.push(dir.join("resources"));
+            }
+            prompt_dirs.push(std::path::PathBuf::from("resources"));
+            if let Ok(cwd) = std::env::current_dir() {
+                prompt_dirs.push(cwd.join("resources"));
+            }
+
+            let mut prompt_manager_opt = None;
+            for dir in &prompt_dirs {
+                if dir.join("prompts").exists() {
+                    if let Ok(mgr) = agent::prompt::PromptManager::load(dir) {
+                        prompt_manager_opt = Some(mgr);
+                        tracing::info!("Loaded prompts from: {:?}", dir.join("prompts"));
+                        break;
+                    }
+                }
+            }
+
+            let prompt_manager = std::sync::Arc::new(
+                prompt_manager_opt.unwrap_or_else(|| {
+                    tracing::warn!("No prompt files found, using built-in defaults");
+                    agent::prompt::PromptManager::empty()
+                }),
+            );
+
+            // 初始化 Agent Service
+            let agent_service = std::sync::Arc::new(
+                agent::service::AgentService::new(pool.clone(), prompt_manager.clone()),
+            );
+
             app.manage(pool);
-            tracing::info!("Tauri + database initialized");
+            app.manage(agent_service);
+            app.manage(prompt_manager);
+            tracing::info!("Tauri + database + agent initialized");
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -90,6 +126,28 @@ pub fn run() {
             export_opml,
             // Search (Stage 2)
             search_entries,
+            // Provider management
+            add_provider,
+            list_providers,
+            update_provider,
+            delete_provider,
+            add_provider_model,
+            list_provider_models,
+            delete_provider_model,
+            validate_provider,
+            // Agent (Stage 3)
+            generate_summary,
+            get_summary,
+            cancel_summary,
+            clear_summary,
+            translate_entry,
+            get_translation,
+            cancel_translation,
+            clear_translation,
+            retry_failed_segments,
+            // Settings
+            get_setting,
+            set_setting,
             // Notes (Stage 4)
             save_note,
             get_note,
@@ -110,6 +168,8 @@ pub fn run() {
 // Tauri Command wrappers
 // ============================================================
 
+#[cfg(feature = "tauri-runtime")]
+use tauri::Emitter;
 #[cfg(feature = "tauri-runtime")]
 use tauri::Manager;
 #[cfg(feature = "tauri-runtime")]
@@ -312,4 +372,221 @@ fn export_single_digest(state: State<'_, DbPool>, entry_id: i64, format: String)
 fn export_multi_digest(state: State<'_, DbPool>, entry_ids: Vec<i64>, format: String) -> Result<String, String> {
     let fmt = crate::digest::DigestFormat::from_str(&format)?;
     commands::export_multi_digest(&state, &entry_ids, &fmt)
+}
+
+// ============================================================
+// -- Provider management (Stage 3) —
+//    注意：这些命令直接调用 AgentService 的方法，
+//    不经过 commands.rs（遵守阶段隔离规则）
+// ============================================================
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn add_provider(
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    provider: crate::db::model::NewProvider,
+) -> Result<crate::db::model::Provider, String> {
+    agent_service.add_provider(&provider)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn list_providers(
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+) -> Result<Vec<crate::db::model::Provider>, String> {
+    agent_service.list_providers()
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn update_provider(
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    id: i64,
+    update: crate::db::model::UpdateProvider,
+) -> Result<crate::db::model::Provider, String> {
+    agent_service.update_provider(id, &update)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn delete_provider(
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    id: i64,
+) -> Result<(), String> {
+    agent_service.delete_provider(id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn add_provider_model(
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    model: crate::db::model::NewProviderModel,
+) -> Result<crate::db::model::ProviderModel, String> {
+    agent_service.add_provider_model(&model)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn list_provider_models(
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    provider_id: i64,
+) -> Result<Vec<crate::db::model::ProviderModel>, String> {
+    agent_service.list_provider_models(provider_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn delete_provider_model(
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    id: i64,
+) -> Result<(), String> {
+    agent_service.delete_provider_model(id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn validate_provider(
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    base_url: String,
+    api_key: String,
+    model: String,
+) -> Result<bool, String> {
+    agent_service
+        .validate_provider(&base_url, &api_key, &model)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+// ============================================================
+// -- Agent commands (Stage 3) —
+//    注意：同样不经过 commands.rs，直接调用 AgentService
+// ============================================================
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn generate_summary(
+    app: tauri::AppHandle,
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    entry_id: i64,
+) -> Result<(), String> {
+    let app_handle = app.clone();
+
+    let on_event = move |event: crate::agent::client::AiStreamEvent| {
+        let _ = app_handle.emit("ai-stream", serde_json::to_value(&event).unwrap_or_default());
+    };
+
+    agent_service.generate_summary(entry_id, on_event).await.map_err(|e| e.to_string())
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn get_summary(
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    entry_id: i64,
+) -> Result<Option<String>, String> {
+    agent_service.get_latest_summary_text(entry_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn cancel_summary(
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    entry_id: i64,
+) -> Result<(), String> {
+    agent_service.cancel_summary(entry_id).await.map_err(|e| e.to_string())
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn clear_summary(
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    entry_id: i64,
+) -> Result<(), String> {
+    agent_service.clear_summary(entry_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn translate_entry(
+    app: tauri::AppHandle,
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    entry_id: i64,
+) -> Result<(), String> {
+    let app_handle = app.clone();
+
+    let on_event = move |event: crate::agent::client::AiStreamEvent| {
+        let _ = app_handle.emit("ai-stream", serde_json::to_value(&event).unwrap_or_default());
+    };
+
+    agent_service.translate_entry(entry_id, on_event).await.map_err(|e| e.to_string())
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn get_translation(
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    entry_id: i64,
+) -> Result<Option<String>, String> {
+    agent_service.get_latest_translation_text(entry_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn cancel_translation(
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    entry_id: i64,
+) -> Result<(), String> {
+    agent_service.cancel_translation(entry_id).await.map_err(|e| e.to_string())
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn clear_translation(
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    entry_id: i64,
+) -> Result<(), String> {
+    agent_service.clear_translation(entry_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn retry_failed_segments(
+    _entry_id: i64,
+) -> Result<(), String> {
+    Err("段落级重试尚未实现，请重新翻译整篇文章".to_string())
+}
+
+// ============================================================
+// -- Settings (Stage 4) --
+// ============================================================
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_setting(state: State<'_, DbPool>, key: String) -> Result<Option<String>, String> {
+    let pool = state.inner();
+    let conn = pool.get().map_err(|e| e.to_string())?;
+    let result = conn.query_row(
+        "SELECT value FROM settings WHERE key = ?1",
+        rusqlite::params![key],
+        |row| row.get::<_, String>(0),
+    );
+    match result {
+        Ok(val) => Ok(Some(val)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn set_setting(state: State<'_, DbPool>, key: String, value: String) -> Result<(), String> {
+    let pool = state.inner();
+    let conn = pool.get().map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT INTO settings (key, value) VALUES (?1, ?2)
+         ON CONFLICT(key) DO UPDATE SET value = ?2",
+        rusqlite::params![key, value],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
 }
