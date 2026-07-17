@@ -8,6 +8,8 @@ pub mod reader;
 
 #[cfg(feature = "tauri-runtime")]
 use std::str::FromStr;
+#[cfg(feature = "tauri-runtime")]
+use tauri::Emitter;
 
 // ============================================================
 // Non-Tauri entry point (for cargo test / standalone binary)
@@ -221,13 +223,21 @@ fn process_entry_content(state: State<'_, DbPool>, entry_id: i64, url: String) -
 #[cfg(feature = "tauri-runtime")]
 #[tauri::command]
 async fn import_opml(
+    app: tauri::AppHandle,
     state: State<'_, DbPool>,
     file_path: String,
 ) -> Result<Vec<crate::feed::opml::ImportResult>, String> {
+    let outlines = crate::feed::opml::parse_opml_file(std::path::Path::new(&file_path))
+        .map_err(|e| e.to_string())?;
     let pool = state.inner().clone();
-    tokio::task::spawn_blocking(move || commands::import_opml(&pool, &file_path))
-        .await
-        .map_err(|e| e.to_string())?
+    let result = tokio::task::spawn_blocking(move || {
+        crate::feed::opml::import_feeds(&pool, &outlines, &|r| {
+            let _ = app.emit("opml-import-progress", r.clone());
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(result)
 }
 
 #[cfg(feature = "tauri-runtime")]

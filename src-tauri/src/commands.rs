@@ -143,7 +143,7 @@ pub fn process_entry_content(pool: &DbPool, entry_id: i64, url: &str) -> Result<
 pub fn import_opml(pool: &DbPool, file_path: &str) -> Result<Vec<crate::feed::opml::ImportResult>, String> {
     let outlines =
         crate::feed::opml::parse_opml_file(std::path::Path::new(file_path)).map_err(|e| e.to_string())?;
-    Ok(crate::feed::opml::import_feeds(pool, &outlines))
+    Ok(crate::feed::opml::import_feeds(pool, &outlines, &|_| {}))
 }
 
 /// Export all feeds to an OPML file.

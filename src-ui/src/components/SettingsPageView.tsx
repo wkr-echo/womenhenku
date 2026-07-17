@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button, Input, Dropdown } from "@/components/ui";
 import { mockProviders } from "@/api/mock";
-import type { Provider, AgentConfig } from "@/lib/types";
+import type { Provider, AgentConfig, ImportResult } from "@/lib/types";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useApp } from "@/contexts/AppContext";
 import { t } from "@/lib/utils";
@@ -349,6 +349,8 @@ function AppearanceSettings({ theme, onToggleTheme }: { theme: string; onToggleT
 
 function SyncSettings() {
   const { reloadFeeds } = useApp();
+  const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState<ImportResult[]>([]);
   const handleOpmlExport = async () => {
     try {
       if (!isTauri()) { toast(t("仅在桌面应用中可用"), "error"); return; }
@@ -375,17 +377,24 @@ function SyncSettings() {
         multiple: false,
         filters: [{ name: "OPML", extensions: ["opml", "xml"] }],
       });
-      if (!filePath) return; // user cancelled
+      if (!filePath) return;
+      setImporting(true);
+      setImportProgress([]);
+      const { listen } = await import("@tauri-apps/api/event");
+      const unlisten = await listen<ImportResult>("opml-import-progress", (event) => {
+        setImportProgress((prev) => [...prev, event.payload]);
+        reloadFeeds();
+      });
       const results = await importOpml(filePath as string);
-      const ok = results.filter((r) => r.success).length;
+      unlisten();
+      const ok = results.filter((r) => r.success).length; 
       const fail = results.length - ok;
-      const msg = fail > 0
-        ? t(`导入完成: ${ok} 成功, ${fail} 失败`)
-        : t(`导入完成: ${ok}/${results.length} 个订阅源`);
-      toast(msg, ok > 0 ? "success" : "error");
-      if (ok > 0) reloadFeeds();
+      toast(fail > 0 ? t(`导入完成: ${ok} 成功, ${fail} 失败`) : t(`导入完成: ${ok} 个订阅源`), ok > 0 ? "success" : "error");
+      reloadFeeds();
+      setImporting(false);
     } catch (e: any) {
       toast(t("导入失败: ") + String(e), "error");
+      setImporting(false);
     }
   };
 
@@ -425,9 +434,22 @@ function SyncSettings() {
 
         <div>
           <label className="block text-sm font-medium mb-2">{t("OPML 导入")}</label>
-          <Button variant="secondary" size="sm" onClick={() => handleOpmlImport()}>
-            {t("导入订阅源")}
+          <Button variant="secondary" size="sm" onClick={() => handleOpmlImport()} disabled={importing}>
+            {importing ? t("导入中...") : t("导入订阅源")}
           </Button>
+          {importing && (
+            <div className="mt-2 text-xs text-[var(--text-tertiary)] max-h-32 overflow-y-auto">
+              {importProgress.map((r, i) => (
+                <div key={i} className="flex items-center gap-1 py-0.5">
+                  <span className={r.success ? "text-green-500" : "text-red-500"}>
+                    {r.success ? "✓" : "✗"}
+                  </span>
+                  <span className="truncate">{r.title || r.xmlUrl}</span>
+                </div>
+              ))}
+              {importProgress.length === 0 && <span>{t("准备中...")}</span>}
+            </div>
+          )}
         </div>
 
         <div>

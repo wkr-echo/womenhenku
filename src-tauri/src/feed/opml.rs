@@ -106,7 +106,11 @@ pub fn parse_opml(xml: &str) -> Result<Vec<OpmlOutline>, OpmlError> {
 // Import with filtering, batching, title resolution, auto-sync
 // ============================================================
 
-pub fn import_feeds(pool: &DbPool, outlines: &[OpmlOutline]) -> Vec<ImportResult> {
+pub fn import_feeds(
+    pool: &DbPool,
+    outlines: &[OpmlOutline],
+    on_progress: &dyn Fn(&ImportResult),
+) -> Vec<ImportResult> {
     let mut results = Vec::new();
     let feed_repo = FeedRepository::new(pool.clone());
     let client = reqwest::Client::builder()
@@ -120,10 +124,12 @@ pub fn import_feeds(pool: &DbPool, outlines: &[OpmlOutline]) -> Vec<ImportResult
         let ok = o.xml_url.starts_with("https://");
         if !ok {
             tracing::warn!("OPML import: skipping HTTP feed {}", o.xml_url);
-            results.push(ImportResult {
+            let r = ImportResult {
                 xml_url: o.xml_url.clone(), title: o.title.clone(),
                 success: false, message: "HTTP not allowed (HTTPS required)".into(),
-            });
+            };
+            on_progress(&r);
+            results.push(r);
         }
         ok
     }).collect();
@@ -142,6 +148,7 @@ pub fn import_feeds(pool: &DbPool, outlines: &[OpmlOutline]) -> Vec<ImportResult
                     xml_url: outline.xml_url.clone(), title,
                     success: true, message: format!("Updated (id={})", existing.id),
                 });
+            on_progress(&results.last().unwrap());
                 continue;
             }
 
@@ -154,12 +161,14 @@ pub fn import_feeds(pool: &DbPool, outlines: &[OpmlOutline]) -> Vec<ImportResult
                         xml_url: outline.xml_url.clone(), title,
                         success: true, message: format!("id={}", feed.id),
                     });
+            on_progress(&results.last().unwrap());
                 }
                 Err(e) => {
                     results.push(ImportResult {
                         xml_url: outline.xml_url.clone(), title: outline.title.clone(),
                         success: false, message: e.to_string(),
                     });
+            on_progress(&results.last().unwrap());
                 }
             }
         }
@@ -285,7 +294,7 @@ mod tests {
         assert_eq!(outlines.len(), 2); // parser extracts both
 
         let pool = open_test_db_pool().expect("pool");
-        let results = import_feeds(&pool, &outlines);
+        let results = import_feeds(&pool, &outlines, &|_| {});
         // HTTP should be rejected
         let http = results.iter().find(|r| r.xml_url.contains("http://"));
         assert!(http.is_some());
