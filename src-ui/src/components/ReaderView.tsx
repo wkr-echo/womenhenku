@@ -29,10 +29,13 @@ const EXPORT_LABELS: Record<ExportFormat, string> = {
   plaintext: "纯文本",
 };
 
-const PANEL_WIDTH = 400;
-
 export function ReaderView() {
   const { selectedEntry, setViewMode, markEntryRead } = useApp();
+
+  // ============================================================
+  // All hooks — must be called unconditionally before any return
+  // ============================================================
+
   const [sidePanel, setSidePanel] = useState<SidePanel>(null);
   const [exporting, setExporting] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -42,73 +45,11 @@ export function ReaderView() {
   const unlistenRef = useRef<(() => void) | null>(null);
   const translationEntryRef = useRef<number | null>(null);
 
-  const showBilingual = translation.mode === "bilingual" && translation.entryId === selectedEntry?.id;
-
-  const togglePanel = (panel: SidePanel) => {
-    setSidePanel((prev) => (prev === panel ? null : panel));
-    setShowExportMenu(false);
-  };
-
-  const handleExport = async (format: ExportFormat) => {
-    setShowExportMenu(false);
-    setExporting(true);
-    try {
-      const content = isTauri()
-        ? await exportSingleDigest(selectedEntry!.id, format)
-        : mockDigestExport(selectedEntry!, format);
-
-      const extensions: Record<ExportFormat, string> = {
-        markdown: ".md",
-        html: ".html",
-        plaintext: ".txt",
-      };
-
-      if (isTauri()) {
-        const { save } = await import("@tauri-apps/plugin-dialog");
-        const { homeDir } = await import("@tauri-apps/api/path");
-        const home = await homeDir();
-        const filePath = await save({
-          defaultPath: `${home}${selectedEntry!.title}${extensions[format]}`,
-          filters: [{ name: EXPORT_LABELS[format], extensions: [extensions[format].slice(1)] }],
-        });
-        if (!filePath) { setExporting(false); return; }
-        await exportSingleDigest(selectedEntry!.id, format);
-        toast(t(`已导出到 ${filePath}`), "success");
-      } else {
-        const mimeTypes: Record<ExportFormat, string> = {
-          markdown: "text/markdown",
-          html: "text/html",
-          plaintext: "text/plain",
-        };
-        const blob = new Blob([content], { type: mimeTypes[format] });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${selectedEntry!.title}${extensions[format]}`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        toast(t(`已导出 ${EXPORT_LABELS[format]}`), "success");
-      }
-    } catch (e: any) {
-      toast(t("导出失败: ") + String(e), "error");
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  if (!selectedEntry) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <p className="text-[var(--text-tertiary)] text-sm">{t("选择一篇文章开始阅读")}</p>
-      </div>
-    );
-  }
-
   const [content, setContent] = useState<Content | null>(null);
   const [contentLoading, setContentLoading] = useState(false);
   const [contentError, setContentError] = useState<string | null>(null);
+
+  const showBilingual = translation.mode === "bilingual" && translation.entryId === selectedEntry?.id;
 
   // Load real content from backend when entry changes.
   useEffect(() => {
@@ -241,7 +182,7 @@ export function ReaderView() {
     const sources = splitContentIntoSegments(html);
     if (sources.length === 0) return;
 
-    const entryId = selectedEntry.id;
+    const entryId = selectedEntry!.id;
     translationEntryRef.current = entryId;
 
     const initial: SegPair[] = sources.map((src) => ({
@@ -277,7 +218,7 @@ export function ReaderView() {
   };
 
   const handleClearTranslation = async () => {
-    await clearTranslationApi(selectedEntry.id).catch(() => {});
+    await clearTranslationApi(selectedEntry!.id).catch(() => {});
     setSegments([]);
     setTranslation({ mode: "original", entryId: null });
     translationEntryRef.current = null;
@@ -285,7 +226,7 @@ export function ReaderView() {
 
   const isPanelOpen = sidePanel !== null;
 
-  // Keyboard shortcuts for reader view: s=summary, t=translate, n=notes, Escape=close panel
+  // Keyboard shortcuts: s=summary, t=translate, n=notes, Escape=close panel
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -301,6 +242,76 @@ export function ReaderView() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [sidePanel, contentLoading, content, translating, showBilingual, segments.length]);
+
+  // ============================================================
+  // Derived values and callbacks
+  // ============================================================
+
+  const togglePanel = (panel: SidePanel) => {
+    setSidePanel((prev) => (prev === panel ? null : panel));
+    setShowExportMenu(false);
+  };
+
+  const handleExport = async (format: ExportFormat) => {
+    setShowExportMenu(false);
+    setExporting(true);
+    try {
+      const content = isTauri()
+        ? await exportSingleDigest(selectedEntry!.id, format)
+        : mockDigestExport(selectedEntry!, format);
+
+      const extensions: Record<ExportFormat, string> = {
+        markdown: ".md",
+        html: ".html",
+        plaintext: ".txt",
+      };
+
+      if (isTauri()) {
+        const { save } = await import("@tauri-apps/plugin-dialog");
+        const { homeDir } = await import("@tauri-apps/api/path");
+        const home = await homeDir();
+        const filePath = await save({
+          defaultPath: `${home}${selectedEntry!.title}${extensions[format]}`,
+          filters: [{ name: EXPORT_LABELS[format], extensions: [extensions[format].slice(1)] }],
+        });
+        if (!filePath) { setExporting(false); return; }
+        await exportSingleDigest(selectedEntry!.id, format);
+        toast(t(`已导出到 ${filePath}`), "success");
+      } else {
+        const mimeTypes: Record<ExportFormat, string> = {
+          markdown: "text/markdown",
+          html: "text/html",
+          plaintext: "text/plain",
+        };
+        const blob = new Blob([content], { type: mimeTypes[format] });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${selectedEntry!.title}${extensions[format]}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast(t(`已导出 ${EXPORT_LABELS[format]}`), "success");
+      }
+    } catch (e: any) {
+      toast(t("导出失败: ") + String(e), "error");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  // ============================================================
+  // Render
+  // ============================================================
+
+  if (!selectedEntry) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <p className="text-[var(--text-tertiary)] text-sm">{t("选择一篇文章开始阅读")}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
