@@ -19,10 +19,15 @@ export default {
       fontFamily: {
         sans: [
           "Inter",
-          "PingFang SC",
           "Microsoft YaHei",
+          "PingFang SC",
+          "SimHei",
+          "SimSun",
+          "Microsoft JhengHei",
           "Hiragino Sans GB",
           "WenQuanYi Micro Hei",
+          "Noto Sans CJK SC",
+          "Source Han Sans SC",
           "system-ui",
           "-apple-system",
           "sans-serif",
