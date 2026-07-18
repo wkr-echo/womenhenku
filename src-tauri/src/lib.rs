@@ -514,6 +514,8 @@ async fn translate_entry(
     app: tauri::AppHandle,
     agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
     entry_id: i64,
+    target_language: Option<String>,
+    concurrency: Option<usize>,
 ) -> Result<(), String> {
     let app_handle = app.clone();
 
@@ -521,7 +523,10 @@ async fn translate_entry(
         let _ = app_handle.emit("ai-stream", serde_json::to_value(&event).unwrap_or_default());
     };
 
-    agent_service.translate_entry(entry_id, on_event).await.map_err(|e| e.to_string())
+    let lang = target_language.unwrap_or_else(|| "zh-CN".to_string());
+    let conc = concurrency.unwrap_or(3);
+
+    agent_service.translate_entry(entry_id, &lang, conc, on_event).await.map_err(|e| e.to_string())
 }
 
 #[cfg(feature = "tauri-runtime")]

@@ -72,17 +72,17 @@ export function SummaryPanelView({ entryId }: SummaryPanelProps) {
 
     try {
       // Read agent config from settings
-      let targetLanguage = "zh-CN";
-      let detailLevel = "standard";
+      let summaryLanguage = "zh-CN";
+      let summaryDetail = "standard";
       try {
         const saved = localStorage.getItem("agentConfig");
         if (saved) {
           const cfg = JSON.parse(saved);
-          targetLanguage = cfg.targetLanguage || targetLanguage;
-          detailLevel = cfg.detailLevel || detailLevel;
+          summaryLanguage = cfg.summaryLanguage || summaryLanguage;
+          summaryDetail = cfg.summaryDetail || summaryDetail;
         }
       } catch {}
-      await generateSummary(entryId, targetLanguage, detailLevel);
+      await generateSummary(entryId, summaryLanguage, summaryDetail);
     } catch (err: any) {
       setIsGenerating(false);
       setError(String(err));

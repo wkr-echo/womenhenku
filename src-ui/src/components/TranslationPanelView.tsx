@@ -82,7 +82,17 @@ export function TranslationPanelView({ entryId }: TranslationPanelProps) {
     setStreamSegments([]);
 
     try {
-      await translateEntry(entryId);
+      let targetLanguage = "zh-CN";
+      let concurrency = 3;
+      try {
+        const saved = localStorage.getItem("agentConfig");
+        if (saved) {
+          const cfg = JSON.parse(saved);
+          targetLanguage = cfg.translationLanguage || targetLanguage;
+          concurrency = cfg.concurrencyDegree || concurrency;
+        }
+      } catch {}
+      await translateEntry(entryId, targetLanguage, concurrency);
     } catch (err: any) {
       setTranslating(false);
       setError(String(err));

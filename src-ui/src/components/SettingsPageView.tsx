@@ -348,10 +348,10 @@ function AgentSettings() {
       if (saved) return JSON.parse(saved);
     } catch {}
     return {
-      targetLanguage: "zh-CN",
-      detailLevel: "standard",
+      summaryLanguage: "zh-CN",
+      summaryDetail: "standard",
+      translationLanguage: "zh-CN",
       concurrencyDegree: 3,
-      primaryModelId: "",
     };
   });
 
@@ -382,8 +382,8 @@ function AgentSettings() {
           <label className="block text-sm font-medium mb-2">{t("摘要目标语言")}</label>
           <Dropdown
             items={languages}
-            value={config.targetLanguage}
-            onChange={(v) => setConfig({ ...config, targetLanguage: v })}
+            value={config.summaryLanguage}
+            onChange={(v) => setConfig({ ...config, summaryLanguage: v })}
           />
         </div>
 
@@ -391,8 +391,24 @@ function AgentSettings() {
           <label className="block text-sm font-medium mb-2">{t("摘要详细程度")}</label>
           <Dropdown
             items={detailLevels}
-            value={config.detailLevel}
-            onChange={(v) => setConfig({ ...config, detailLevel: v as AgentConfig["detailLevel"] })}
+            value={config.summaryDetail}
+            onChange={(v) => setConfig({ ...config, summaryDetail: v as AgentConfig["summaryDetail"] })}
+          />
+        </div>
+
+        <div className="border-t border-[var(--border-color)] pt-4">
+          <label className="block text-sm font-medium mb-2">{t("翻译目标语言")}</label>
+          <Dropdown
+            items={[
+              { label: t("中文"), value: "zh-CN" },
+              { label: "English", value: "en" },
+              { label: "日本語", value: "ja" },
+              { label: "한국어", value: "ko" },
+              { label: "Français", value: "fr" },
+              { label: "Deutsch", value: "de" },
+            ]}
+            value={config.translationLanguage}
+            onChange={(v) => setConfig({ ...config, translationLanguage: v })}
           />
         </div>
 
@@ -410,19 +426,6 @@ function AgentSettings() {
             <span>{t("1（慢）")}</span>
             <span>{t("5（快）")}</span>
           </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-2">{t("默认 AI 模型")}</label>
-          <Dropdown
-            items={[
-              { label: t("跟随 Provider 默认"), value: "" },
-              { label: "qwen2.5:7b (Ollama)", value: "qwen2.5:7b" },
-              { label: "deepseek-chat (DeepSeek)", value: "deepseek-chat" },
-            ]}
-            value={config.primaryModelId}
-            onChange={(v) => setConfig({ ...config, primaryModelId: v })}
-          />
         </div>
       </div>
     </div>

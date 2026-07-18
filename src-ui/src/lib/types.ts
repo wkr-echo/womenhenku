@@ -107,10 +107,10 @@ export type ViewMode = "list" | "reader" | "settings";
 export type Theme = "light" | "dark";
 
 export interface AgentConfig {
-  targetLanguage: string;
-  detailLevel: "brief" | "standard" | "detailed";
+  summaryLanguage: string;
+  summaryDetail: "brief" | "standard" | "detailed";
+  translationLanguage: string;
   concurrencyDegree: number;
-  primaryModelId: string;
 }
 
 export interface DigestTemplate {

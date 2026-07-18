@@ -92,8 +92,8 @@ export async function clearSummary(entryId: number): Promise<void> {
 
 // ============ Translation Agent ============
 
-export async function translateEntry(entryId: number): Promise<void> {
-  return invoke("translate_entry", { entryId });
+export async function translateEntry(entryId: number, targetLanguage?: string, concurrency?: number): Promise<void> {
+  return invoke("translate_entry", { entryId, targetLanguage, concurrency });
 }
 
 export async function getTranslationText(entryId: number): Promise<string | null> {

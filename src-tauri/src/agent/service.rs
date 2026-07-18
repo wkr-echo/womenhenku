@@ -214,18 +214,15 @@ impl AgentService {
     pub async fn translate_entry(
         &self,
         entry_id: i64,
+        target_language: &str,
+        concurrency: usize,
         on_event: impl Fn(AiStreamEvent) + Send + Sync + 'static,
     ) -> Result<(), AgentServiceError> {
-        // 检查数据库缓存
         if let Some(text) = self
             .get_latest_translation_text(entry_id)
             .map_err(|e| AgentServiceError::Database(e))?
         {
             if !text.is_empty() {
-                tracing::info!(
-                    "translate_entry cache hit for entry_id={}, returning cached result",
-                    entry_id
-                );
                 on_event(AiStreamEvent {
                     task_id: 0,
                     content: String::new(),
@@ -238,7 +235,10 @@ impl AgentService {
         }
 
         let (provider_id, base_url, api_key, model) = self.get_default_provider()?;
-        let config = TranslationConfig::default();
+        let config = TranslationConfig {
+            target_language: target_language.to_string(),
+            concurrency_degree: concurrency,
+        };
 
         self.translation_agent
             .translate_entry(
