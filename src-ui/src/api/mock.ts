@@ -102,8 +102,8 @@ export const mockContent: Content = {
 };
 
 export const mockProviders: Provider[] = [
-  { id: 1, name: "Ollama (本地)", baseUrl: "http://localhost:11434/v1", apiKey: "", defaultModel: "qwen2.5:7b", thinkingModel: "qwen2.5:7b", createdAt: "2026-07-01T00:00:00Z" },
-  { id: 2, name: "DeepSeek", baseUrl: "https://api.deepseek.com/v1", apiKey: "sk-***", defaultModel: "deepseek-chat", thinkingModel: "deepseek-chat", createdAt: "2026-07-10T00:00:00Z" },
+  { id: 1, name: "Ollama (本地)", baseUrl: "http://localhost:11434/v1", apiKeyRef: "", isDefault: false, createdAt: "2026-07-01T00:00:00Z", updatedAt: null },
+  { id: 2, name: "DeepSeek", baseUrl: "https://api.deepseek.com/v1", apiKeyRef: "sk-***", isDefault: true, createdAt: "2026-07-10T00:00:00Z", updatedAt: null },
 ];
 
 export const mockSummary: Summary = {

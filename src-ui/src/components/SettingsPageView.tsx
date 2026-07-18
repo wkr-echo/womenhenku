@@ -7,8 +7,9 @@ import {
   deleteProvider as apiDeleteProvider,
   listProviderModels,
   addProviderModel,
+  validateProvider,
 } from "@/api/provider";
-import type { Provider, AgentConfig } from "@/lib/types";
+import type { Provider, AgentConfig, ImportResult } from "@/lib/types";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useApp } from "@/contexts/AppContext";
 import { t } from "@/lib/utils";
@@ -68,6 +69,20 @@ function ProviderSettings() {
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ name: "", baseUrl: "", apiKeyRef: "", isDefault: false, defaultModel: "" });
   const [models, setModels] = useState<Record<number, string[]>>({});
+  const [validated, setValidated] = useState<Record<number, boolean | null>>({});
+  const [validating, setValidating] = useState<Record<number, boolean>>({});
+
+  const doValidate = async (p: Provider) => {
+    setValidating(prev => ({ ...prev, [p.id]: true }));
+    try {
+      const ok = await validateProvider(p.baseUrl, p.apiKeyRef, "");
+      setValidated(prev => ({ ...prev, [p.id]: ok }));
+    } catch {
+      setValidated(prev => ({ ...prev, [p.id]: false }));
+    } finally {
+      setValidating(prev => ({ ...prev, [p.id]: false }));
+    }
+  };
 
   const loadProviders = async () => {
     if (!isTauri()) return;
@@ -86,6 +101,10 @@ function ProviderSettings() {
         }
       }
       setModels(modelsMap);
+      // Auto-validate each provider
+      for (const p of data) {
+        doValidate(p);
+      }
     } catch (e: any) {
       console.error("Failed to load providers", e);
     } finally {
@@ -121,6 +140,8 @@ function ProviderSettings() {
       setForm({ name: "", baseUrl: "", apiKeyRef: "", isDefault: false, defaultModel: "" });
       setShowAdd(false);
       await loadProviders();
+      // Auto-validate the new provider
+      doValidate(newProv);
     } catch (e: any) {
       toast(t("添加失败: ") + String(e), "error");
     }
@@ -195,6 +216,21 @@ function ProviderSettings() {
                         {t("默认")}
                       </span>
                     )}
+                    {validated[p.id] === true && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300">
+                        {t("已连接")}
+                      </span>
+                    )}
+                    {validated[p.id] === false && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300">
+                        {t("未连接")}
+                      </span>
+                    )}
+                    {validated[p.id] === undefined && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500">
+                        {t("未验证")}
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-[var(--text-tertiary)] mt-1">{p.baseUrl}</p>
                   {models[p.id] && models[p.id]!.length > 0 && (
@@ -206,6 +242,9 @@ function ProviderSettings() {
                   )}
                 </div>
                 <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="sm" onClick={() => doValidate(p)} disabled={validating[p.id]}>
+                    {validating[p.id] ? "..." : t("验证")}
+                  </Button>
                   <Button variant="ghost" size="sm" onClick={() => setEditingId(p.id)}>
                     {t("编辑")}
                   </Button>
@@ -291,9 +330,7 @@ function EditProviderForm({
       <div className="grid grid-cols-2 gap-3">
         <Input placeholder={t("名称")} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         <Input placeholder="Base URL" value={form.baseUrl} onChange={(e) => setForm({ ...form, baseUrl: e.target.value })} />
-        <Input placeholder="API Key" type="password" value={form.apiKey} onChange={(e) => setForm({ ...form, apiKey: e.target.value })} />
-        <Input placeholder={t("默认模型")} value={form.defaultModel} onChange={(e) => setForm({ ...form, defaultModel: e.target.value })} />
-        <Input placeholder={t("思考模型")} value={form.thinkingModel} onChange={(e) => setForm({ ...form, thinkingModel: e.target.value })} />
+        <Input placeholder="API Key" type="password" value={form.apiKeyRef || ""} onChange={(e) => setForm({ ...form, apiKeyRef: e.target.value })} />
       </div>
       <div className="flex justify-end gap-2 mt-3">
         <Button variant="ghost" size="sm" onClick={onCancel}>{t("取消")}</Button>
