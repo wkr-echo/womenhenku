@@ -45,7 +45,7 @@ export function ContentAreaView() {
       {/* Column 3: Reader */}
       <div className="flex-1 flex flex-col min-w-0">
         {selectedEntry ? (
-          <ReaderView />
+          <ReaderView key={selectedEntry?.id ?? "empty"} />
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <p className="text-[var(--text-tertiary)] text-sm">{t("选择一篇文章开始阅读")}</p>

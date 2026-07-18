@@ -256,7 +256,7 @@ export function ReaderView() {
     setTranslation({ mode: "bilingual", entryId });
 
     try {
-      let lang = "zh-CN"; let conc = 3;
+      let lang = "中文"; let conc = 3;
       try { const cfg = JSON.parse(localStorage.getItem("agentConfig") || "{}"); lang = cfg.translationLanguage || lang; conc = cfg.concurrencyDegree || conc; } catch {}
       await translateEntry(entryId, lang, conc);
     } catch {

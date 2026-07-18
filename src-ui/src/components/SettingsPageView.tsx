@@ -359,7 +359,7 @@ function AgentSettings() {
     return {
       summaryLanguage: "zh-CN",
       summaryDetail: "standard",
-      translationLanguage: "zh-CN",
+      translationLanguage: "中文",
       concurrencyDegree: 3,
     };
   });
