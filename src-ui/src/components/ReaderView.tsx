@@ -179,31 +179,29 @@ export function ReaderView() {
     setSegments([]);
     setTranslating(false);
 
-    unlistenRef.current?.();
-    unlistenRef.current = null;
+    let cancelled = false;
 
     // Load cached translation from DB (only if still on same entry)
     getTranslationText(entryId).then((text) => {
-      if (text && translationEntryRef.current === entryId) {
+      if (!cancelled && text) {
         setSegments(parseTranslation(text));
       }
     }).catch(() => {});
 
     listenAiStream((event: AiStreamEvent) => {
+      if (cancelled) return;
       if (event.agentType !== "translation") return;
-      // Ignore events for other entries (is_done has entryId=0, so also check ref)
       if (translationEntryRef.current !== entryId) return;
       if (event.entryId && event.entryId !== entryId) return;
 
       if (event.isDone) {
-        // Final: load from DB for correctness (only if still on same entry)
         getTranslationText(entryId).then((text) => {
-          if (translationEntryRef.current === entryId) {
+          if (!cancelled && translationEntryRef.current === entryId) {
             if (text) setSegments(parseTranslation(text));
             setTranslating(false);
           }
         }).catch(() => {
-          if (translationEntryRef.current === entryId) setTranslating(false);
+          if (!cancelled && translationEntryRef.current === entryId) setTranslating(false);
         });
         return;
       }
@@ -225,10 +223,18 @@ export function ReaderView() {
           return next;
         });
       }
-    }).then((unlisten) => { unlistenRef.current = unlisten; });
+    }).then((unlisten) => {
+      if (cancelled) {
+        unlisten(); // strict mode: immediately discard leaked listener
+      } else {
+        unlistenRef.current = unlisten;
+      }
+    });
 
     return () => {
+      cancelled = true;
       unlistenRef.current?.();
+      unlistenRef.current = null;
       translationEntryRef.current = null;
     };
   }, [selectedEntry?.id]);
