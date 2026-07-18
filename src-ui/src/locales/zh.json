@@ -1,0 +1,81 @@
+{
+  "app": {
+    "title": "WomenHenKu",
+    "addFeed": "添加订阅",
+    "settings": "设置",
+    "refresh": "刷新",
+    "read": "阅读",
+    "summary": "摘要",
+    "translate": "翻译",
+    "notes": "笔记",
+    "noArticles": "暂无文章",
+    "selectArticle": "选择一篇文章开始阅读",
+    "save": "保存",
+    "cancel": "取消",
+    "delete": "删除",
+    "edit": "编辑",
+    "back": "返回"
+  },
+  "settings": {
+    "title": "设置",
+    "aiProvider": "AI 服务",
+    "agentParams": "Agent 参数",
+    "appearance": "外观",
+    "sync": "同步",
+    "about": "关于",
+    "lightMode": "亮色模式",
+    "darkMode": "暗色模式",
+    "theme": "主题模式",
+    "font": "阅读字体",
+    "codeFont": "代码字体",
+    "autoSync": "自动同步间隔",
+    "concurrency": "并发同步数",
+    "exportOpml": "导出订阅源",
+    "version": "版本",
+    "techStack": "技术栈",
+    "platform": "平台",
+    "license": "许可证"
+  },
+  "provider": {
+    "add": "添加 Provider",
+    "name": "名称",
+    "baseUrl": "Base URL",
+    "apiKey": "API Key",
+    "defaultModel": "默认模型",
+    "thinkingModel": "思考模型",
+    "validate": "验证连接",
+    "connected": "已连接"
+  },
+  "agent": {
+    "targetLanguage": "摘要目标语言",
+    "detailLevel": "摘要详细程度",
+    "concurrency": "翻译并发度",
+    "model": "默认 AI 模型",
+    "brief": "简洁",
+    "standard": "标准",
+    "detailed": "详细"
+  },
+  "note": {
+    "saved": "笔记已保存",
+    "unsaved": "未保存",
+    "savedAt": "已保存于",
+    "placeholder": "在此输入 Markdown 笔记...",
+    "preview": "预览",
+    "quickSave": "快速保存"
+  },
+  "summary": {
+    "generate": "生成摘要",
+    "regenerate": "重新生成",
+    "generating": "生成中...",
+    "hint": "点击上方按钮生成 AI 摘要",
+    "language": "语言",
+    "detail": "详细程度"
+  },
+  "translation": {
+    "translate": "开始翻译",
+    "translating": "翻译中...",
+    "clear": "清除翻译",
+    "retry": "重试失败段落",
+    "hint": "点击上方按钮开始双语翻译，原文和译文将分栏对照显示"
+  }
+}

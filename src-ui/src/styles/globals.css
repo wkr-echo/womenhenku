@@ -1,0 +1,153 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --sidebar-bg: #f4f4f5;
+    --sidebar-hover: #e4e4e7;
+    --sidebar-active: #d4d4d8;
+
+    --bg-primary: #ffffff;
+    --bg-secondary: #fafafa;
+    --bg-tertiary: #f4f4f5;
+    --text-primary: #18181b;
+    --text-secondary: #52525b;
+    --text-tertiary: #a1a1aa;
+    --border-color: #e4e4e7;
+    --link-color: #2563eb;
+    --accent-color: #7c3aed;
+    --danger-color: #ef4444;
+    --success-color: #22c55e;
+    --warning-color: #f59e0b;
+    --scrollbar-thumb: #d4d4d8;
+    --scrollbar-track: transparent;
+    --reader-bg: #ffffff;
+    --reader-text: #18181b;
+    --code-bg: #f4f4f5;
+    --blockquote-border: #e4e4e7;
+    --blockquote-text: #71717a;
+  }
+
+  .dark {
+    --sidebar-bg: #18181b;
+    --sidebar-hover: #27272a;
+    --sidebar-active: #3f3f46;
+
+    --bg-primary: #09090b;
+    --bg-secondary: #18181b;
+    --bg-tertiary: #27272a;
+    --text-primary: #fafafa;
+    --text-secondary: #a1a1aa;
+    --text-tertiary: #71717a;
+    --border-color: #27272a;
+    --link-color: #60a5fa;
+    --accent-color: #a78bfa;
+    --danger-color: #f87171;
+    --success-color: #4ade80;
+    --warning-color: #fbbf24;
+    --scrollbar-thumb: #3f3f46;
+    --scrollbar-track: transparent;
+    --reader-bg: #09090b;
+    --reader-text: #fafafa;
+    --code-bg: #27272a;
+    --blockquote-border: #3f3f46;
+    --blockquote-text: #a1a1aa;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-[var(--border-color)];
+  }
+
+  body {
+    @apply font-sans bg-[var(--bg-primary)] text-[var(--text-primary)] antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
+}
+
+/* Reader content styles */
+.reader-content {
+  font-family: var(--reader-font, "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", "WenQuanYi Micro Hei", system-ui, sans-serif);
+  @apply leading-relaxed text-[15px];
+  color: var(--reader-text);
+}
+
+.reader-content h1 { @apply text-2xl font-bold mt-8 mb-4; }
+.reader-content h2 { @apply text-xl font-semibold mt-6 mb-3; }
+.reader-content h3 { @apply text-lg font-semibold mt-5 mb-2; }
+.reader-content h4, .reader-content h5, .reader-content h6 {
+  @apply text-base font-semibold mt-4 mb-2;
+}
+
+.reader-content p { @apply my-3; }
+.reader-content a { color: var(--link-color); @apply underline decoration-1 underline-offset-2; }
+.reader-content img { @apply max-w-full rounded-lg my-4; }
+.reader-content ul { @apply list-disc pl-6 my-3; }
+.reader-content ol { @apply list-decimal pl-6 my-3; }
+.reader-content li { @apply my-1; }
+
+.reader-content blockquote {
+  border-left: 3px solid var(--blockquote-border);
+  color: var(--blockquote-text);
+  @apply pl-4 my-4 italic;
+}
+
+.reader-content pre {
+  font-family: var(--reader-code-font, "JetBrains Mono", monospace);
+  background: var(--code-bg);
+  @apply rounded-lg p-4 my-4 overflow-x-auto text-sm;
+}
+.reader-content code {
+  font-family: var(--reader-code-font, "JetBrains Mono", monospace);
+  background: var(--code-bg);
+  @apply rounded px-1.5 py-0.5 text-sm;
+}
+.reader-content pre code {
+  background: transparent;
+  @apply p-0;
+}
+
+.reader-content table {
+  @apply w-full border-collapse my-4 text-sm;
+}
+.reader-content th {
+  @apply border border-[var(--border-color)] px-3 py-2 text-left font-semibold bg-[var(--bg-tertiary)];
+}
+.reader-content td {
+  @apply border border-[var(--border-color)] px-3 py-2;
+}
+
+.reader-content hr { @apply my-8 border-[var(--border-color)]; }
+
+/* Translation panel */
+.translation-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  @apply my-4;
+}
+
+.translation-panel .source,
+.translation-panel .target {
+  @apply p-4 leading-relaxed text-[15px];
+}
+
+/* Note editor */
+.note-editor textarea {
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  @apply leading-relaxed;
+}
