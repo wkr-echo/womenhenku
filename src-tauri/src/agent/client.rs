@@ -104,6 +104,7 @@ impl AiClient {
         model: &str,
     ) -> Result<bool, AiClientError> {
         let url = format!("{}/chat/completions", base_url.trim_end_matches('/'));
+        let model = if model.is_empty() { "gpt-3.5-turbo" } else { model };
 
         let body = json!({
             "model": model,

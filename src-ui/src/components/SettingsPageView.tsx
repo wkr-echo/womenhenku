@@ -75,7 +75,8 @@ function ProviderSettings() {
   const doValidate = async (p: Provider) => {
     setValidating(prev => ({ ...prev, [p.id]: true }));
     try {
-      const ok = await validateProvider(p.baseUrl, p.apiKeyRef, "");
+      const modelName = (models[p.id] && models[p.id].length > 0) ? models[p.id][0] : "gpt-3.5-turbo";
+      const ok = await validateProvider(p.baseUrl, p.apiKeyRef, modelName);
       setValidated(prev => ({ ...prev, [p.id]: ok }));
     } catch {
       setValidated(prev => ({ ...prev, [p.id]: false }));
