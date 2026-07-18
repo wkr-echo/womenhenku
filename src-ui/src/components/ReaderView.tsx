@@ -264,6 +264,18 @@ export function ReaderView() {
     try {
       let lang = "中文"; let conc = 3;
       try { const cfg = JSON.parse(localStorage.getItem("agentConfig") || "{}"); lang = cfg.translationLanguage || lang; conc = cfg.concurrencyDegree || conc; } catch {}
+
+      // If source is already primarily Chinese and target is Chinese, skip LLM
+      if ((lang === "中文" || lang === "zh-CN") && sources.every(isPrimarilyChinese)) {
+        setSegments(sources.map((src) => ({
+          source: src,
+          translated: src,
+          status: "success" as const,
+        })));
+        setTranslating(false);
+        return;
+      }
+
       await translateEntry(entryId, lang, conc);
     } catch {
       if (translationEntryRef.current === entryId) {
@@ -453,6 +465,25 @@ function mockDigestExport(entry: { title: string; author: string; link: string }
     case "plaintext":
       return `${title}\n${"=".repeat(title.length)}\n\n作者: ${author}\n原文链接: ${link}\n\n这是 mock 内容。在 Tauri 环境中将显示真实文章内容。\n`;
   }
+}
+
+/** Check if text is primarily Chinese (CJK characters > 30% of total). */
+function isPrimarilyChinese(text: string): boolean {
+  const chars = text.replace(/\s/g, "");
+  if (chars.length === 0) return false;
+  let cjk = 0;
+  for (const ch of chars) {
+    const code = ch.charCodeAt(0);
+    if ((code >= 0x4E00 && code <= 0x9FFF) || // CJK Unified
+        (code >= 0x3400 && code <= 0x4DBF) || // CJK Ext-A
+        (code >= 0x20000 && code <= 0x2A6DF) || // CJK Ext-B
+        (code >= 0xF900 && code <= 0xFAFF) || // CJK Compat
+        (code >= 0x3000 && code <= 0x303F) || // CJK Symbols
+        (code >= 0xFF00 && code <= 0xFFEF)) { // Halfwidth/Fullwidth
+      cjk++;
+    }
+  }
+  return cjk / chars.length > 0.3;
 }
 
 /** Split HTML content into text segments matching backend split_html_into_segments. */
