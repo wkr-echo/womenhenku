@@ -82,13 +82,17 @@ function ProviderSettings() {
     try {
       const modelName = (models[p.id] && models[p.id].length > 0) ? models[p.id][0] : "gpt-3.5-turbo";
       const ok = await validateProvider(p.baseUrl, p.apiKeyRef, modelName);
-      const next = { ...validated, [p.id]: ok };
-      setValidated(next);
-      localStorage.setItem("providerValidated", JSON.stringify(next));
+      setValidated(prev => {
+        const next = { ...prev, [p.id]: ok };
+        localStorage.setItem("providerValidated", JSON.stringify(next));
+        return next;
+      });
     } catch {
-      const next = { ...validated, [p.id]: false as boolean | null };
-      setValidated(next);
-      localStorage.setItem("providerValidated", JSON.stringify(next));
+      setValidated(prev => {
+        const next = { ...prev, [p.id]: false as boolean | null };
+        localStorage.setItem("providerValidated", JSON.stringify(next));
+        return next;
+      });
     } finally {
       setValidating(prev => ({ ...prev, [p.id]: false }));
     }
@@ -111,9 +115,11 @@ function ProviderSettings() {
         }
       }
       setModels(modelsMap);
-      // Auto-validate each provider
+      // Auto-validate only providers not yet validated
       for (const p of data) {
-        doValidate(p);
+        if (validated[p.id] === undefined) {
+          doValidate(p);
+        }
       }
     } catch (e: any) {
       console.error("Failed to load providers", e);
