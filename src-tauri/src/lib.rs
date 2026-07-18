@@ -169,8 +169,6 @@ pub fn run() {
 // ============================================================
 
 #[cfg(feature = "tauri-runtime")]
-use tauri::Emitter;
-#[cfg(feature = "tauri-runtime")]
 use tauri::Manager;
 #[cfg(feature = "tauri-runtime")]
 use tauri::State;

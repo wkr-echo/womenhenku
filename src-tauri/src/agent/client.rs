@@ -298,7 +298,7 @@ mod tests {
         let chunk: ChatChunk = serde_json::from_str(json).unwrap();
         assert_eq!(chunk.choices[0].finish_reason, Some("stop".to_string()));
         let usage = chunk.usage.unwrap();
-        assert_eq!(usage.prompt_tokens, 50);
-        assert_eq!(usage.completion_tokens, 30);
+        assert_eq!(usage["prompt_tokens"], 50);
+        assert_eq!(usage["completion_tokens"], 30);
     }
 }

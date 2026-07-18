@@ -15,8 +15,15 @@ impl ProviderRepository {
     }
 
     /// Insert a new provider.
+    /// If is_default is true, clears the existing default first.
     pub fn insert(&self, provider: &NewProvider) -> Result<Provider, RepositoryError> {
         let conn = self.pool.get()?;
+
+        // Clear existing default if the new provider is being set as default
+        if provider.is_default {
+            self.clear_default()?;
+        }
+
         let mut stmt = conn.prepare_cached(
             "INSERT INTO providers (name, base_url, api_key_ref, is_default) VALUES (?1, ?2, ?3, ?4)",
         )?;

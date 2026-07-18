@@ -108,11 +108,33 @@ impl AgentService {
     }
 
     /// 生成摘要（用默认 Provider）
+    /// 先查数据库缓存，若已有成功结果则直接返回，避免重复调用 API
     pub async fn generate_summary(
         &self,
         entry_id: i64,
         on_event: impl Fn(AiStreamEvent) + Send + Sync + 'static,
     ) -> Result<(), AgentServiceError> {
+        // 检查数据库缓存
+        if let Some(text) = self
+            .get_latest_summary_text(entry_id)
+            .map_err(|e| AgentServiceError::Database(e))?
+        {
+            if !text.is_empty() {
+                tracing::info!(
+                    "generate_summary cache hit for entry_id={}, returning cached result",
+                    entry_id
+                );
+                on_event(AiStreamEvent {
+                    task_id: 0,
+                    content: String::new(),
+                    is_done: true,
+                    agent_type: "summary".to_string(),
+                    error: None,
+                });
+                return Ok(());
+            }
+        }
+
         let (provider_id, base_url, api_key, model) = self.get_default_provider()?;
 
         let config = SummaryConfig::default();
@@ -133,6 +155,7 @@ impl AgentService {
     }
 
     /// 生成摘要（指定配置）
+    /// 先查数据库缓存，若已有成功结果则直接返回，避免重复调用 API
     pub async fn generate_summary_with_config(
         &self,
         entry_id: i64,
@@ -140,6 +163,27 @@ impl AgentService {
         provider_id: i64,
         on_event: impl Fn(AiStreamEvent) + Send + Sync + 'static,
     ) -> Result<(), AgentServiceError> {
+        // 检查数据库缓存
+        if let Some(text) = self
+            .get_latest_summary_text(entry_id)
+            .map_err(|e| AgentServiceError::Database(e))?
+        {
+            if !text.is_empty() {
+                tracing::info!(
+                    "generate_summary_with_config cache hit for entry_id={}, returning cached result",
+                    entry_id
+                );
+                on_event(AiStreamEvent {
+                    task_id: 0,
+                    content: String::new(),
+                    is_done: true,
+                    agent_type: "summary".to_string(),
+                    error: None,
+                });
+                return Ok(());
+            }
+        }
+
         let (base_url, api_key, model) = self.get_provider_by_id(provider_id)?;
 
         self.summary_agent
@@ -166,11 +210,33 @@ impl AgentService {
     }
 
     /// 翻译文章
+    /// 先查数据库缓存，若已有成功结果则直接返回，避免重复调用 API
     pub async fn translate_entry(
         &self,
         entry_id: i64,
         on_event: impl Fn(AiStreamEvent) + Send + Sync + 'static,
     ) -> Result<(), AgentServiceError> {
+        // 检查数据库缓存
+        if let Some(text) = self
+            .get_latest_translation_text(entry_id)
+            .map_err(|e| AgentServiceError::Database(e))?
+        {
+            if !text.is_empty() {
+                tracing::info!(
+                    "translate_entry cache hit for entry_id={}, returning cached result",
+                    entry_id
+                );
+                on_event(AiStreamEvent {
+                    task_id: 0,
+                    content: String::new(),
+                    is_done: true,
+                    agent_type: "translation".to_string(),
+                    error: None,
+                });
+                return Ok(());
+            }
+        }
+
         let (provider_id, base_url, api_key, model) = self.get_default_provider()?;
         let config = TranslationConfig::default();
 
@@ -190,6 +256,7 @@ impl AgentService {
     }
 
     /// 翻译文章（指定配置）
+    /// 先查数据库缓存，若已有成功结果则直接返回，避免重复调用 API
     pub async fn translate_entry_with_config(
         &self,
         entry_id: i64,
@@ -197,6 +264,27 @@ impl AgentService {
         provider_id: i64,
         on_event: impl Fn(AiStreamEvent) + Send + Sync + 'static,
     ) -> Result<(), AgentServiceError> {
+        // 检查数据库缓存
+        if let Some(text) = self
+            .get_latest_translation_text(entry_id)
+            .map_err(|e| AgentServiceError::Database(e))?
+        {
+            if !text.is_empty() {
+                tracing::info!(
+                    "translate_entry_with_config cache hit for entry_id={}, returning cached result",
+                    entry_id
+                );
+                on_event(AiStreamEvent {
+                    task_id: 0,
+                    content: String::new(),
+                    is_done: true,
+                    agent_type: "translation".to_string(),
+                    error: None,
+                });
+                return Ok(());
+            }
+        }
+
         let (base_url, api_key, model) = self.get_provider_by_id(provider_id)?;
 
         self.translation_agent
