@@ -37,6 +37,7 @@ struct ChunkDelta {
 struct ChunkChoice {
     delta: ChunkDelta,
     #[serde(default)]
+    #[allow(dead_code)]
     finish_reason: Option<String>,
 }
 
@@ -89,6 +90,7 @@ pub struct AiClient {
 }
 
 impl AiClient {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         let http_client = Client::builder()
             .timeout(Duration::from_secs(120))
@@ -139,6 +141,7 @@ impl AiClient {
 
     /// 发送流式 Chat Completion 请求
     /// 通过 callback_fn 将每个 SSE chunk 的内容推送给调用者
+    #[allow(clippy::too_many_arguments)]
     pub async fn stream_chat(
         &self,
         base_url: &str,

@@ -61,7 +61,7 @@ fn hex_encode(bytes: &[u8]) -> String {
 /// Decode hex string to bytes.
 fn hex_decode(hex: &str) -> Result<Vec<u8>, String> {
     let hex = hex.trim();
-    if hex.len() % 2 != 0 {
+    if !hex.len().is_multiple_of(2) {
         return Err("hex 字符串长度必须为偶数".to_string());
     }
     (0..hex.len())

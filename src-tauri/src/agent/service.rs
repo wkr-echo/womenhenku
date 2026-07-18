@@ -36,6 +36,7 @@ pub struct AgentService {
     translation_agent: TranslationAgent,
     ai_client: AiClient,
     /// Slot 共享管理
+    #[allow(dead_code)]
     slots: Arc<RwLock<HashMap<(i64, String), AgentSlot>>>, // key: (entry_id, task_kind)
 }
 
@@ -128,7 +129,7 @@ impl AgentService {
         if !force {
             if let Some(text) = self
                 .get_latest_summary_text(entry_id)
-                .map_err(|e| AgentServiceError::Database(e))?
+                .map_err(AgentServiceError::Database)?
             {
                 if !text.is_empty() {
                     on_event(AiStreamEvent {
@@ -178,7 +179,7 @@ impl AgentService {
         // 检查数据库缓存
         if let Some(text) = self
             .get_latest_summary_text(entry_id)
-            .map_err(|e| AgentServiceError::Database(e))?
+            .map_err(AgentServiceError::Database)?
         {
             if !text.is_empty() {
                 tracing::info!(
@@ -235,7 +236,7 @@ impl AgentService {
         if !force {
             if let Some(text) = self
                 .get_latest_translation_text(entry_id)
-                .map_err(|e| AgentServiceError::Database(e))?
+                .map_err(AgentServiceError::Database)?
             {
                 if !text.is_empty() {
                     on_event(AiStreamEvent {
@@ -284,7 +285,7 @@ impl AgentService {
         // 检查数据库缓存
         if let Some(text) = self
             .get_latest_translation_text(entry_id)
-            .map_err(|e| AgentServiceError::Database(e))?
+            .map_err(AgentServiceError::Database)?
         {
             if !text.is_empty() {
                 tracing::info!(

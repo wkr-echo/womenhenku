@@ -64,15 +64,15 @@ pub enum StateTransitionError {
 
 /// 检查状态转换是否合法
 pub fn check_transition(from: &AgentPhase, to: &AgentPhase) -> Result<(), StateTransitionError> {
-    let allowed = match (from, to) {
-        (AgentPhase::Idle, AgentPhase::Running) => true,
-        (AgentPhase::Running, AgentPhase::Succeeded) => true,
-        (AgentPhase::Running, AgentPhase::Failed) => true,
-        (AgentPhase::Running, AgentPhase::Cancelled) => true,
-        (AgentPhase::Succeeded, AgentPhase::Idle) => true,
-        (AgentPhase::Failed, AgentPhase::Cancelled) => true,
-        _ => false,
-    };
+    let allowed = matches!(
+        (from, to),
+        (AgentPhase::Idle, AgentPhase::Running)
+            | (AgentPhase::Running, AgentPhase::Succeeded)
+            | (AgentPhase::Running, AgentPhase::Failed)
+            | (AgentPhase::Running, AgentPhase::Cancelled)
+            | (AgentPhase::Succeeded, AgentPhase::Idle)
+            | (AgentPhase::Failed, AgentPhase::Cancelled)
+    );
 
     if allowed {
         Ok(())
@@ -122,6 +122,7 @@ pub struct AgentSlot {
 }
 
 impl AgentSlot {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             active: None,

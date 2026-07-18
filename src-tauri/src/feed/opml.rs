@@ -148,7 +148,7 @@ pub fn import_feeds(
                     xml_url: outline.xml_url.clone(), title,
                     success: true, message: format!("Updated (id={})", existing.id),
                 });
-            on_progress(&results.last().unwrap());
+            on_progress(results.last().unwrap());
                 continue;
             }
 
@@ -161,14 +161,14 @@ pub fn import_feeds(
                         xml_url: outline.xml_url.clone(), title,
                         success: true, message: format!("id={}", feed.id),
                     });
-            on_progress(&results.last().unwrap());
+            on_progress(results.last().unwrap());
                 }
                 Err(e) => {
                     results.push(ImportResult {
                         xml_url: outline.xml_url.clone(), title: outline.title.clone(),
                         success: false, message: e.to_string(),
                     });
-            on_progress(&results.last().unwrap());
+            on_progress(results.last().unwrap());
                 }
             }
         }

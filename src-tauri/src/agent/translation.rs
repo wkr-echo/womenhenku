@@ -82,6 +82,7 @@ pub enum TranslationError {
 /// Translation Agent
 pub struct TranslationAgent {
     pool: DbPool,
+    #[allow(dead_code)]
     client: AiClient,
     prompt_manager: Arc<PromptManager>,
     /// 每个 entry 的 slot
@@ -102,6 +103,7 @@ impl TranslationAgent {
     }
 
     /// 对文章进行段落级双语翻译
+    #[allow(clippy::too_many_arguments)]
     pub async fn translate_entry(
         &self,
         entry_id: i64,
@@ -359,6 +361,7 @@ impl TranslationAgent {
     /// 3. 重新获取原文段落
     /// 4. 只重新翻译失败的段落
     /// 5. 合并结果并保存为新 AgentRun
+    #[allow(clippy::too_many_arguments)]
     pub async fn retry_failed_segments(
         &self,
         entry_id: i64,
@@ -405,7 +408,7 @@ impl TranslationAgent {
         // 3. 获取原文段落
         let all_segments = self
             .get_entry_segments(entry_id)
-            .map_err(|e| TranslationError::Database(e))?;
+            .map_err(TranslationError::Database)?;
 
         // 4. 创建新的 AgentRun
         let run = run_repo
@@ -672,6 +675,7 @@ struct TranslationAgentInner {
 }
 
 impl TranslationAgentInner {
+     #[allow(clippy::too_many_arguments)]
     async fn translate_segment(
         &self,
         base_url: &str,
@@ -716,7 +720,7 @@ impl TranslationAgentInner {
                     let mut text = result_clone.lock().unwrap();
                     text.push_str(delta);
                     on_event(AiStreamEvent {
-                    entry_id: entry_id,
+                    entry_id,
                         task_id: run_id,
                         content: format!(
                             "[{}/{}] {}",
@@ -827,7 +831,7 @@ pub fn parse_translation_output(text: &str) -> Vec<ParsedSegment> {
 
         // 解析行号: [1] 或 [1] (翻译失败)
         let first_line = lines[0];
-        let index_match = first_line.trim_start_matches('[').split(|c| c == ']' || c == ' ').next();
+        let index_match = first_line.trim_start_matches('[').split([']', ' ']).next();
 
         let index = match index_match.and_then(|s| s.parse::<usize>().ok()) {
             Some(i) => i.saturating_sub(1), // 转为 0-based

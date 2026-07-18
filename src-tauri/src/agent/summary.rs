@@ -78,6 +78,7 @@ impl SummaryAgent {
 
     /// 为指定文章生成摘要（异步入口）
     /// 通过 on_event 回调将流式事件推送给前端
+    #[allow(clippy::too_many_arguments)]
     pub async fn generate_summary(
         &self,
         entry_id: i64,
@@ -189,7 +190,7 @@ impl SummaryAgent {
                     let mut acc = acc_clone.lock().unwrap();
                     acc.full_content.push_str(delta);
                     on_event(AiStreamEvent {
-                    entry_id: entry_id,
+                    entry_id,
                         task_id: run_id,
                         content: delta.to_string(),
                         is_done: false,
