@@ -1,17 +1,27 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { mockContent, mockSummary } from "@/api/mock";
 import { formatDate, t } from "@/lib/utils";
 import { Button } from "@/components/ui";
 import { SummaryPanelView } from "./SummaryPanelView";
-import { TranslationPanelView } from "./TranslationPanelView";
 import { NoteEditorView } from "./NoteEditorView";
 import { isTauri, getEntryContent as getEntryContentReal, processEntryContent, exportSingleDigest } from "@/api/feed";
+import {
+  translateEntry,
+  getTranslationText,
+  cancelTranslation,
+  clearTranslation as clearTranslationApi,
+  listenAiStream,
+  type AiStreamEvent,
+} from "@/api/provider";
 import { toast } from "@/components/ui/Toast";
 import type { Content } from "@/lib/types";
 
-type ReaderTab = "read" | "summary" | "translate" | "notes";
+type ReaderTab = "read" | "summary" | "notes";
 type ExportFormat = "markdown" | "html" | "plaintext";
+type TranslationMode = "original" | "bilingual";
+
+interface SegPair { source: string; translated?: string; status: "pending" | "success" | "failed"; }
 
 const EXPORT_LABELS: Record<ExportFormat, string> = {
   markdown: "Markdown",
@@ -24,6 +34,10 @@ export function ReaderView() {
   const [activeTab, setActiveTab] = useState<ReaderTab>("read");
   const [exporting, setExporting] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [translationMode, setTranslationMode] = useState<TranslationMode>("original");
+  const [translating, setTranslating] = useState(false);
+  const [segments, setSegments] = useState<SegPair[]>([]);
+  const unlistenRef = useRef<(() => void) | null>(null);
 
   const handleExport = async (format: ExportFormat) => {
     setShowExportMenu(false);
@@ -150,10 +164,55 @@ export function ReaderView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEntry?.id]);
 
+  // Translation: load existing + listen for stream events
+  useEffect(() => {
+    if (!selectedEntry) return;
+    setTranslationMode("original");
+    setSegments([]);
+    setTranslating(false);
+
+    unlistenRef.current?.();
+    unlistenRef.current = null;
+
+    getTranslationText(selectedEntry.id).then((text) => {
+      if (text) setSegments(parseTranslation(text));
+    }).catch(() => {});
+
+    listenAiStream((event: AiStreamEvent) => {
+      if (event.agentType !== "translation") return;
+      if (event.entryId && event.entryId !== selectedEntry.id) return;
+      if (event.isDone) {
+        setTranslating(false);
+        getTranslationText(selectedEntry.id).then((text) => {
+          if (text) setSegments(parseTranslation(text));
+        });
+        return;
+      }
+      setTranslating(true);
+    }).then((unlisten) => { unlistenRef.current = unlisten; });
+
+    return () => { unlistenRef.current?.(); };
+  }, [selectedEntry?.id]);
+
+  const handleTranslate = async () => {
+    setTranslating(true);
+    setTranslationMode("bilingual");
+    try {
+      let lang = "zh-CN"; let conc = 3;
+      try { const cfg = JSON.parse(localStorage.getItem("agentConfig") || "{}"); lang = cfg.translationLanguage || lang; conc = cfg.concurrencyDegree || conc; } catch {}
+      await translateEntry(selectedEntry.id, lang, conc);
+    } catch { setTranslating(false); }
+  };
+
+  const handleClearTranslation = async () => {
+    await clearTranslationApi(selectedEntry.id).catch(() => {});
+    setSegments([]);
+    setTranslationMode("original");
+  };
+
   const tabs: { key: ReaderTab; label: string; shortcut: string }[] = [
     { key: "read", label: t("阅读"), shortcut: "" },
     { key: "summary", label: t("摘要"), shortcut: "S" },
-    { key: "translate", label: t("翻译"), shortcut: "T" },
     { key: "notes", label: t("笔记"), shortcut: "N" },
   ];
 
@@ -189,8 +248,22 @@ export function ReaderView() {
               )}
             </div>
           </div>
-          {/* Export dropdown */}
-          <div className="relative">
+          {/* Translation buttons + Export */}
+          <div className="flex items-center gap-1">
+            {translationMode === "original" ? (
+              <button
+                onClick={handleTranslate} disabled={translating}
+                className="px-2 py-1 text-xs rounded bg-[var(--bg-tertiary)] hover:bg-[var(--bg-secondary)] disabled:opacity-50"
+              >{translating ? "…" : t("翻译")}</button>
+            ) : (
+              <>
+                <button onClick={() => setTranslationMode("original")} className="px-2 py-1 text-xs rounded bg-[var(--bg-tertiary)] hover:bg-[var(--bg-secondary)]">{t("回到原文")}</button>
+                {segments.length > 0 && (
+                  <button onClick={handleClearTranslation} className="px-2 py-1 text-xs rounded bg-[var(--bg-tertiary)] text-red-500 hover:bg-[var(--bg-secondary)]">{t("清除翻译")}</button>
+                )}
+              </>
+            )}
+            <div className="relative">
             <button
               onClick={() => setShowExportMenu(!showExportMenu)}
               disabled={exporting}
@@ -216,6 +289,7 @@ export function ReaderView() {
             )}
           </div>
         </div>
+      </div>
 
         {/* Tabs */}
         <div className="flex items-center gap-1">
@@ -245,10 +319,24 @@ export function ReaderView() {
             {contentLoading ? (
               <p className="text-sm text-[var(--text-tertiary)]">{t("加载中...")}</p>
             ) : content?.renderedHtml || content?.cleanedHtml || content?.rawHtml ? (
-              <div
-                className="reader-content"
-                dangerouslySetInnerHTML={{ __html: (content.renderedHtml || content.cleanedHtml || content.rawHtml)! }}
-              />
+              translationMode === "bilingual" && segments.length > 0 ? (
+                <div className="translation-bilingual space-y-6">
+                  {segments.map((seg, i) => (
+                    <div key={i} className="grid grid-cols-2 gap-4 items-start">
+                      <div className="reader-content" dangerouslySetInnerHTML={{ __html: seg.source }} />
+                      <div className="reader-content text-[var(--text-secondary)]" dangerouslySetInnerHTML={{ __html: seg.translated || "…" }} />
+                    </div>
+                  ))}
+                  {translating && (
+                    <p className="text-xs text-[var(--text-tertiary)]">{t("翻译中...")}</p>
+                  )}
+                </div>
+              ) : (
+                <div
+                  className="reader-content"
+                  dangerouslySetInnerHTML={{ __html: (content.renderedHtml || content.cleanedHtml || content.rawHtml)! }}
+                />
+              )
             ) : (
               <div className="text-sm text-[var(--text-secondary)] leading-relaxed whitespace-pre-wrap">
                 {contentError ? (
@@ -264,7 +352,6 @@ export function ReaderView() {
           </div>
         )}
         {activeTab === "summary" && <SummaryPanelView entryId={selectedEntry.id} />}
-        {activeTab === "translate" && <TranslationPanelView entryId={selectedEntry.id} />}
         {activeTab === "notes" && <NoteEditorView entryId={selectedEntry.id} />}
       </div>
     </div>
@@ -285,4 +372,13 @@ function mockDigestExport(entry: { title: string; author: string; link: string }
     case "plaintext":
       return `${title}\n${"=".repeat(title.length)}\n\n作者: ${author}\n原文链接: ${link}\n\n这是 mock 内容。在 Tauri 环境中将显示真实文章内容。\n`;
   }
+}
+
+/** Parse translation JSON into segment array. */
+function parseTranslation(json: string): SegPair[] {
+  try {
+    const parsed = JSON.parse(json);
+    if (Array.isArray(parsed)) return parsed.map((s: { source: string; translated?: string }) => ({ ...s, status: (s.translated ? "success" : "pending") as SegPair["status"] }));
+    return [];
+  } catch { return []; }
 }
