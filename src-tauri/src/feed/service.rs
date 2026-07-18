@@ -201,6 +201,7 @@ impl FeedService {
                 }
             }
             Ok(total_new)
+        })
     }
 
     // ---- Internal helpers ----
