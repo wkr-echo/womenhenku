@@ -81,7 +81,7 @@
 
 /* Reader content styles */
 .reader-content {
-  font-family: var(--reader-font, system-ui);
+  font-family: var(--reader-font, "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", "WenQuanYi Micro Hei", system-ui, sans-serif);
   @apply leading-relaxed text-[15px];
   color: var(--reader-text);
 }

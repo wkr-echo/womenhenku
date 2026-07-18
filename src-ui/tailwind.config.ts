@@ -17,8 +17,21 @@ export default {
         },
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
-        mono: ["JetBrains Mono", "Fira Code", "monospace"],
+        sans: [
+          "Inter",
+          "PingFang SC",
+          "Microsoft YaHei",
+          "Hiragino Sans GB",
+          "WenQuanYi Micro Hei",
+          "system-ui",
+          "-apple-system",
+          "sans-serif",
+        ],
+        mono: [
+          "JetBrains Mono",
+          "Fira Code",
+          "monospace",
+        ],
       },
       animation: {
         "slide-in": "slideIn 0.2s ease-out",
