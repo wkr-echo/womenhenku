@@ -428,7 +428,7 @@ impl TranslationAgentInner {
                 (sys, user)
             });
 
-        let result_text = Arc::new(Mutex::new(String::new()));
+        let result_text = Arc::new(std::sync::Mutex::new(String::new()));
         let result_clone = result_text.clone();
 
         let result = self
@@ -440,7 +440,7 @@ impl TranslationAgentInner {
                 &system_prompt,
                 &user_prompt,
                 |delta| {
-                    let mut text = result_clone.blocking_lock();
+                    let mut text = result_clone.lock().unwrap();
                     text.push_str(delta);
                     on_event(AiStreamEvent {
                         task_id: run_id,
@@ -461,7 +461,7 @@ impl TranslationAgentInner {
 
         match result {
             Ok(()) => {
-                let text = result_text.lock().await;
+                let text = result_text.lock().unwrap();
                 Ok(text.clone())
             }
             Err(e) => Err(format!("段落 {} 翻译失败: {}", seg_index + 1, e)),

@@ -171,7 +171,7 @@ impl SummaryAgent {
             });
 
         // 8. 发送流式请求
-        let acc = Arc::new(Mutex::new(Accumulator {
+        let acc = Arc::new(std::sync::Mutex::new(Accumulator {
             full_content: String::new(),
         }));
         let acc_clone = acc.clone();
@@ -185,7 +185,7 @@ impl SummaryAgent {
                 &system_prompt,
                 &user_prompt,
                 |delta| {
-                    let mut acc = acc_clone.blocking_lock();
+                    let mut acc = acc_clone.lock().unwrap();
                     acc.full_content.push_str(delta);
                     on_event(AiStreamEvent {
                         task_id: run_id,
@@ -203,7 +203,7 @@ impl SummaryAgent {
         match result {
             Ok(()) => {
                 let final_text = {
-                    let acc_inner = acc.lock().await;
+                    let acc_inner = acc.lock().unwrap();
                     acc_inner.full_content.clone()
                 };
 
