@@ -190,7 +190,7 @@ impl SummaryAgent {
                     let mut acc = acc_clone.lock().unwrap();
                     acc.full_content.push_str(delta);
                     on_event(AiStreamEvent {
-                    entry_id,
+                        entry_id,
                         task_id: run_id,
                         content: delta.to_string(),
                         is_done: false,

@@ -123,15 +123,10 @@ jobs:
 
       - name: Install Windows WiX Toolset
         if: runner.os == 'Windows'
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-
-      - name: Install WiX Toolset (Windows)
-        if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          choco install wixtoolset --version 5.0.2 -y
-          echo "C:\Program Files (x86)\WiX Toolset v5.0\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          dotnet tool install --global wix --version 5.0.2
+          echo "$env:USERPROFILE\.dotnet\tools" >> $env:GITHUB_PATH
 
       # ---- Install Tauri CLI ----
       - name: Install Tauri CLI

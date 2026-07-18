@@ -121,8 +121,13 @@ pub struct AgentSlot {
     pub waiting: Option<i64>, // run_id
 }
 
+impl Default for AgentSlot {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AgentSlot {
-    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             active: None,

@@ -675,7 +675,7 @@ struct TranslationAgentInner {
 }
 
 impl TranslationAgentInner {
-     #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     async fn translate_segment(
         &self,
         base_url: &str,
@@ -720,7 +720,7 @@ impl TranslationAgentInner {
                     let mut text = result_clone.lock().unwrap();
                     text.push_str(delta);
                     on_event(AiStreamEvent {
-                    entry_id,
+                        entry_id,
                         task_id: run_id,
                         content: format!(
                             "[{}/{}] {}",

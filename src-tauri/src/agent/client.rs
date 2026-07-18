@@ -89,8 +89,13 @@ pub struct AiClient {
     http_client: Client,
 }
 
+impl Default for AiClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AiClient {
-    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         let http_client = Client::builder()
             .timeout(Duration::from_secs(120))

@@ -27,30 +27,14 @@
   },
   "bundle": {
     "active": true,
-    "targets": [
-      "deb",
-      "appimage",
-      "dmg",
-      "msi"
-    ],
+    "targets": "all",
     "icon": [
-      "icons/icon.png"
+      "icons/icon.png",
+      "icons/icon.ico"
     ],
-    "resources": {
+        "resources": {
       "resources/prompts/summary.yaml": "resources/prompts/summary.yaml",
       "resources/prompts/translation.yaml": "resources/prompts/translation.yaml"
-    },
-    "macOS": {
-      "signingIdentity": "-",
-      "hardenedRuntime": false,
-      "entitlements": null,
-      "exceptionDomain": "",
-      "frameworks": []
-    },
-    "windows": {
-      "certificateThumbprint": null,
-      "digestAlgorithm": "sha256",
-      "timestampUrl": ""
     }
   },
   "plugins": {}

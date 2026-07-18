@@ -37,7 +37,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "str
 feed-rs = "2"
 
 # Content extraction pipeline
-readability = { version = "0.3", default-features = false }
+readability = "0.3"
 scraper = "0.20"
 comrak = "0.28"
 
