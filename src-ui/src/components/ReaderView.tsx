@@ -38,6 +38,7 @@ export function ReaderView() {
   const [translating, setTranslating] = useState(false);
   const [segments, setSegments] = useState<SegPair[]>([]);
   const unlistenRef = useRef<(() => void) | null>(null);
+  const translationEntryRef = useRef<number | null>(null);
 
   const handleExport = async (format: ExportFormat) => {
     setShowExportMenu(false);
@@ -167,6 +168,8 @@ export function ReaderView() {
   // Translation: load existing + listen for stream events
   useEffect(() => {
     if (!selectedEntry) return;
+    const entryId = selectedEntry.id;
+    translationEntryRef.current = entryId;
     setTranslationMode("original");
     setSegments([]);
     setTranslating(false);
@@ -174,28 +177,36 @@ export function ReaderView() {
     unlistenRef.current?.();
     unlistenRef.current = null;
 
-    // Load cached translation from DB
-    getTranslationText(selectedEntry.id).then((text) => {
-      if (text) setSegments(parseTranslation(text));
+    // Load cached translation from DB (only if still on same entry)
+    getTranslationText(entryId).then((text) => {
+      if (text && translationEntryRef.current === entryId) {
+        setSegments(parseTranslation(text));
+      }
     }).catch(() => {});
 
     listenAiStream((event: AiStreamEvent) => {
       if (event.agentType !== "translation") return;
-      if (event.entryId && event.entryId !== selectedEntry.id) return;
+      // Ignore events for other entries (is_done has entryId=0, so also check ref)
+      if (translationEntryRef.current !== entryId) return;
+      if (event.entryId && event.entryId !== entryId) return;
 
       if (event.isDone) {
-        // Final: load from DB for correctness
-        getTranslationText(selectedEntry.id).then((text) => {
-          if (text) setSegments(parseTranslation(text));
-          setTranslating(false);
-        }).catch(() => setTranslating(false));
+        // Final: load from DB for correctness (only if still on same entry)
+        getTranslationText(entryId).then((text) => {
+          if (translationEntryRef.current === entryId) {
+            if (text) setSegments(parseTranslation(text));
+            setTranslating(false);
+          }
+        }).catch(() => {
+          if (translationEntryRef.current === entryId) setTranslating(false);
+        });
         return;
       }
 
       // Stream delta: [{segIdx}/{total}] chunk
       const match = event.content.match(/^\[(\d+)\/(\d+)\]\s*(.*)/s);
       if (match) {
-        const segIdx = parseInt(match[1], 10) - 1; // 0-based
+        const segIdx = parseInt(match[1], 10) - 1;
         const delta = match[3];
         setSegments((prev) => {
           const next = [...prev];
@@ -211,14 +222,23 @@ export function ReaderView() {
       }
     }).then((unlisten) => { unlistenRef.current = unlisten; });
 
-    return () => { unlistenRef.current?.(); };
+    return () => {
+      unlistenRef.current?.();
+      translationEntryRef.current = null;
+    };
   }, [selectedEntry?.id]);
 
   const handleTranslate = async () => {
+    // Guard: content must be loaded for current entry
+    if (contentLoading || !content?.cleanedHtml && !content?.rawHtml) return;
+
     // Pre-split source segments from content HTML
-    const html = content?.cleanedHtml || content?.rawHtml;
+    const html = content.cleanedHtml || content.rawHtml;
     const sources = splitContentIntoSegments(html);
     if (sources.length === 0) return;
+
+    const entryId = selectedEntry.id;
+    translationEntryRef.current = entryId;
 
     // Initialize segments with source text
     const initial: SegPair[] = sources.map((src) => ({
@@ -233,10 +253,12 @@ export function ReaderView() {
     try {
       let lang = "zh-CN"; let conc = 3;
       try { const cfg = JSON.parse(localStorage.getItem("agentConfig") || "{}"); lang = cfg.translationLanguage || lang; conc = cfg.concurrencyDegree || conc; } catch {}
-      await translateEntry(selectedEntry.id, lang, conc);
+      await translateEntry(entryId, lang, conc);
     } catch {
-      setTranslating(false);
-      setTranslationMode("original");
+      if (translationEntryRef.current === entryId) {
+        setTranslating(false);
+        setTranslationMode("original");
+      }
     }
   };
 
@@ -244,6 +266,7 @@ export function ReaderView() {
     await clearTranslationApi(selectedEntry.id).catch(() => {});
     setSegments([]);
     setTranslationMode("original");
+    translationEntryRef.current = null;
   };
 
   const tabs: { key: ReaderTab; label: string; shortcut: string }[] = [
