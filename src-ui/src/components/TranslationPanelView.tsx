@@ -29,10 +29,8 @@ export function TranslationPanelView({ entryId }: TranslationPanelProps) {
 
   // Reset and reload when entry changes
   useEffect(() => {
-    setTranslating(false);
     setSegments([]);
     setError(null);
-    setStreamSegments([]);
 
     unlistenRef.current?.();
     unlistenRef.current = null;
@@ -67,6 +65,7 @@ export function TranslationPanelView({ entryId }: TranslationPanelProps) {
       }
 
       setStreamSegments((prev) => [...prev, event.content]);
+      setTranslating(true);
     }).then((unlisten) => {
       unlistenRef.current = unlisten;
     });
