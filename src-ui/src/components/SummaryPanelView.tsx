@@ -22,25 +22,21 @@ export function SummaryPanelView({ entryId }: SummaryPanelProps) {
 
   // Reset and reload when entry changes
   useEffect(() => {
-    // Reset state for new entry
+    let cancelled = false;
     setIsGenerating(false);
     setSummary(null);
     setStreamText("");
     setError(null);
 
-    // Unsubscribe old listener
     unlistenRef.current?.();
     unlistenRef.current = null;
 
-    // Load existing summary
     getSummaryText(entryId)
-      .then((text) => {
-        if (text) setSummary(text);
-      })
+      .then((text) => { if (!cancelled && text) setSummary(text); })
       .catch(() => {});
 
-    // Listen for AI stream events
     listenAiStream((event: AiStreamEvent) => {
+      if (cancelled) return;
       if (event.agentType !== "summary") return;
       if (event.entryId && event.entryId !== entryId) return;
 
@@ -49,21 +45,17 @@ export function SummaryPanelView({ entryId }: SummaryPanelProps) {
         if (event.error) {
           setError(event.error);
         } else {
-          getSummaryText(entryId).then((text) => {
-            if (text) setSummary(text);
-          });
+          getSummaryText(entryId).then((text) => { if (!cancelled && text) setSummary(text); });
         }
         return;
       }
 
       setStreamText((prev) => prev + event.content);
     }).then((unlisten) => {
-      unlistenRef.current = unlisten;
+      if (!cancelled) unlistenRef.current = unlisten;
     });
 
-    return () => {
-      unlistenRef.current?.();
-    };
+    return () => { cancelled = true; unlistenRef.current?.(); };
   }, [entryId]);
 
   const handleGenerate = async (force: boolean = false) => {
