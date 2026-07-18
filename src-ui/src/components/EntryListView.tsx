@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { cn, formatDate, truncate, t } from "@/lib/utils";
-import { exportMultiDigest } from "@/api/feed";
+import { exportMultiDigest, writeTextFile } from "@/api/feed";
 import { isTauri } from "@/api/feed";
 import { toast } from "@/components/ui/Toast";
 import type { EntryListItem } from "@/lib/types";
@@ -39,7 +39,8 @@ export function EntryListView() {
           filters: [{ name: format === "markdown" ? "Markdown" : "HTML", extensions: [ext.slice(1)] }],
         });
         if (!filePath) { setExporting(false); return; }
-        toast(t(`已导出 ${selectedIds.size} 篇文章`), "success");
+        await writeTextFile(filePath, content);
+        toast(t("已导出"), "success");
       } else {
         const mime = format === "markdown" ? "text/markdown" : "text/html";
         const blob = new Blob([content], { type: mime });
@@ -51,7 +52,7 @@ export function EntryListView() {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        toast(t(`已导出 ${selectedIds.size} 篇文章`), "success");
+        toast(t("已导出"), "success");
       }
       clearSelection();
     } catch (e: any) {

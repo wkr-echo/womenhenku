@@ -4,13 +4,14 @@ import { mockContent } from "@/api/mock";
 import { formatDate, t } from "@/lib/utils";
 import { SummaryPanelView } from "./SummaryPanelView";
 import { NoteEditorView } from "./NoteEditorView";
-import { isTauri, getEntryContent as getEntryContentReal, processEntryContent, exportSingleDigest } from "@/api/feed";
+import { isTauri, getEntryContent as getEntryContentReal, processEntryContent, exportSingleDigest, writeTextFile, getNote } from "@/api/feed";
 import {
   translateEntry,
   getTranslationText,
   cancelTranslation,
   clearTranslation as clearTranslationApi,
   listenAiStream,
+  getSummaryText,
   type AiStreamEvent,
 } from "@/api/provider";
 import { toast } from "@/components/ui/Toast";
@@ -30,7 +31,7 @@ const EXPORT_LABELS: Record<ExportFormat, string> = {
 };
 
 export function ReaderView() {
-  const { selectedEntry, setViewMode, markEntryRead } = useApp();
+  const { selectedEntry, entries, selectEntry, setViewMode, markEntryRead } = useApp();
 
   // ============================================================
   // All hooks — must be called unconditionally before any return
@@ -38,7 +39,6 @@ export function ReaderView() {
 
   const [sidePanel, setSidePanel] = useState<SidePanel>(null);
   const [exporting, setExporting] = useState(false);
-  const [showExportMenu, setShowExportMenu] = useState(false);
   const [translation, setTranslation] = useState<TranslationState>({ mode: "original", entryId: null });
   const [translating, setTranslating] = useState(false);
   const [segments, setSegments] = useState<SegPair[]>([]);
@@ -226,22 +226,33 @@ export function ReaderView() {
 
   const isPanelOpen = sidePanel !== null;
 
-  // Keyboard shortcuts: s=summary, t=translate, n=notes, Escape=close panel
+  // Keyboard shortcuts: s=summary, n=notes, t=translate, j/k=navigate, Escape=close panel
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT") return;
 
+      // j/k: navigate to previous/next article
+      if (e.key === "j" || e.key === "k") {
+        e.preventDefault();
+        const currentIdx = entries.findIndex((en) => en.id === selectedEntry?.id);
+        if (currentIdx === -1) return;
+        const nextIdx = e.key === "j" ? currentIdx + 1 : currentIdx - 1;
+        if (nextIdx < 0 || nextIdx >= entries.length) return;
+        selectEntry(entries[nextIdx]);
+        return;
+      }
+
       switch (e.key.toLowerCase()) {
         case "s": e.preventDefault(); togglePanel("summary"); break;
         case "n": e.preventDefault(); togglePanel("notes"); break;
         case "t": e.preventDefault(); handleTranslate(); break;
-        case "escape": e.preventDefault(); setSidePanel(null); setShowExportMenu(false); break;
+        case "escape": e.preventDefault(); setSidePanel(null); break;
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [sidePanel, contentLoading, content, translating, showBilingual, segments.length]);
+  }, [sidePanel, contentLoading, content, translating, showBilingual, segments.length, entries, selectedEntry, selectEntry]);
 
   // ============================================================
   // Derived values and callbacks
@@ -249,55 +260,70 @@ export function ReaderView() {
 
   const togglePanel = (panel: SidePanel) => {
     setSidePanel((prev) => (prev === panel ? null : panel));
-    setShowExportMenu(false);
   };
 
-  const handleExport = async (format: ExportFormat) => {
-    setShowExportMenu(false);
+  const handleExportArticle = async (format: ExportFormat) => {
     setExporting(true);
     try {
-      const content = isTauri()
-        ? await exportSingleDigest(selectedEntry!.id, format)
-        : mockDigestExport(selectedEntry!, format);
-
-      const extensions: Record<ExportFormat, string> = {
-        markdown: ".md",
-        html: ".html",
-        plaintext: ".txt",
-      };
-
-      if (isTauri()) {
-        const { save } = await import("@tauri-apps/plugin-dialog");
-        const { homeDir } = await import("@tauri-apps/api/path");
-        const home = await homeDir();
-        const filePath = await save({
-          defaultPath: `${home}${selectedEntry!.title}${extensions[format]}`,
-          filters: [{ name: EXPORT_LABELS[format], extensions: [extensions[format].slice(1)] }],
-        });
-        if (!filePath) { setExporting(false); return; }
-        await exportSingleDigest(selectedEntry!.id, format);
-        toast(t(`已导出到 ${filePath}`), "success");
-      } else {
-        const mimeTypes: Record<ExportFormat, string> = {
-          markdown: "text/markdown",
-          html: "text/html",
-          plaintext: "text/plain",
-        };
-        const blob = new Blob([content], { type: mimeTypes[format] });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `${selectedEntry!.title}${extensions[format]}`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        toast(t(`已导出 ${EXPORT_LABELS[format]}`), "success");
-      }
+      const digest = await exportSingleDigest(selectedEntry!.id, format);
+      const ext = { markdown: ".md", html: ".html", plaintext: ".txt" }[format];
+      await saveFile(`${selectedEntry!.title}${ext}`, digest, format);
     } catch (e: any) {
       toast(t("导出失败: ") + String(e), "error");
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleExportSummary = async () => {
+    setExporting(true);
+    try {
+      const text = await getSummaryText(selectedEntry!.id);
+      if (!text) { toast(t("暂无摘要"), "info"); setExporting(false); return; }
+      await saveFile(`${selectedEntry!.title}-摘要.md`, text, "markdown");
+    } catch (e: any) {
+      toast(t("导出失败: ") + String(e), "error");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleExportNote = async () => {
+    setExporting(true);
+    try {
+      const note = await getNote(selectedEntry!.id);
+      if (!note || !note.content) { toast(t("暂无笔记"), "info"); setExporting(false); return; }
+      await saveFile(`${selectedEntry!.title}-笔记.md`, note.content, "markdown");
+    } catch (e: any) {
+      toast(t("导出失败: ") + String(e), "error");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const saveFile = async (defaultName: string, content: string, format: ExportFormat) => {
+    if (isTauri()) {
+      const { save } = await import("@tauri-apps/plugin-dialog");
+      const { homeDir } = await import("@tauri-apps/api/path");
+      const home = await homeDir();
+      const ext = defaultName.split(".").pop() || "md";
+      const filePath = await save({
+        defaultPath: `${home}${defaultName}`,
+        filters: [{ name: EXPORT_LABELS[format], extensions: [ext] }],
+      });
+      if (!filePath) return;
+      await writeTextFile(filePath, content);
+      toast(t("已导出"), "success");
+    } else {
+      // Browser fallback
+      const mimeMap: Record<string, string> = { markdown: "text/markdown", html: "text/html", plaintext: "text/plain" };
+      const blob = new Blob([content], { type: mimeMap[format] || "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = defaultName;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a); URL.revokeObjectURL(url);
+      toast(t("已导出"), "success");
     }
   };
 
@@ -378,32 +404,38 @@ export function ReaderView() {
               title={t("笔记") + " (N)"}
             >{t("笔记")}</button>
 
-            {/* Export */}
-            <div className="relative">
-              <button
-                onClick={() => setShowExportMenu(!showExportMenu)}
-                disabled={exporting}
-                className="p-1.5 rounded-lg hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)] transition-colors disabled:opacity-50"
-                title={t("导出文摘")}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </button>
-              {showExportMenu && (
-                <div className="absolute right-0 top-full mt-1 w-32 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] shadow-lg z-50 py-1">
-                  {(Object.keys(EXPORT_LABELS) as ExportFormat[]).map((fmt) => (
-                    <button
-                      key={fmt}
-                      onClick={() => handleExport(fmt)}
-                      className="w-full text-left px-3 py-2 text-xs text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors"
-                    >
-                      {t(EXPORT_LABELS[fmt])}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            {/* Export buttons */}
+            <span className="text-[10px] text-[var(--text-tertiary)] mx-1 select-none">{t("导出")}</span>
+            <button
+              onClick={() => handleExportArticle("markdown")}
+              disabled={exporting}
+              className="p-1.5 rounded-lg hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)] transition-colors disabled:opacity-50"
+              title={t("导出原文 (Markdown)")}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </button>
+            <button
+              onClick={handleExportSummary}
+              disabled={exporting}
+              className="p-1.5 rounded-lg hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)] transition-colors disabled:opacity-50"
+              title={t("导出 AI 摘要 (Markdown)")}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </button>
+            <button
+              onClick={handleExportNote}
+              disabled={exporting}
+              className="p-1.5 rounded-lg hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)] transition-colors disabled:opacity-50"
+              title={t("导出笔记 (Markdown)")}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
           </div>
         </div>
       </div>

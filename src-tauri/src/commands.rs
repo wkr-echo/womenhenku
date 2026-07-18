@@ -208,3 +208,12 @@ pub fn export_multi_digest(
 ) -> Result<String, String> {
     crate::digest::export_multi(pool, entry_ids, format)
 }
+
+// ============================================================
+// File utilities
+// ============================================================
+
+/// Write text content to a file path. Used by export functions.
+pub fn write_text_file(path: &str, content: &str) -> Result<(), String> {
+    std::fs::write(path, content).map_err(|e| format!("Failed to write file: {}", e))
+}

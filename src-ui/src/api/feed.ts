@@ -139,3 +139,8 @@ export async function exportSingleDigest(entryId: number, format: string = "mark
 export async function exportMultiDigest(entryIds: number[], format: string = "markdown"): Promise<string> {
   return invoke<string>("export_multi_digest", { entryIds, format });
 }
+
+/// Write text content to a file path on disk.
+export async function writeTextFile(path: string, content: string): Promise<void> {
+  return invoke("write_text_file", { path, content });
+}

@@ -156,6 +156,8 @@ pub fn run() {
             // Digest export (Stage 4)
             export_single_digest,
             export_multi_digest,
+            // File utilities
+            write_text_file,
             // Fonts (Stage 2)
             list_system_fonts,
             // System
@@ -392,6 +394,15 @@ fn export_single_digest(state: State<'_, DbPool>, entry_id: i64, format: String)
 fn export_multi_digest(state: State<'_, DbPool>, entry_ids: Vec<i64>, format: String) -> Result<String, String> {
     let fmt = crate::digest::DigestFormat::from_str(&format)?;
     commands::export_multi_digest(&state, &entry_ids, &fmt)
+}
+
+// -- File utilities --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn write_text_file(state: State<'_, DbPool>, path: String, content: String) -> Result<(), String> {
+    let _ = state; // unused but required for Tauri command registration
+    commands::write_text_file(&path, &content)
 }
 
 // ============================================================

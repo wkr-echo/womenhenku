@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui";
-import { mockNote } from "@/api/mock";
 import { isTauri, saveNote as saveNoteApi, getNote as getNoteApi } from "@/api/feed";
 import { toast } from "@/components/ui/Toast";
 import { t } from "@/lib/utils";
@@ -9,6 +8,12 @@ interface NoteEditorViewProps {
   entryId: number;
 }
 
+const NOTE_PLACEHOLDER = `## 我的笔记
+
+在这里写下你的想法…
+
+> 提示：支持 Markdown 语法，使用 Ctrl+S 保存`;
+
 export function NoteEditorView({ entryId }: NoteEditorViewProps) {
   const [content, setContent] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -16,21 +21,17 @@ export function NoteEditorView({ entryId }: NoteEditorViewProps) {
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
 
-  // Load note on mount: Tauri real API -> mock fallback
+  // Load note on mount: Tauri real API — empty if no existing note
   useEffect(() => {
     if (isTauri()) {
       getNoteApi(entryId)
         .then((note) => {
-          if (note) {
-            setContent(note.content);
-          } else {
-            setContent(mockNote.content);
-          }
+          setContent(note?.content ?? "");
         })
-        .catch(() => setContent(mockNote.content))
+        .catch(() => setContent(""))
         .finally(() => setIsLoading(false));
     } else {
-      setContent(mockNote.content);
+      setContent("");
       setIsLoading(false);
     }
   }, [entryId]);
@@ -106,7 +107,7 @@ export function NoteEditorView({ entryId }: NoteEditorViewProps) {
         <textarea
           value={content}
           onChange={handleChange}
-          placeholder={t("在此编辑 Markdown 笔记...")}
+          placeholder={NOTE_PLACEHOLDER}
           className="w-full min-h-[400px] rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-5 text-sm text-[var(--text-primary)] resize-y focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] focus:border-transparent transition-colors placeholder:text-[var(--text-tertiary)]"
         />
       </div>
