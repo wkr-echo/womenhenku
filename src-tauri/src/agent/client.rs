@@ -110,7 +110,7 @@ impl AiClient {
         let body = json!({
             "model": model,
             "messages": [{"role": "user", "content": "hi"}],
-            "max_tokens": 1,
+            "max_tokens": 5,
             "stream": false,
         });
 
@@ -124,14 +124,16 @@ impl AiClient {
             .await
             .map_err(|e| AiClientError::Http(e.to_string()))?;
 
-        if resp.status().is_success() {
+        let status = resp.status().as_u16();
+        if status == 200 || status == 201 {
             Ok(true)
-        } else if resp.status().as_u16() == 401 {
-            Ok(false) // API Key 无效
+        } else if status == 401 || status == 403 {
+            Ok(false) // auth failure
         } else {
-            let status = resp.status().as_u16();
-            let text = resp.text().await.unwrap_or_default();
-            Err(AiClientError::Api(format!("HTTP {}: {}", status, text)))
+            // Treat any 4xx/5xx as "provider reachable but request failed"
+            // — not a connection error, just means validation didn't pass
+            tracing::warn!("Provider validation returned HTTP {}: {:?}", status, resp.text().await.unwrap_or_default());
+            Ok(false)
         }
     }
 
