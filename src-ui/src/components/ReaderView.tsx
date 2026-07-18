@@ -37,6 +37,7 @@ export function ReaderView() {
   const [translationMode, setTranslationMode] = useState<TranslationMode>("original");
   const [translating, setTranslating] = useState(false);
   const [segments, setSegments] = useState<SegPair[]>([]);
+  const [rawTranslation, setRawTranslation] = useState<string | null>(null);
   const unlistenRef = useRef<(() => void) | null>(null);
 
   const handleExport = async (format: ExportFormat) => {
@@ -169,13 +170,14 @@ export function ReaderView() {
     if (!selectedEntry) return;
     setTranslationMode("original");
     setSegments([]);
+    setRawTranslation(null);
     setTranslating(false);
 
     unlistenRef.current?.();
     unlistenRef.current = null;
 
     getTranslationText(selectedEntry.id).then((text) => {
-      if (text) setSegments(parseTranslation(text));
+      if (text) { setRawTranslation(text); setSegments(parseTranslation(text)); }
     }).catch(() => {});
 
     listenAiStream((event: AiStreamEvent) => {
@@ -184,7 +186,7 @@ export function ReaderView() {
       if (event.isDone) {
         setTranslating(false);
         getTranslationText(selectedEntry.id).then((text) => {
-          if (text) setSegments(parseTranslation(text));
+          if (text) { setRawTranslation(text); setSegments(parseTranslation(text)); }
         });
         return;
       }
@@ -210,6 +212,7 @@ export function ReaderView() {
   const handleClearTranslation = async () => {
     await clearTranslationApi(selectedEntry.id).catch(() => {});
     setSegments([]);
+    setRawTranslation(null);
     setTranslationMode("original");
   };
 
@@ -322,18 +325,29 @@ export function ReaderView() {
             {contentLoading ? (
               <p className="text-sm text-[var(--text-tertiary)]">{t("加载中...")}</p>
             ) : content?.renderedHtml || content?.cleanedHtml || content?.rawHtml ? (
-              translationMode === "bilingual" && segments.length > 0 ? (
-                <div className="translation-bilingual space-y-6">
-                  {segments.map((seg, i) => (
-                    <div key={i} className="grid grid-cols-2 gap-4 items-start">
-                      <div className="reader-content" dangerouslySetInnerHTML={{ __html: seg.source }} />
-                      <div className="reader-content text-[var(--text-secondary)]" dangerouslySetInnerHTML={{ __html: seg.translated || "…" }} />
-                    </div>
-                  ))}
-                  {translating && (
-                    <p className="text-xs text-[var(--text-tertiary)]">{t("翻译中...")}</p>
-                  )}
-                </div>
+              translationMode === "bilingual" ? (
+                segments.length > 0 ? (
+                  <div className="translation-bilingual space-y-6">
+                    {segments.map((seg, i) => (
+                      <div key={i} className="grid grid-cols-2 gap-4 items-start">
+                        <div className="reader-content" dangerouslySetInnerHTML={{ __html: seg.source }} />
+                        <div className="reader-content text-[var(--text-secondary)]" dangerouslySetInnerHTML={{ __html: seg.translated || "…" }} />
+                      </div>
+                    ))}
+                    {translating && (
+                      <p className="text-xs text-[var(--text-tertiary)]">{t("翻译中...")}</p>
+                    )}
+                  </div>
+                ) : translating ? (
+                  <p className="text-sm text-[var(--text-tertiary)]">{t("翻译中...")}</p>
+                ) : rawTranslation ? (
+                  <pre className="text-sm text-[var(--text-secondary)] whitespace-pre-wrap font-mono">{rawTranslation}</pre>
+                ) : (
+                  <div
+                    className="reader-content"
+                    dangerouslySetInnerHTML={{ __html: (content.renderedHtml || content.cleanedHtml || content.rawHtml)! }}
+                  />
+                )
               ) : (
                 <div
                   className="reader-content"
@@ -377,25 +391,45 @@ function mockDigestExport(entry: { title: string; author: string; link: string }
   }
 }
 
-/** Parse translation output text (backend format) into segment array.
- * Backend stores:
- *   [1]
- *   原文: <p>HTML</p>
- *   译文: translated text
- */
+/** Parse translation output text into segment array.
+ * Backend format: [N]\n原文: HTML\n译文: text\n\n */
 function parseTranslation(text: string): SegPair[] {
+  if (!text || !text.trim()) return [];
   const segments: SegPair[] = [];
-  const blocks = text.split(/\n(?=\[\d+\])/);
-  for (const block of blocks) {
-    const srcM = block.match(/^原文:\s*(.+?)(?:\n|$)/m);
-    const trM = block.match(/^译文:\s*([\s\S]+?)$/m);
+  // Split by [N] at line start
+  const parts = text.split(/\n(?=\[\d+\]\s*\n)/);
+  for (const part of parts) {
+    // Try source/translation extraction
+    const srcM = part.match(/^原文:\s*(.+?)(?:\n译文:|\n\(翻译失败\)|\n\n|\n\[|\n?$)/ms);
+    const trM = part.match(/^译文:\s*([\s\S]+?)(?:\n\n|\n\[|\n?$)/m);
+    const failM = part.match(/\(翻译失败\)/);
     if (srcM) {
-      segments.push({
-        source: srcM[1].trim(),
-        translated: trM ? trM[1].trim() : undefined,
-        status: trM ? "success" : "pending",
-      });
+      const src = srcM[1].trim();
+      const translated = failM ? undefined : (trM ? trM[1].trim() : undefined);
+      if (src) {
+        segments.push({
+          source: src,
+          translated,
+          status: translated ? "success" : "pending",
+        });
+      }
     }
+  }
+  // Fallback: if no segments parsed, try line-by-line
+  if (segments.length === 0) {
+    const lines = text.split("\n");
+    let cur: { src?: string; trans?: string } = {};
+    for (const line of lines) {
+      if (/^\[\d+\]/.test(line.trim())) {
+        if (cur.src) segments.push({ source: cur.src, translated: cur.trans, status: cur.trans ? "success" : "pending" });
+        cur = {};
+      } else if (line.startsWith("原文:") || line.startsWith("原文：")) {
+        cur.src = line.replace(/^原文[：:]\s*/, "").trim();
+      } else if (line.startsWith("译文:") || line.startsWith("译文：")) {
+        cur.trans = line.replace(/^译文[：:]\s*/, "").trim();
+      }
+    }
+    if (cur.src) segments.push({ source: cur.src, translated: cur.trans, status: cur.trans ? "success" : "pending" });
   }
   return segments;
 }
