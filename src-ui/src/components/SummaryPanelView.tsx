@@ -19,22 +19,27 @@ export function SummaryPanelView({ entryId }: SummaryPanelProps) {
   const [streamText, setStreamText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const unlistenRef = useRef<(() => void) | null>(null);
-  const didInitRef = useRef(false);
 
-  // 初始化：加载已有的摘要
+  // Reset and reload when entry changes
   useEffect(() => {
-    if (didInitRef.current) return;
-    didInitRef.current = true;
+    // Reset state for new entry
+    setIsGenerating(false);
+    setSummary(null);
+    setStreamText("");
+    setError(null);
 
+    // Unsubscribe old listener
+    unlistenRef.current?.();
+    unlistenRef.current = null;
+
+    // Load existing summary
     getSummaryText(entryId)
       .then((text) => {
         if (text) setSummary(text);
       })
-      .catch(() => {
-        // 没有摘要也正常
-      });
+      .catch(() => {});
 
-    // 监听 AI 流式事件
+    // Listen for AI stream events
     listenAiStream((event: AiStreamEvent) => {
       if (event.agentType !== "summary") return;
 
@@ -43,7 +48,6 @@ export function SummaryPanelView({ entryId }: SummaryPanelProps) {
         if (event.error) {
           setError(event.error);
         } else {
-          // 完成后重新获取完整文本
           getSummaryText(entryId).then((text) => {
             if (text) setSummary(text);
           });
@@ -51,7 +55,6 @@ export function SummaryPanelView({ entryId }: SummaryPanelProps) {
         return;
       }
 
-      // 累积流式内容
       setStreamText((prev) => prev + event.content);
     }).then((unlisten) => {
       unlistenRef.current = unlisten;

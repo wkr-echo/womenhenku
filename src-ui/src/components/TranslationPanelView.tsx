@@ -26,29 +26,28 @@ export function TranslationPanelView({ entryId }: TranslationPanelProps) {
   const [error, setError] = useState<string | null>(null);
   const [streamSegments, setStreamSegments] = useState<string[]>([]);
   const unlistenRef = useRef<(() => void) | null>(null);
-  const didInitRef = useRef(false);
 
-  // 初始化：加载已有翻译
+  // Reset and reload when entry changes
   useEffect(() => {
-    if (didInitRef.current) return;
-    didInitRef.current = true;
+    setTranslating(false);
+    setSegments([]);
+    setError(null);
+    setStreamSegments([]);
 
-    // 加载已有的翻译结果
+    unlistenRef.current?.();
+    unlistenRef.current = null;
+
     const loadTranslation = async () => {
       try {
         const text = await getTranslationText(entryId);
         if (text) {
-          // 从格式化的文本中解析段落对
           const parsed = parseTranslationOutput(text);
           setSegments(parsed);
         }
-      } catch {
-        // 没有翻译也正常
-      }
+      } catch {}
     };
     loadTranslation();
 
-    // 监听 AI 流式事件
     listenAiStream((event: AiStreamEvent) => {
       if (event.agentType !== "translation") return;
 
@@ -57,7 +56,6 @@ export function TranslationPanelView({ entryId }: TranslationPanelProps) {
         if (event.error) {
           setError(event.error);
         } else {
-          // 翻译完成后重新加载
           getTranslationText(entryId).then((text) => {
             if (text) {
               const parsed = parseTranslationOutput(text);
@@ -68,7 +66,6 @@ export function TranslationPanelView({ entryId }: TranslationPanelProps) {
         return;
       }
 
-      // 流式内容可能带有段落标识如 "[1/4] 译文"
       setStreamSegments((prev) => [...prev, event.content]);
     }).then((unlisten) => {
       unlistenRef.current = unlisten;
