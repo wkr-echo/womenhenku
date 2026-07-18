@@ -69,7 +69,12 @@ function ProviderSettings() {
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ name: "", baseUrl: "", apiKeyRef: "", isDefault: false, defaultModel: "" });
   const [models, setModels] = useState<Record<number, string[]>>({});
-  const [validated, setValidated] = useState<Record<number, boolean | null>>({});
+  const [validated, setValidated] = useState<Record<number, boolean | null>>(() => {
+    try {
+      const saved = localStorage.getItem("providerValidated");
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
   const [validating, setValidating] = useState<Record<number, boolean>>({});
 
   const doValidate = async (p: Provider) => {
@@ -77,9 +82,13 @@ function ProviderSettings() {
     try {
       const modelName = (models[p.id] && models[p.id].length > 0) ? models[p.id][0] : "gpt-3.5-turbo";
       const ok = await validateProvider(p.baseUrl, p.apiKeyRef, modelName);
-      setValidated(prev => ({ ...prev, [p.id]: ok }));
+      const next = { ...validated, [p.id]: ok };
+      setValidated(next);
+      localStorage.setItem("providerValidated", JSON.stringify(next));
     } catch {
-      setValidated(prev => ({ ...prev, [p.id]: false }));
+      const next = { ...validated, [p.id]: false as boolean | null };
+      setValidated(next);
+      localStorage.setItem("providerValidated", JSON.stringify(next));
     } finally {
       setValidating(prev => ({ ...prev, [p.id]: false }));
     }
