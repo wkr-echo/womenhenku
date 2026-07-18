@@ -342,12 +342,22 @@ function EditProviderForm({
 }
 
 function AgentSettings() {
-  const [config, setConfig] = useState<AgentConfig>({
-    targetLanguage: "zh-CN",
-    detailLevel: "standard",
-    concurrencyDegree: 3,
-    primaryModelId: "",
+  const [config, setConfig] = useState<AgentConfig>(() => {
+    try {
+      const saved = localStorage.getItem("agentConfig");
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      targetLanguage: "zh-CN",
+      detailLevel: "standard",
+      concurrencyDegree: 3,
+      primaryModelId: "",
+    };
   });
+
+  useEffect(() => {
+    localStorage.setItem("agentConfig", JSON.stringify(config));
+  }, [config]);
 
   const languages = [
     { label: t("中文"), value: "zh-CN" },

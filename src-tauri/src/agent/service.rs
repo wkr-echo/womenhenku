@@ -112,18 +112,15 @@ impl AgentService {
     pub async fn generate_summary(
         &self,
         entry_id: i64,
+        target_language: &str,
+        detail_level: &str,
         on_event: impl Fn(AiStreamEvent) + Send + Sync + 'static,
     ) -> Result<(), AgentServiceError> {
-        // 检查数据库缓存
         if let Some(text) = self
             .get_latest_summary_text(entry_id)
             .map_err(|e| AgentServiceError::Database(e))?
         {
             if !text.is_empty() {
-                tracing::info!(
-                    "generate_summary cache hit for entry_id={}, returning cached result",
-                    entry_id
-                );
                 on_event(AiStreamEvent {
                     task_id: 0,
                     content: String::new(),
@@ -137,7 +134,10 @@ impl AgentService {
 
         let (provider_id, base_url, api_key, model) = self.get_default_provider()?;
 
-        let config = SummaryConfig::default();
+        let config = SummaryConfig {
+            target_language: target_language.to_string(),
+            detail_level: detail_level.to_string(),
+        };
 
         self.summary_agent
             .generate_summary(

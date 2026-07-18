@@ -466,6 +466,8 @@ async fn generate_summary(
     app: tauri::AppHandle,
     agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
     entry_id: i64,
+    target_language: Option<String>,
+    detail_level: Option<String>,
 ) -> Result<(), String> {
     let app_handle = app.clone();
 
@@ -473,7 +475,10 @@ async fn generate_summary(
         let _ = app_handle.emit("ai-stream", serde_json::to_value(&event).unwrap_or_default());
     };
 
-    agent_service.generate_summary(entry_id, on_event).await.map_err(|e| e.to_string())
+    let lang = target_language.unwrap_or_else(|| "zh-CN".to_string());
+    let detail = detail_level.unwrap_or_else(|| "standard".to_string());
+
+    agent_service.generate_summary(entry_id, &lang, &detail, on_event).await.map_err(|e| e.to_string())
 }
 
 #[cfg(feature = "tauri-runtime")]

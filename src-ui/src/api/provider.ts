@@ -74,8 +74,8 @@ export async function deleteProviderModel(id: number): Promise<void> {
 
 // ============ Summary Agent ============
 
-export async function generateSummary(entryId: number): Promise<void> {
-  return invoke("generate_summary", { entryId });
+export async function generateSummary(entryId: number, targetLanguage?: string, detailLevel?: string): Promise<void> {
+  return invoke("generate_summary", { entryId, targetLanguage, detailLevel });
 }
 
 export async function getSummaryText(entryId: number): Promise<string | null> {
