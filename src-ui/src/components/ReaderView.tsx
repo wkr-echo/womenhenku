@@ -201,7 +201,10 @@ export function ReaderView() {
       let lang = "zh-CN"; let conc = 3;
       try { const cfg = JSON.parse(localStorage.getItem("agentConfig") || "{}"); lang = cfg.translationLanguage || lang; conc = cfg.concurrencyDegree || conc; } catch {}
       await translateEntry(selectedEntry.id, lang, conc);
-    } catch { setTranslating(false); }
+    } catch {
+      setTranslating(false);
+      setTranslationMode("original");
+    }
   };
 
   const handleClearTranslation = async () => {
@@ -374,11 +377,25 @@ function mockDigestExport(entry: { title: string; author: string; link: string }
   }
 }
 
-/** Parse translation JSON into segment array. */
-function parseTranslation(json: string): SegPair[] {
-  try {
-    const parsed = JSON.parse(json);
-    if (Array.isArray(parsed)) return parsed.map((s: { source: string; translated?: string }) => ({ ...s, status: (s.translated ? "success" : "pending") as SegPair["status"] }));
-    return [];
-  } catch { return []; }
+/** Parse translation output text (backend format) into segment array.
+ * Backend stores:
+ *   [1]
+ *   原文: <p>HTML</p>
+ *   译文: translated text
+ */
+function parseTranslation(text: string): SegPair[] {
+  const segments: SegPair[] = [];
+  const blocks = text.split(/\n(?=\[\d+\])/);
+  for (const block of blocks) {
+    const srcM = block.match(/^原文:\s*(.+?)(?:\n|$)/m);
+    const trM = block.match(/^译文:\s*([\s\S]+?)$/m);
+    if (srcM) {
+      segments.push({
+        source: srcM[1].trim(),
+        translated: trM ? trM[1].trim() : undefined,
+        status: trM ? "success" : "pending",
+      });
+    }
+  }
+  return segments;
 }
