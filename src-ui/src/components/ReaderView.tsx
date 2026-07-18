@@ -304,11 +304,11 @@ export function ReaderView() {
   const saveFile = async (defaultName: string, content: string, format: ExportFormat) => {
     if (isTauri()) {
       const { save } = await import("@tauri-apps/plugin-dialog");
-      const { homeDir } = await import("@tauri-apps/api/path");
-      const home = await homeDir();
+      const { downloadDir } = await import("@tauri-apps/api/path");
+      const dl = await downloadDir();
       const ext = defaultName.split(".").pop() || "md";
       const filePath = await save({
-        defaultPath: `${home}${defaultName}`,
+        defaultPath: `${dl}/${defaultName}`,
         filters: [{ name: EXPORT_LABELS[format], extensions: [ext] }],
       });
       if (!filePath) return;

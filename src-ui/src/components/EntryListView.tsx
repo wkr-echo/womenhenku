@@ -32,10 +32,10 @@ export function EntryListView() {
       const ext = format === "markdown" ? ".md" : ".html";
       if (isTauri()) {
         const { save } = await import("@tauri-apps/plugin-dialog");
-        const { homeDir } = await import("@tauri-apps/api/path");
-        const home = await homeDir();
+        const { downloadDir } = await import("@tauri-apps/api/path");
+        const dl = await downloadDir();
         const filePath = await save({
-          defaultPath: `${home}digest${ext}`,
+          defaultPath: `${dl}/digest${ext}`,
           filters: [{ name: format === "markdown" ? "Markdown" : "HTML", extensions: [ext.slice(1)] }],
         });
         if (!filePath) { setExporting(false); return; }
