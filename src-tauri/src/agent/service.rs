@@ -114,21 +114,24 @@ impl AgentService {
         entry_id: i64,
         target_language: &str,
         detail_level: &str,
+        force: bool,
         on_event: impl Fn(AiStreamEvent) + Send + Sync + 'static,
     ) -> Result<(), AgentServiceError> {
-        if let Some(text) = self
-            .get_latest_summary_text(entry_id)
-            .map_err(|e| AgentServiceError::Database(e))?
-        {
-            if !text.is_empty() {
-                on_event(AiStreamEvent {
-                    task_id: 0,
-                    content: String::new(),
-                    is_done: true,
-                    agent_type: "summary".to_string(),
-                    error: None,
-                });
-                return Ok(());
+        if !force {
+            if let Some(text) = self
+                .get_latest_summary_text(entry_id)
+                .map_err(|e| AgentServiceError::Database(e))?
+            {
+                if !text.is_empty() {
+                    on_event(AiStreamEvent {
+                        task_id: 0,
+                        content: String::new(),
+                        is_done: true,
+                        agent_type: "summary".to_string(),
+                        error: None,
+                    });
+                    return Ok(());
+                }
             }
         }
 
@@ -216,21 +219,24 @@ impl AgentService {
         entry_id: i64,
         target_language: &str,
         concurrency: usize,
+        force: bool,
         on_event: impl Fn(AiStreamEvent) + Send + Sync + 'static,
     ) -> Result<(), AgentServiceError> {
-        if let Some(text) = self
-            .get_latest_translation_text(entry_id)
-            .map_err(|e| AgentServiceError::Database(e))?
-        {
-            if !text.is_empty() {
-                on_event(AiStreamEvent {
-                    task_id: 0,
-                    content: String::new(),
-                    is_done: true,
-                    agent_type: "translation".to_string(),
-                    error: None,
-                });
-                return Ok(());
+        if !force {
+            if let Some(text) = self
+                .get_latest_translation_text(entry_id)
+                .map_err(|e| AgentServiceError::Database(e))?
+            {
+                if !text.is_empty() {
+                    on_event(AiStreamEvent {
+                        task_id: 0,
+                        content: String::new(),
+                        is_done: true,
+                        agent_type: "translation".to_string(),
+                        error: None,
+                    });
+                    return Ok(());
+                }
             }
         }
 

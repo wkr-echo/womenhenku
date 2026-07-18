@@ -468,6 +468,7 @@ async fn generate_summary(
     entry_id: i64,
     target_language: Option<String>,
     detail_level: Option<String>,
+    force: Option<bool>,
 ) -> Result<(), String> {
     let app_handle = app.clone();
 
@@ -478,7 +479,7 @@ async fn generate_summary(
     let lang = target_language.unwrap_or_else(|| "zh-CN".to_string());
     let detail = detail_level.unwrap_or_else(|| "standard".to_string());
 
-    agent_service.generate_summary(entry_id, &lang, &detail, on_event).await.map_err(|e| e.to_string())
+    agent_service.generate_summary(entry_id, &lang, &detail, force.unwrap_or(false), on_event).await.map_err(|e| e.to_string())
 }
 
 #[cfg(feature = "tauri-runtime")]
@@ -516,6 +517,7 @@ async fn translate_entry(
     entry_id: i64,
     target_language: Option<String>,
     concurrency: Option<usize>,
+    force: Option<bool>,
 ) -> Result<(), String> {
     let app_handle = app.clone();
 
@@ -526,7 +528,7 @@ async fn translate_entry(
     let lang = target_language.unwrap_or_else(|| "zh-CN".to_string());
     let conc = concurrency.unwrap_or(3);
 
-    agent_service.translate_entry(entry_id, &lang, conc, on_event).await.map_err(|e| e.to_string())
+    agent_service.translate_entry(entry_id, &lang, conc, force.unwrap_or(false), on_event).await.map_err(|e| e.to_string())
 }
 
 #[cfg(feature = "tauri-runtime")]

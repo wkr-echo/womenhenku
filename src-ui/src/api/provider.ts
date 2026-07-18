@@ -74,8 +74,8 @@ export async function deleteProviderModel(id: number): Promise<void> {
 
 // ============ Summary Agent ============
 
-export async function generateSummary(entryId: number, targetLanguage?: string, detailLevel?: string): Promise<void> {
-  return invoke("generate_summary", { entryId, targetLanguage, detailLevel });
+export async function generateSummary(entryId: number, targetLanguage?: string, detailLevel?: string, force?: boolean): Promise<void> {
+  return invoke("generate_summary", { entryId, targetLanguage, detailLevel, force });
 }
 
 export async function getSummaryText(entryId: number): Promise<string | null> {
@@ -92,8 +92,8 @@ export async function clearSummary(entryId: number): Promise<void> {
 
 // ============ Translation Agent ============
 
-export async function translateEntry(entryId: number, targetLanguage?: string, concurrency?: number): Promise<void> {
-  return invoke("translate_entry", { entryId, targetLanguage, concurrency });
+export async function translateEntry(entryId: number, targetLanguage?: string, concurrency?: number, force?: boolean): Promise<void> {
+  return invoke("translate_entry", { entryId, targetLanguage, concurrency, force });
 }
 
 export async function getTranslationText(entryId: number): Promise<string | null> {

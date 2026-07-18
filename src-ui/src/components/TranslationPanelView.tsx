@@ -92,7 +92,7 @@ export function TranslationPanelView({ entryId }: TranslationPanelProps) {
           concurrency = cfg.concurrencyDegree || concurrency;
         }
       } catch {}
-      await translateEntry(entryId, targetLanguage, concurrency);
+      await translateEntry(entryId, targetLanguage, concurrency, segments.length > 0);
     } catch (err: any) {
       setTranslating(false);
       setError(String(err));

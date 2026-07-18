@@ -65,7 +65,7 @@ export function SummaryPanelView({ entryId }: SummaryPanelProps) {
     };
   }, [entryId]);
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (force: boolean = false) => {
     setIsGenerating(true);
     setStreamText("");
     setError(null);
@@ -82,7 +82,7 @@ export function SummaryPanelView({ entryId }: SummaryPanelProps) {
           summaryDetail = cfg.summaryDetail || summaryDetail;
         }
       } catch {}
-      await generateSummary(entryId, summaryLanguage, summaryDetail);
+      await generateSummary(entryId, summaryLanguage, summaryDetail, force);
     } catch (err: any) {
       setIsGenerating(false);
       setError(String(err));
@@ -111,7 +111,7 @@ export function SummaryPanelView({ entryId }: SummaryPanelProps) {
             <Button
               variant="secondary"
               size="sm"
-              onClick={handleGenerate}
+              onClick={() => handleGenerate(true)}
             >
               {summary ? t("重新生成") : t("生成摘要")}
             </Button>
