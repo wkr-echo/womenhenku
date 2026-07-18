@@ -29,8 +29,7 @@
     "active": true,
     "targets": "all",
     "icon": [
-      "icons/icon.png",
-      "icons/icon.ico"
+      "icons/icon.png"
     ],
         "resources": {
       "resources/prompts/summary.yaml": "resources/prompts/summary.yaml",
