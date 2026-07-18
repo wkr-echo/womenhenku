@@ -19,5 +19,12 @@ Thumbs.db
 node_modules/
 dist/
 
+# Build artifacts
+*.tsbuildinfo
+
+# Downloaded junk
+*_files/
+*.zip
+
 # Tauri
 src-tauri/target/
