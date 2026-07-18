@@ -561,9 +561,20 @@ async fn clear_translation(
 #[cfg(feature = "tauri-runtime")]
 #[tauri::command]
 async fn retry_failed_segments(
-    _entry_id: i64,
+    app: tauri::AppHandle,
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    entry_id: i64,
 ) -> Result<(), String> {
-    Err("段落级重试尚未实现，请重新翻译整篇文章".to_string())
+    let app_handle = app.clone();
+
+    let on_event = move |event: crate::agent::client::AiStreamEvent| {
+        let _ = app_handle.emit("ai-stream", serde_json::to_value(&event).unwrap_or_default());
+    };
+
+    agent_service
+        .retry_failed_segments(entry_id, on_event)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 // ============================================================

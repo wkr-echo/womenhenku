@@ -4,6 +4,7 @@
 // 实现统一的 5 状态状态机（ADR 007）。
 
 pub mod client;
+pub mod crypto;
 pub mod prompt;
 pub mod service;
 pub mod state;

@@ -70,10 +70,14 @@ impl AgentService {
             .or_else(|| models.first().map(|m| m.model_name.clone()))
             .unwrap_or_else(|| "gpt-3.5-turbo".to_string());
 
+        // Decrypt API key
+        let api_key = crate::agent::crypto::decrypt(&provider.api_key_ref)
+            .unwrap_or_else(|_| provider.api_key_ref.clone());
+
         Ok((
             provider.id,
             provider.base_url,
-            provider.api_key_ref, // 简化：实际应解密
+            api_key,
             default_model,
         ))
     }
@@ -100,9 +104,13 @@ impl AgentService {
             .or_else(|| models.first().map(|m| m.model_name.clone()))
             .unwrap_or_else(|| "gpt-3.5-turbo".to_string());
 
+        // Decrypt API key
+        let api_key = crate::agent::crypto::decrypt(&provider.api_key_ref)
+            .unwrap_or_else(|_| provider.api_key_ref.clone());
+
         Ok((
             provider.base_url,
-            provider.api_key_ref,
+            api_key,
             default_model,
         ))
     }
@@ -320,6 +328,30 @@ impl AgentService {
         Ok(())
     }
 
+    /// 重试翻译中失败的段落
+    pub async fn retry_failed_segments(
+        &self,
+        entry_id: i64,
+        on_event: impl Fn(AiStreamEvent) + Send + Sync + 'static,
+    ) -> Result<(), AgentServiceError> {
+        let (provider_id, base_url, api_key, model) = self.get_default_provider()?;
+        let config = TranslationConfig::default();
+
+        self.translation_agent
+            .retry_failed_segments(
+                entry_id,
+                config,
+                provider_id,
+                &base_url,
+                &api_key,
+                &model,
+                on_event,
+            )
+            .await?;
+
+        Ok(())
+    }
+
     /// 验证 Provider 连接
     pub async fn validate_provider(
         &self,
@@ -339,29 +371,59 @@ impl AgentService {
     // Provider CRUD 操作（直接在 AgentService 暴露，避免修改 commands.rs）
     // ================================================================
 
-    /// 添加 Provider
+    /// 添加 Provider（API Key 自动加密存储）
     pub fn add_provider(
         &self,
         provider: &crate::db::model::NewProvider,
     ) -> Result<crate::db::model::Provider, String> {
         let repo = ProviderRepository::new(self.pool.clone());
-        repo.insert(provider).map_err(|e| e.to_string())
+        let encrypted_key = crate::agent::crypto::encrypt(&provider.api_key_ref);
+        let encrypted_provider = crate::db::model::NewProvider {
+            name: provider.name.clone(),
+            base_url: provider.base_url.clone(),
+            api_key_ref: encrypted_key,
+            is_default: provider.is_default,
+        };
+        repo.insert(&encrypted_provider).map_err(|e| e.to_string())
     }
 
-    /// 列出所有 Provider
+    /// 列出所有 Provider（API Key 自动解密后返回）
     pub fn list_providers(&self) -> Result<Vec<crate::db::model::Provider>, String> {
         let repo = ProviderRepository::new(self.pool.clone());
-        repo.list_all().map_err(|e| e.to_string())
+        let providers = repo.list_all().map_err(|e| e.to_string())?;
+        Ok(providers
+            .into_iter()
+            .map(|mut p| {
+                if let Ok(decrypted) = crate::agent::crypto::decrypt(&p.api_key_ref) {
+                    p.api_key_ref = decrypted;
+                }
+                p
+            })
+            .collect())
     }
 
-    /// 更新 Provider
+    /// 更新 Provider（API Key 自动加密存储）
     pub fn update_provider(
         &self,
         id: i64,
         update: &crate::db::model::UpdateProvider,
     ) -> Result<crate::db::model::Provider, String> {
         let repo = ProviderRepository::new(self.pool.clone());
-        repo.update(id, update).map_err(|e| e.to_string())
+        let encrypted_update = match &update.api_key_ref {
+            Some(key) => crate::db::model::UpdateProvider {
+                name: update.name.clone(),
+                base_url: update.base_url.clone(),
+                api_key_ref: Some(crate::agent::crypto::encrypt(key)),
+                is_default: update.is_default,
+            },
+            None => crate::db::model::UpdateProvider {
+                name: update.name.clone(),
+                base_url: update.base_url.clone(),
+                api_key_ref: None,
+                is_default: update.is_default,
+            },
+        };
+        repo.update(id, &encrypted_update).map_err(|e| e.to_string())
     }
 
     /// 删除 Provider
