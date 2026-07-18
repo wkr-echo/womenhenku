@@ -55,7 +55,8 @@ pub fn refresh_feed(pool: &DbPool, id: i64) -> Result<usize, String> {
 }
 
 /// Refresh all feeds concurrently with max 5 concurrent fetches.
-pub fn refresh_all_feeds(pool: &DbPool) -> Result<(), String> {
+/// Returns total number of new entries found.
+pub fn refresh_all_feeds(pool: &DbPool) -> Result<usize, String> {
     let service = crate::feed::service::FeedService::new(pool.clone());
     service.refresh_all_feeds().map_err(|e| e.to_string())
 }

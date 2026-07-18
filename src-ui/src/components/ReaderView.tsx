@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useApp } from "@/contexts/AppContext";
-import { mockContent, mockSummary } from "@/api/mock";
+import { mockContent } from "@/api/mock";
 import { formatDate, t } from "@/lib/utils";
-import { Button } from "@/components/ui";
 import { SummaryPanelView } from "./SummaryPanelView";
 import { NoteEditorView } from "./NoteEditorView";
 import { isTauri, getEntryContent as getEntryContentReal, processEntryContent, exportSingleDigest } from "@/api/feed";
@@ -17,7 +16,7 @@ import {
 import { toast } from "@/components/ui/Toast";
 import type { Content } from "@/lib/types";
 
-type ReaderTab = "read" | "summary" | "notes";
+type SidePanel = "summary" | "notes" | null;
 type ExportFormat = "markdown" | "html" | "plaintext";
 type TranslationMode = "original" | "bilingual";
 
@@ -30,9 +29,11 @@ const EXPORT_LABELS: Record<ExportFormat, string> = {
   plaintext: "纯文本",
 };
 
+const PANEL_WIDTH = 400;
+
 export function ReaderView() {
   const { selectedEntry, setViewMode, markEntryRead } = useApp();
-  const [activeTab, setActiveTab] = useState<ReaderTab>("read");
+  const [sidePanel, setSidePanel] = useState<SidePanel>(null);
   const [exporting, setExporting] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [translation, setTranslation] = useState<TranslationState>({ mode: "original", entryId: null });
@@ -41,9 +42,12 @@ export function ReaderView() {
   const unlistenRef = useRef<(() => void) | null>(null);
   const translationEntryRef = useRef<number | null>(null);
 
-  const translationMode = translation.mode;
-  // Bilingual view only active when mode is bilingual AND entry matches
   const showBilingual = translation.mode === "bilingual" && translation.entryId === selectedEntry?.id;
+
+  const togglePanel = (panel: SidePanel) => {
+    setSidePanel((prev) => (prev === panel ? null : panel));
+    setShowExportMenu(false);
+  };
 
   const handleExport = async (format: ExportFormat) => {
     setShowExportMenu(false);
@@ -68,7 +72,6 @@ export function ReaderView() {
           filters: [{ name: EXPORT_LABELS[format], extensions: [extensions[format].slice(1)] }],
         });
         if (!filePath) { setExporting(false); return; }
-        // Write via backend
         await exportSingleDigest(selectedEntry!.id, format);
         toast(t(`已导出到 ${filePath}`), "success");
       } else {
@@ -108,7 +111,6 @@ export function ReaderView() {
   const [contentError, setContentError] = useState<string | null>(null);
 
   // Load real content from backend when entry changes.
-  // If content hasn't been processed yet, run the reader pipeline first.
   useEffect(() => {
     if (!selectedEntry) return;
     let cancelled = false;
@@ -121,25 +123,20 @@ export function ReaderView() {
         return;
       }
 
-      // Helper: check if Content has usable rendered output with current pipeline version
       const PIPELINE_VERSION = 3;
       const hasContent = (c: Content) =>
         (!!c.renderedHtml || !!c.cleanedHtml || !!c.rawHtml)
         && c.readabilityVersion >= PIPELINE_VERSION;
 
       try {
-        // Try to get existing cached content
         const c = await getEntryContentReal(selectedEntry!.id);
         if (hasContent(c)) {
-          // Content is already processed and cached
           if (!cancelled) setContent(c);
           return;
         }
-        // Content row exists but is empty — run pipeline
         if (!cancelled) setContentLoading(true);
         throw new Error("Empty cache");
       } catch {
-        // Content not yet processed — run the reader pipeline
         try {
           const url = selectedEntry!.link || "";
           if (!url) throw new Error("No article URL");
@@ -181,7 +178,6 @@ export function ReaderView() {
 
     let cancelled = false;
 
-    // Load cached translation from DB (only if still on same entry)
     getTranslationText(entryId).then((text) => {
       if (!cancelled && text) {
         setSegments(parseTranslation(text));
@@ -206,7 +202,6 @@ export function ReaderView() {
         return;
       }
 
-      // Stream delta: [{segIdx}/{total}] chunk
       const match = event.content.match(/^\[(\d+)\/(\d+)\]\s*(.*)/s);
       if (match) {
         const segIdx = parseInt(match[1], 10) - 1;
@@ -225,7 +220,7 @@ export function ReaderView() {
       }
     }).then((unlisten) => {
       if (cancelled) {
-        unlisten(); // strict mode: immediately discard leaked listener
+        unlisten();
       } else {
         unlistenRef.current = unlisten;
       }
@@ -240,10 +235,8 @@ export function ReaderView() {
   }, [selectedEntry?.id]);
 
   const handleTranslate = async () => {
-    // Guard: content must be loaded for current entry
     if (contentLoading || !content?.cleanedHtml && !content?.rawHtml) return;
 
-    // Pre-split source segments from content HTML
     const html = content.cleanedHtml || content.rawHtml;
     const sources = splitContentIntoSegments(html);
     if (sources.length === 0) return;
@@ -251,7 +244,6 @@ export function ReaderView() {
     const entryId = selectedEntry.id;
     translationEntryRef.current = entryId;
 
-    // Initialize segments with source text
     const initial: SegPair[] = sources.map((src) => ({
       source: src,
       translated: "",
@@ -265,7 +257,6 @@ export function ReaderView() {
       let lang = "中文"; let conc = 3;
       try { const cfg = JSON.parse(localStorage.getItem("agentConfig") || "{}"); lang = cfg.translationLanguage || lang; conc = cfg.concurrencyDegree || conc; } catch {}
 
-      // If source is already primarily Chinese and target is Chinese, skip LLM
       if ((lang === "中文" || lang === "zh-CN") && sources.every(isPrimarilyChinese)) {
         setSegments(sources.map((src) => ({
           source: src,
@@ -292,17 +283,30 @@ export function ReaderView() {
     translationEntryRef.current = null;
   };
 
-  const tabs: { key: ReaderTab; label: string; shortcut: string }[] = [
-    { key: "read", label: t("阅读"), shortcut: "" },
-    { key: "summary", label: t("摘要"), shortcut: "S" },
-    { key: "notes", label: t("笔记"), shortcut: "N" },
-  ];
+  const isPanelOpen = sidePanel !== null;
+
+  // Keyboard shortcuts for reader view: s=summary, t=translate, n=notes, Escape=close panel
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT") return;
+
+      switch (e.key.toLowerCase()) {
+        case "s": e.preventDefault(); togglePanel("summary"); break;
+        case "n": e.preventDefault(); togglePanel("notes"); break;
+        case "t": e.preventDefault(); handleTranslate(); break;
+        case "escape": e.preventDefault(); setSidePanel(null); setShowExportMenu(false); break;
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [sidePanel, contentLoading, content, translating, showBilingual, segments.length]);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
       <div className="px-6 py-4 border-b border-[var(--border-color)]">
-        <div className="flex items-start gap-3 mb-3">
+        <div className="flex items-start gap-3">
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-semibold text-[var(--text-primary)] leading-snug">
               {selectedEntry.title}
@@ -330,12 +334,15 @@ export function ReaderView() {
               )}
             </div>
           </div>
-          {/* Translation buttons + Export */}
-          <div className="flex items-center gap-1">
+
+          {/* Toolbar buttons */}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {/* Translation */}
             {!showBilingual ? (
               <button
                 onClick={handleTranslate} disabled={translating}
                 className="px-2 py-1 text-xs rounded bg-[var(--bg-tertiary)] hover:bg-[var(--bg-secondary)] disabled:opacity-50"
+                title={t("翻译") + " (T)"}
               >{translating ? "…" : t("翻译")}</button>
             ) : (
               <>
@@ -345,58 +352,55 @@ export function ReaderView() {
                 )}
               </>
             )}
-            <div className="relative">
+
+            {/* Summary toggle */}
             <button
-              onClick={() => setShowExportMenu(!showExportMenu)}
-              disabled={exporting}
-              className="p-1.5 rounded-lg hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)] transition-colors disabled:opacity-50"
-              title={t("导出文摘")}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </button>
-            {showExportMenu && (
-              <div className="absolute right-0 top-full mt-1 w-32 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] shadow-lg z-50 py-1">
-                {(Object.keys(EXPORT_LABELS) as ExportFormat[]).map((fmt) => (
-                  <button
-                    key={fmt}
-                    onClick={() => handleExport(fmt)}
-                    className="w-full text-left px-3 py-2 text-xs text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors"
-                  >
-                    {t(EXPORT_LABELS[fmt])}
-                  </button>
-                ))}
-              </div>
-            )}
+              onClick={() => togglePanel("summary")}
+              className={`px-2 py-1 text-xs rounded transition-colors ${sidePanel === "summary" ? "bg-[var(--accent-color)] text-white" : "bg-[var(--bg-tertiary)] hover:bg-[var(--bg-secondary)]"}`}
+              title={t("摘要") + " (S)"}
+            >{t("摘要")}</button>
+
+            {/* Notes toggle */}
+            <button
+              onClick={() => togglePanel("notes")}
+              className={`px-2 py-1 text-xs rounded transition-colors ${sidePanel === "notes" ? "bg-[var(--accent-color)] text-white" : "bg-[var(--bg-tertiary)] hover:bg-[var(--bg-secondary)]"}`}
+              title={t("笔记") + " (N)"}
+            >{t("笔记")}</button>
+
+            {/* Export */}
+            <div className="relative">
+              <button
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                disabled={exporting}
+                className="p-1.5 rounded-lg hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)] transition-colors disabled:opacity-50"
+                title={t("导出文摘")}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </button>
+              {showExportMenu && (
+                <div className="absolute right-0 top-full mt-1 w-32 rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] shadow-lg z-50 py-1">
+                  {(Object.keys(EXPORT_LABELS) as ExportFormat[]).map((fmt) => (
+                    <button
+                      key={fmt}
+                      onClick={() => handleExport(fmt)}
+                      className="w-full text-left px-3 py-2 text-xs text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors"
+                    >
+                      {t(EXPORT_LABELS[fmt])}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-        {/* Tabs */}
-        <div className="flex items-center gap-1">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                activeTab === tab.key
-                  ? "bg-[var(--accent-color)] text-white"
-                  : "text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]"
-              }`}
-            >
-              {tab.label}
-              {tab.shortcut && (
-                <span className="ml-1.5 text-[10px] opacity-60">{tab.shortcut}</span>
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto">
-        {activeTab === "read" && (
+      {/* Main content + side panel */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Content area */}
+        <div className="flex-1 overflow-y-auto">
           <div className="max-w-3xl mx-auto px-6 py-6">
             {contentLoading ? (
               <p className="text-sm text-[var(--text-tertiary)]">{t("加载中...")}</p>
@@ -443,9 +447,39 @@ export function ReaderView() {
               </div>
             )}
           </div>
-        )}
-        {activeTab === "summary" && <SummaryPanelView entryId={selectedEntry.id} />}
-        {activeTab === "notes" && <NoteEditorView entryId={selectedEntry.id} />}
+        </div>
+
+        {/* Slide-out side panel */}
+        <div
+          className={`border-l border-[var(--border-color)] bg-[var(--bg-primary)] overflow-y-auto transition-all duration-200 ease-in-out flex-shrink-0 ${
+            isPanelOpen ? "w-[400px]" : "w-0 border-l-0"
+          }`}
+        >
+          {isPanelOpen && (
+            <div className="w-[400px]">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)] sticky top-0 bg-[var(--bg-primary)] z-10">
+                <h2 className="text-sm font-semibold">
+                  {sidePanel === "summary" ? t("AI 摘要") : t("笔记")}
+                </h2>
+                <button
+                  onClick={() => setSidePanel(null)}
+                  className="p-1 rounded hover:bg-[var(--bg-tertiary)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="p-4">
+                {sidePanel === "summary" ? (
+                  <SummaryPanelView entryId={selectedEntry.id} />
+                ) : (
+                  <NoteEditorView entryId={selectedEntry.id} />
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -467,26 +501,24 @@ function mockDigestExport(entry: { title: string; author: string; link: string }
   }
 }
 
-/** Check if text is primarily Chinese (CJK characters > 30% of total). */
 function isPrimarilyChinese(text: string): boolean {
   const chars = text.replace(/\s/g, "");
   if (chars.length === 0) return false;
   let cjk = 0;
   for (const ch of chars) {
     const code = ch.charCodeAt(0);
-    if ((code >= 0x4E00 && code <= 0x9FFF) || // CJK Unified
-        (code >= 0x3400 && code <= 0x4DBF) || // CJK Ext-A
-        (code >= 0x20000 && code <= 0x2A6DF) || // CJK Ext-B
-        (code >= 0xF900 && code <= 0xFAFF) || // CJK Compat
-        (code >= 0x3000 && code <= 0x303F) || // CJK Symbols
-        (code >= 0xFF00 && code <= 0xFFEF)) { // Halfwidth/Fullwidth
+    if ((code >= 0x4E00 && code <= 0x9FFF) ||
+        (code >= 0x3400 && code <= 0x4DBF) ||
+        (code >= 0x20000 && code <= 0x2A6DF) ||
+        (code >= 0xF900 && code <= 0xFAFF) ||
+        (code >= 0x3000 && code <= 0x303F) ||
+        (code >= 0xFF00 && code <= 0xFFEF)) {
       cjk++;
     }
   }
   return cjk / chars.length > 0.3;
 }
 
-/** Split HTML content into text segments matching backend split_html_into_segments. */
 function splitContentIntoSegments(html: string | null | undefined): string[] {
   if (!html) return [];
   try {
@@ -508,7 +540,6 @@ function splitContentIntoSegments(html: string | null | undefined): string[] {
   }
 }
 
-/** Parse translation output text (backend format) into segment array. */
 function parseTranslation(text: string): SegPair[] {
   if (!text || !text.trim()) return [];
   const segments: SegPair[] = [];
@@ -528,7 +559,6 @@ function parseTranslation(text: string): SegPair[] {
       }
     }
   }
-  // Fallback: line-by-line
   if (segments.length === 0) {
     const lines = text.split("\n");
     let cur: { src?: string; trans?: string } = {};

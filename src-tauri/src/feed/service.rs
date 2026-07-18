@@ -147,11 +147,12 @@ impl FeedService {
     }
 
     /// Refresh all feeds concurrently with max 5 concurrent fetches.
-    pub fn refresh_all_feeds(&self) -> ServiceResult<()> {
+    /// Returns total number of new entries found.
+    pub fn refresh_all_feeds(&self) -> ServiceResult<usize> {
         let feed_repo = FeedRepository::new(self.pool.clone());
         let feeds = feed_repo.find_all()?;
         if feeds.is_empty() {
-            return Ok(());
+            return Ok(0);
         }
 
         let rt = tokio::runtime::Builder::new_current_thread()
@@ -188,19 +189,18 @@ impl FeedService {
                     let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
                     feed_repo.update_sync_time(id, &now).ok();
                     tracing::info!("Feed refreshed: id={}, {} new entries", id, count);
-                    Ok::<_, ServiceError>(())
+                    Ok::<_, ServiceError>(count)
                 }));
             }
+            let mut total_new = 0;
             for h in handles {
                 match h.await {
-                    Ok(Ok(())) => {}
+                    Ok(Ok(count)) => total_new += count,
                     Ok(Err(e)) => tracing::warn!("Feed refresh error: {}", e),
                     Err(e) => tracing::warn!("Feed refresh join error: {}", e),
                 }
             }
-        });
-
-        Ok(())
+            Ok(total_new)
     }
 
     // ---- Internal helpers ----

@@ -42,6 +42,7 @@ pub fn run() {
     tracing_subscriber::fmt::init();
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             let db_path = db::default_db_path();
             let pool = db::initialize_database(&db_path)
@@ -203,14 +204,35 @@ fn remove_feed(state: State<'_, DbPool>, id: i64) -> Result<(), String> {
 
 #[cfg(feature = "tauri-runtime")]
 #[tauri::command]
-fn refresh_feed(state: State<'_, DbPool>, id: i64) -> Result<usize, String> {
-    commands::refresh_feed(&state, id)
+fn refresh_feed(app: tauri::AppHandle, state: State<'_, DbPool>, id: i64) -> Result<usize, String> {
+    let new_count = commands::refresh_feed(&state, id)?;
+    if new_count > 0 {
+        use tauri_plugin_notification::NotificationExt;
+        let feed_name = commands::get_feed(&state, id)
+            .map(|f| f.title)
+            .unwrap_or_else(|_| "?".to_string());
+        let _ = app.notification()
+            .builder()
+            .title(format!("{} 篇新文章", new_count))
+            .body(format!("来自 {}", feed_name))
+            .show();
+    }
+    Ok(new_count)
 }
 
 #[cfg(feature = "tauri-runtime")]
 #[tauri::command]
-fn refresh_all_feeds(state: State<'_, DbPool>) -> Result<(), String> {
-    commands::refresh_all_feeds(&state)
+fn refresh_all_feeds(app: tauri::AppHandle, state: State<'_, DbPool>) -> Result<usize, String> {
+    let total_new = commands::refresh_all_feeds(&state)?;
+    if total_new > 0 {
+        use tauri_plugin_notification::NotificationExt;
+        let _ = app.notification()
+            .builder()
+            .title(format!("{} 篇新文章", total_new))
+            .body("所有订阅源已刷新")
+            .show();
+    }
+    Ok(total_new)
 }
 
 // -- Entry queries --

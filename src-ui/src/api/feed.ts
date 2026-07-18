@@ -28,8 +28,8 @@ export async function refreshFeed(id: number): Promise<void> {
   return invoke("refresh_feed", { id });
 }
 
-export async function refreshAllFeeds(): Promise<void> {
-  return invoke("refresh_all_feeds");
+export async function refreshAllFeeds(): Promise<number> {
+  return invoke<number>("refresh_all_feeds");
 }
 
 export async function listFeeds(): Promise<FeedSummary[]> {

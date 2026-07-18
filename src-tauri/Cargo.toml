@@ -6,7 +6,7 @@ description = "Mercury cross-platform RSS reader clone"
 
 [features]
 default = ["tauri-runtime"]
-tauri-runtime = ["dep:tauri", "dep:tauri-build", "dep:tauri-plugin-dialog", "dep:tauri-plugin-shell"]
+tauri-runtime = ["dep:tauri", "dep:tauri-build", "dep:tauri-plugin-dialog", "dep:tauri-plugin-shell", "dep:tauri-plugin-notification"]
 
 [dependencies]
 # Serialization
@@ -22,6 +22,7 @@ r2d2_sqlite = "0.24"
 tauri = { version = "2", features = [], optional = true }
 tauri-plugin-dialog = { version = "2", optional = true }
 tauri-plugin-shell = { version = "2", optional = true }
+tauri-plugin-notification = { version = "2", optional = true }
 
 # System browser
 webbrowser = "1"
