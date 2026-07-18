@@ -22,6 +22,7 @@ type ExportFormat = "markdown" | "html" | "plaintext";
 type TranslationMode = "original" | "bilingual";
 
 interface SegPair { source: string; translated: string; status: "pending" | "streaming" | "success" | "failed"; }
+interface TranslationState { mode: TranslationMode; entryId: number | null; }
 
 const EXPORT_LABELS: Record<ExportFormat, string> = {
   markdown: "Markdown",
@@ -34,11 +35,15 @@ export function ReaderView() {
   const [activeTab, setActiveTab] = useState<ReaderTab>("read");
   const [exporting, setExporting] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
-  const [translationMode, setTranslationMode] = useState<TranslationMode>("original");
+  const [translation, setTranslation] = useState<TranslationState>({ mode: "original", entryId: null });
   const [translating, setTranslating] = useState(false);
   const [segments, setSegments] = useState<SegPair[]>([]);
   const unlistenRef = useRef<(() => void) | null>(null);
   const translationEntryRef = useRef<number | null>(null);
+
+  const translationMode = translation.mode;
+  // Bilingual view only active when mode is bilingual AND entry matches
+  const showBilingual = translation.mode === "bilingual" && translation.entryId === selectedEntry?.id;
 
   const handleExport = async (format: ExportFormat) => {
     setShowExportMenu(false);
@@ -170,7 +175,7 @@ export function ReaderView() {
     if (!selectedEntry) return;
     const entryId = selectedEntry.id;
     translationEntryRef.current = entryId;
-    setTranslationMode("original");
+    setTranslation({ mode: "original", entryId: null });
     setSegments([]);
     setTranslating(false);
 
@@ -248,7 +253,7 @@ export function ReaderView() {
     }));
     setSegments(initial);
     setTranslating(true);
-    setTranslationMode("bilingual");
+    setTranslation({ mode: "bilingual", entryId });
 
     try {
       let lang = "zh-CN"; let conc = 3;
@@ -257,7 +262,7 @@ export function ReaderView() {
     } catch {
       if (translationEntryRef.current === entryId) {
         setTranslating(false);
-        setTranslationMode("original");
+        setTranslation({ mode: "original", entryId: null });
       }
     }
   };
@@ -265,7 +270,7 @@ export function ReaderView() {
   const handleClearTranslation = async () => {
     await clearTranslationApi(selectedEntry.id).catch(() => {});
     setSegments([]);
-    setTranslationMode("original");
+    setTranslation({ mode: "original", entryId: null });
     translationEntryRef.current = null;
   };
 
@@ -309,14 +314,14 @@ export function ReaderView() {
           </div>
           {/* Translation buttons + Export */}
           <div className="flex items-center gap-1">
-            {translationMode === "original" ? (
+            {!showBilingual ? (
               <button
                 onClick={handleTranslate} disabled={translating}
                 className="px-2 py-1 text-xs rounded bg-[var(--bg-tertiary)] hover:bg-[var(--bg-secondary)] disabled:opacity-50"
               >{translating ? "…" : t("翻译")}</button>
             ) : (
               <>
-                <button onClick={() => setTranslationMode("original")} className="px-2 py-1 text-xs rounded bg-[var(--bg-tertiary)] hover:bg-[var(--bg-secondary)]">{t("回到原文")}</button>
+                <button onClick={() => setTranslation({ mode: "original", entryId: null })} className="px-2 py-1 text-xs rounded bg-[var(--bg-tertiary)] hover:bg-[var(--bg-secondary)]">{t("回到原文")}</button>
                 {segments.length > 0 && (
                   <button onClick={handleClearTranslation} className="px-2 py-1 text-xs rounded bg-[var(--bg-tertiary)] text-red-500 hover:bg-[var(--bg-secondary)]">{t("清除翻译")}</button>
                 )}
@@ -378,7 +383,7 @@ export function ReaderView() {
             {contentLoading ? (
               <p className="text-sm text-[var(--text-tertiary)]">{t("加载中...")}</p>
             ) : content?.renderedHtml || content?.cleanedHtml || content?.rawHtml ? (
-              translationMode === "bilingual" ? (
+              showBilingual ? (
                 <div className="translation-bilingual space-y-6">
                   {segments.map((seg, i) => (
                     <div key={i} className="grid grid-cols-2 gap-4 items-start">
