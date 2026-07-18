@@ -122,6 +122,7 @@ export const AI_STREAM_EVENT = "ai-stream";
 
 export interface AiStreamEvent {
   taskId: number;
+  entryId: number;
   content: string;
   isDone: boolean;
   agentType: string;

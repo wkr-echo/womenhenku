@@ -48,6 +48,7 @@ export function TranslationPanelView({ entryId }: TranslationPanelProps) {
 
     listenAiStream((event: AiStreamEvent) => {
       if (event.agentType !== "translation") return;
+      if (event.entryId !== entryId) return;
 
       if (event.isDone) {
         setTranslating(false);

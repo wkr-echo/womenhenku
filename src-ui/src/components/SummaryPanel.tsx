@@ -64,6 +64,7 @@ export function SummaryPanel({ entryId }: SummaryPanelProps) {
 
     listenAiStream((event: AiStreamEvent) => {
       if (event.agentType !== "summary") return;
+      if (event.entryId && event.entryId !== entryId) return;
 
       if (event.isDone) {
         setIsRunning(false);

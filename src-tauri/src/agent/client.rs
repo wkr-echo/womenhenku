@@ -60,6 +60,7 @@ pub struct TokenUsage {
 #[serde(rename_all = "camelCase")]
 pub struct AiStreamEvent {
     pub task_id: i64,
+    pub entry_id: i64,
     pub content: String,
     pub is_done: bool,
     pub agent_type: String,

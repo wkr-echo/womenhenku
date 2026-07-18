@@ -42,6 +42,7 @@ export function SummaryPanelView({ entryId }: SummaryPanelProps) {
     // Listen for AI stream events
     listenAiStream((event: AiStreamEvent) => {
       if (event.agentType !== "summary") return;
+      if (event.entryId && event.entryId !== entryId) return;
 
       if (event.isDone) {
         setIsGenerating(false);

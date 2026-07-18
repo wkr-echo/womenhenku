@@ -109,6 +109,7 @@ impl SummaryAgent {
             let slot = slots.entry(entry_id).or_insert_with(AgentSlot::new);
             if !slot.try_acquire(run_id) {
                 on_event(AiStreamEvent {
+                    entry_id: 0,
                     task_id: run_id,
                     content: String::new(),
                     is_done: true,
@@ -188,6 +189,7 @@ impl SummaryAgent {
                     let mut acc = acc_clone.lock().unwrap();
                     acc.full_content.push_str(delta);
                     on_event(AiStreamEvent {
+                    entry_id: entry_id,
                         task_id: run_id,
                         content: delta.to_string(),
                         is_done: false,
@@ -212,6 +214,7 @@ impl SummaryAgent {
                     .map_err(|e| SummaryError::Database(e.to_string()))?;
 
                 on_event(AiStreamEvent {
+                    entry_id: 0,
                     task_id: run_id,
                     content: String::new(),
                     is_done: true,
@@ -225,6 +228,7 @@ impl SummaryAgent {
                     .map_err(|db_err| SummaryError::Database(db_err.to_string()))?;
 
                 on_event(AiStreamEvent {
+                    entry_id: 0,
                     task_id: run_id,
                     content: String::new(),
                     is_done: true,
@@ -278,6 +282,7 @@ impl SummaryAgent {
     ) {
         let _ = run_repo.mark_cancelled(run_id);
         on_event(AiStreamEvent {
+                    entry_id: 0,
             task_id: run_id,
             content: String::new(),
             is_done: true,

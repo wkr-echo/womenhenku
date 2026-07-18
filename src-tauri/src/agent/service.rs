@@ -124,6 +124,7 @@ impl AgentService {
             {
                 if !text.is_empty() {
                     on_event(AiStreamEvent {
+                    entry_id: 0,
                         task_id: 0,
                         content: String::new(),
                         is_done: true,
@@ -177,6 +178,7 @@ impl AgentService {
                     entry_id
                 );
                 on_event(AiStreamEvent {
+                    entry_id: 0,
                     task_id: 0,
                     content: String::new(),
                     is_done: true,
@@ -229,6 +231,7 @@ impl AgentService {
             {
                 if !text.is_empty() {
                     on_event(AiStreamEvent {
+                    entry_id: 0,
                         task_id: 0,
                         content: String::new(),
                         is_done: true,
@@ -281,6 +284,7 @@ impl AgentService {
                     entry_id
                 );
                 on_event(AiStreamEvent {
+                    entry_id: 0,
                     task_id: 0,
                     content: String::new(),
                     is_done: true,

@@ -123,6 +123,7 @@ impl TranslationAgent {
             let slot = slots.entry(entry_id).or_insert_with(AgentSlot::new);
             if !slot.try_acquire(run_id) {
                 (on_event)(AiStreamEvent {
+                    entry_id: 0,
                     task_id: run_id,
                     content: String::new(),
                     is_done: true,
@@ -215,7 +216,7 @@ impl TranslationAgent {
                 let translated = agent
                     .translate_segment(
                         &url, &key, &mdl, &lang, &seg, run_id_inner, i, total_segments,
-                        on_event_clone, &cancel,
+                        entry_id, on_event_clone, &cancel,
                     )
                     .await;
 
@@ -286,6 +287,7 @@ impl TranslationAgent {
                 .map_err(|e| TranslationError::Database(e.to_string()))?;
 
             (on_event)(AiStreamEvent {
+                    entry_id: 0,
                 task_id: run_id,
                 content: String::new(),
                 is_done: true,
@@ -302,6 +304,7 @@ impl TranslationAgent {
                 .map_err(|e| TranslationError::Database(e.to_string()))?;
 
             (on_event)(AiStreamEvent {
+                    entry_id: 0,
                 task_id: run_id,
                 content: String::new(),
                 is_done: true,
@@ -351,6 +354,7 @@ impl TranslationAgent {
         if !error_msg.is_empty() {
             let _ = run_repo.mark_failed(run_id, error_msg);
             (on_event)(AiStreamEvent {
+                    entry_id: 0,
                 task_id: run_id,
                 content: String::new(),
                 is_done: true,
@@ -410,6 +414,7 @@ impl TranslationAgentInner {
         run_id: i64,
         seg_index: usize,
         total: usize,
+        entry_id: i64,
         on_event: Arc<dyn Fn(AiStreamEvent) + Send + Sync>,
         _cancel: &AtomicBool,
     ) -> Result<String, String> {
@@ -443,6 +448,7 @@ impl TranslationAgentInner {
                     let mut text = result_clone.lock().unwrap();
                     text.push_str(delta);
                     on_event(AiStreamEvent {
+                    entry_id: entry_id,
                         task_id: run_id,
                         content: format!(
                             "[{}/{}] {}",
