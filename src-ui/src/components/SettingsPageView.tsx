@@ -115,12 +115,6 @@ function ProviderSettings() {
         }
       }
       setModels(modelsMap);
-      // Auto-validate only providers not yet validated
-      for (const p of data) {
-        if (validated[p.id] === undefined) {
-          doValidate(p);
-        }
-      }
     } catch (e: any) {
       console.error("Failed to load providers", e);
     } finally {
