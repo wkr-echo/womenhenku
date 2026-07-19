@@ -1,88 +1,129 @@
 # v1.0.0 — Mercury 跨平台复刻
 
-这是 Mercury RSS 阅读器的跨平台复刻版本，支持 Windows 10+、macOS 12+、Linux（Wayland + X11）。
+Mercury RSS 阅读器的跨平台复刻版本，支持 **Windows 10+**、**macOS 12+**、**Linux**（Wayland + X11）。
+
+---
 
 ## 📦 核心功能
 
 ### Feed 订阅与管理
 
-- RSS 0.91/0.92/1.0/2.0、Atom 1.0、JSON Feed 全格式支持
-- 添加/删除/刷新订阅源，支持自动同步（可配置间隔）
-- OPML 导入导出，方便迁移
-- 文章列表（已读/未读标记、分页浏览）
+- RSS 0.91/0.92/1.0/2.0、Atom 1.0、JSON Feed 全格式解析
+- 添加 / 删除 / 手动刷新订阅源
+- 自动同步（可配置间隔，默认 30 分钟）
+- OPML 导入 / 导出，无缝迁移
+- 新文章桌面通知
+- 文章列表（已读 / 未读标记、未读计数）
+- 一键「全部已读」
 
 ### 阅读体验
 
-- Readability 内容提取（自动去除广告、导航等干扰）
-- HTML 清洗与 Markdown 转换（GFM 完整支持）
-- 亮色/暗色主题切换
-- 字体定制（系统字体列表）
-- 全文搜索（FTS5）
+- Readability 内容提取（自动去除广告、导航、侧栏）
+- HTML 清洗 + Markdown 转换（GFM 完整支持）
+- 亮色 / 暗色主题切换
+- 字体自定义（系统字体列表）
+- 全文搜索（FTS5 + 高亮）
+- 三栏布局：侧边栏 | 文章列表 | 阅读区
+- 原文链接一键跳转系统浏览器
 
-### AI 功能
+### AI 摘要
 
-- AI 摘要（流式输出，可配置语言和详细程度）
-- AI 双语翻译（段落级对照布局，多段落并发翻译）
-- 支持 OpenAI 兼容协议（DeepSeek/Ollama/vLLM 等）
-- 多 Provider 配置（baseURL/API Key/model）
+- 流式输出，实时显示生成进度
+- 可配置目标语言与详细程度（简洁 / 均衡 / 详细）
+- Prompt 模板可自定义
+- 摘要结果持久化，切换文章不丢失
 
-### 笔记与导出
+### AI 双语翻译
 
-- Markdown 笔记编辑
-- 文摘导出（原文/摘要/笔记，支持 Markdown/HTML 格式）
-- 单篇/多篇批量导出
+- **阅读页内嵌模式**：工具栏一键切换，不离开阅读页
+- 段落级双语对照布局（左原文 / 右译文）
+- 多段落并发翻译（默认 3 段，可配 1~5）
+- 流式实时显示：排队中 → 翻译中（逐字显示）→ 完成
+- 中文文章智能识别：自动跳过 LLM，原文即译文
+- 失败段落可单独重试
+- 标题 / 作者合成前置段落，保持信息对齐
+- 支持「回到原文」「清除翻译」
+
+### AI Provider 管理
+
+- OpenAI 兼容协议（DeepSeek / OpenAI / Ollama / Groq / vLLM 等）
+- 多 Provider 配置（名称、Base URL、API Key、默认模型）
+- 连接验证与状态显示
+- **API Key 加密存储**（XOR + 机器绑定，非明文落库）
+
+### 笔记
+
+- 每篇文章独立 Markdown 笔记
+- 实时编辑，一键保存
+- 数据持久化到本地 SQLite
+
+### 文摘导出
+
+- 单篇导出：原文 / 摘要 / 笔记，Markdown / HTML / 纯文本
+- 批量导出：文章列表多选 → 一键导出 Markdown / HTML
+- 导出文件通过系统对话框选择保存位置
+
+### 键盘快捷键
+
+| 快捷键 | 功能 |
+|---|---|
+| `T` | 翻译当前文章 |
+| `S` | 打开 / 关闭摘要面板 |
+| `N` | 打开 / 关闭笔记面板 |
+| `Escape` | 关闭侧面板 |
+
+---
 
 ## 🛠️ 技术栈
 
-- **后端**: Rust 1.80 + Tauri 2 + SQLite（rusqlite）
-- **前端**: React + TypeScript + Vite + Tailwind CSS + shadcn/ui
-- **数据库**: SQLite（WAL 模式，本地优先）
-- **打包**: .msi（Windows）/ .dmg（macOS）/ .deb（Linux）
+| 层级 | 技术 |
+|---|---|
+| 语言 | Rust 1.80+（stable） |
+| UI 框架 | Tauri 2 |
+| 前端 | React 18 + TypeScript + Vite |
+| CSS | Tailwind CSS + shadcn/ui |
+| 数据库 | SQLite（rusqlite, WAL 模式） |
+| Feed 解析 | feed-rs |
+| 文章提取 | readability + scraper + comrak |
+| AI 协议 | OpenAI 兼容（/v1/chat/completions + SSE 流式） |
+| 加密 | XOR + 机器绑定密钥派生 |
+
+---
 
 ## 🔒 安全特性
 
-- API Key 使用平台原生安全存储（Keychain / Credential Manager / libsecret）
-- 本地优先，数据存储在本地 SQLite，不主动收集用户数据
+- **本地优先**：无需注册 / 登录，数据存储在本地 SQLite
+- **API Key 加密**：非明文存储，密钥从机器路径派生
+- **零数据收集**：不主动上传任何用户数据
 
-## 📁 安装包下载
+---
+
+## 📁 安装包
 
 | 平台 | 文件 |
 |---|---|
-| Windows | `Platinum_1.0.0_x64.msi` |
-| macOS | `Platinum-1.0.0.dmg` |
+| Windows 10+ | `Platinum_1.0.0_x64.msi` |
+| macOS 12+ | `Platinum-1.0.0.dmg` |
 | Linux | `Platinum_1.0.0_amd64.deb` |
 
-## 🚀 使用说明
+---
+
+## 🚀 快速开始
 
 1. 安装并启动应用
-2. 点击左侧侧边栏「+」添加 RSS 订阅源
-3. 等待订阅源刷新，点击文章阅读
-4. 使用右上角工具栏导出原文/摘要/笔记
+2. 左侧边栏点 `+` 添加 RSS 订阅源（或导入 OPML）
+3. 等待自动同步，点击文章开始阅读
+4. 工具栏一键翻译 / 摘要 / 导出
+5. 键盘 `T` 翻译、`S` 摘要、`N` 笔记
 
-## 📝 更新日志
+---
 
-### Stage 1: 基础阅读器原型
+## 🏷️ 版本历程
 
-- 实现 Feed 解析与存储
-- 文章列表与阅读器视图
-- 已读/未读标记
-
-### Stage 2: 阅读体验增强
-
-- Readability 内容提取管线
-- HTML 清洗与 Markdown 转换
-- 主题切换与字体定制
-- 全文搜索
-
-### Stage 3: AI 功能接入
-
-- OpenAI 兼容协议客户端
-- AI 摘要 Agent（流式输出）
-- AI 双语翻译 Agent（段落级并发）
-- Provider 管理
-
-### Stage 4: 信息整理与导出
-
-- Markdown 笔记编辑
-- 文摘导出功能
-- 三平台打包配置
+| 阶段 | 标签 | 内容 |
+|---|---|---|
+| Stage 1 | `v0.1-stage1` | Feed 解析、文章列表、基础阅读器 |
+| Stage 2 | `v0.2-stage2` | Readability 清洗、主题、搜索 |
+| Stage 3 | `v0.3-stage3` | AI 摘要、双语翻译、Provider 管理 |
+| Stage 4 | `v0.4-stage4` | 笔记、文摘导出、快捷键、通知、打包 |
+| Release | `v1.0.0` | 三平台安装包发布 |
