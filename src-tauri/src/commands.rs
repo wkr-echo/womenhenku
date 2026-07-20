@@ -188,6 +188,68 @@ pub fn delete_note(pool: &DbPool, entry_id: i64) -> Result<(), String> {
 }
 
 // ============================================================
+// Tags (Stage 5)
+// ============================================================
+
+pub fn add_tag(pool: &DbPool, name: &str, color: &str) -> Result<crate::db::model::Tag, String> {
+    let repo = crate::db::repository::TagRepository::new(pool.clone());
+    repo.insert(name, color).map_err(|e| e.to_string())
+}
+
+pub fn list_tags(pool: &DbPool) -> Result<Vec<crate::db::model::Tag>, String> {
+    let repo = crate::db::repository::TagRepository::new(pool.clone());
+    repo.find_all().map_err(|e| e.to_string())
+}
+
+pub fn get_tag(pool: &DbPool, id: i64) -> Result<crate::db::model::Tag, String> {
+    let repo = crate::db::repository::TagRepository::new(pool.clone());
+    repo.find_by_id(id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Tag id={} not found", id))
+}
+
+pub fn update_tag(pool: &DbPool, id: i64, name: &str, color: &str) -> Result<crate::db::model::Tag, String> {
+    let repo = crate::db::repository::TagRepository::new(pool.clone());
+    repo.update(id, name, color).map_err(|e| e.to_string())
+}
+
+pub fn delete_tag(pool: &DbPool, id: i64) -> Result<(), String> {
+    let repo = crate::db::repository::TagRepository::new(pool.clone());
+    repo.delete(id).map_err(|e| e.to_string())
+}
+
+pub fn tag_entry(pool: &DbPool, entry_id: i64, tag_id: i64) -> Result<(), String> {
+    let repo = crate::db::repository::TagRepository::new(pool.clone());
+    repo.add_tag_to_entry(entry_id, tag_id).map_err(|e| e.to_string())
+}
+
+pub fn untag_entry(pool: &DbPool, entry_id: i64, tag_id: i64) -> Result<(), String> {
+    let repo = crate::db::repository::TagRepository::new(pool.clone());
+    repo.remove_tag_from_entry(entry_id, tag_id).map_err(|e| e.to_string())
+}
+
+pub fn get_entry_tags(pool: &DbPool, entry_id: i64) -> Result<Vec<crate::db::model::Tag>, String> {
+    let repo = crate::db::repository::TagRepository::new(pool.clone());
+    repo.find_tags_by_entry_id(entry_id).map_err(|e| e.to_string())
+}
+
+pub fn get_tags_with_count(pool: &DbPool) -> Result<Vec<(crate::db::model::Tag, i64)>, String> {
+    let repo = crate::db::repository::TagRepository::new(pool.clone());
+    repo.find_tags_with_entry_count().map_err(|e| e.to_string())
+}
+
+pub fn get_tag_stats(pool: &DbPool, tag_id: i64) -> Result<serde_json::Value, String> {
+    let repo = crate::db::repository::TagRepository::new(pool.clone());
+    let count = repo.get_tag_entry_count(tag_id).map_err(|e| e.to_string())?;
+    Ok(serde_json::json!({ "entryCount": count }))
+}
+
+pub fn list_entries_by_tag(pool: &DbPool, tag_id: i64, page: i32, page_size: i32) -> Result<EntryPage, String> {
+    let repo = crate::db::repository::EntryRepository::new(pool.clone());
+    repo.list_by_tag(tag_id, page, page_size).map_err(|e| e.to_string())
+}
+
+// ============================================================
 // Digest export (Stage 4)
 // ============================================================
 

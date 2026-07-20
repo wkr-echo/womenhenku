@@ -4,7 +4,8 @@ import { mockContent } from "@/api/mock";
 import { formatDate, t } from "@/lib/utils";
 import { SummaryPanelView } from "./SummaryPanelView";
 import { NoteEditorView } from "./NoteEditorView";
-import { isTauri, getEntryContent as getEntryContentReal, processEntryContent, exportSingleDigest, writeTextFile, getNote } from "@/api/feed";
+import { isTauri, getEntryContent as getEntryContentReal, processEntryContent, exportSingleDigest, writeTextFile, getNote, getEntryTags, listTags, addTag, tagEntry, untagEntry } from "@/api/feed";
+import type { Tag } from "@/lib/types";
 import {
   translateEntry,
   getTranslationText,
@@ -23,6 +24,12 @@ type TranslationMode = "original" | "bilingual";
 
 interface SegPair { source: string; translated: string; status: "pending" | "streaming" | "success" | "failed"; }
 interface TranslationState { mode: TranslationMode; entryId: number | null; }
+
+const TAG_COLORS = [
+  "#ef4444", "#f97316", "#f59e0b", "#84cc16", "#22c55e",
+  "#10b981", "#14b8a6", "#06b6d4", "#0ea5e9", "#3b82f6",
+  "#6366f1", "#8b5cf6", "#a855f7", "#d946ef", "#ec4899",
+];
 
 const EXPORT_LABELS: Record<ExportFormat, string> = {
   markdown: "Markdown",
@@ -48,6 +55,11 @@ export function ReaderView() {
   const [content, setContent] = useState<Content | null>(null);
   const [contentLoading, setContentLoading] = useState(false);
   const [contentError, setContentError] = useState<string | null>(null);
+
+  const [entryTags, setEntryTags] = useState<Tag[]>([]);
+  const [allTags, setAllTags] = useState<Tag[]>([]);
+  const [showTagPanel, setShowTagPanel] = useState(false);
+  const [newTagName, setNewTagName] = useState("");
 
   const showBilingual = translation.mode === "bilingual" && translation.entryId === selectedEntry?.id;
 
@@ -106,6 +118,28 @@ export function ReaderView() {
     const timer = setTimeout(() => markEntryRead(id), 1000);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEntry?.id]);
+
+  // Tags: load entry tags and all tags when entry changes
+  useEffect(() => {
+    if (!selectedEntry || !isTauri()) return;
+    const entryId = selectedEntry.id;
+    let cancelled = false;
+
+    async function loadTags() {
+      try {
+        const [entryT, allT] = await Promise.all([
+          getEntryTags(entryId),
+          listTags(),
+        ]);
+        if (!cancelled) {
+          setEntryTags(entryT);
+          setAllTags(allT);
+        }
+      } catch {}
+    }
+    loadTags();
+    return () => { cancelled = true; };
   }, [selectedEntry?.id]);
 
   // Translation: load existing + listen for stream events
@@ -301,6 +335,39 @@ export function ReaderView() {
     }
   };
 
+  const handleAddNewTag = async () => {
+    if (!newTagName.trim()) return;
+    try {
+      const color = TAG_COLORS[Math.floor(Math.random() * TAG_COLORS.length)];
+      const tag = await addTag(newTagName.trim(), color);
+      await tagEntry(selectedEntry!.id, tag.id);
+      setEntryTags((prev) => [...prev, tag]);
+      setAllTags((prev) => [...prev, tag]);
+      setNewTagName("");
+      toast(t("标签已添加"), "success");
+    } catch (e: any) {
+      toast(t("添加标签失败: ") + String(e), "error");
+    }
+  };
+
+  const handleToggleTag = async (tagId: number) => {
+    const isTagged = entryTags.some((t) => t.id === tagId);
+    try {
+      if (isTagged) {
+        await untagEntry(selectedEntry!.id, tagId);
+        setEntryTags((prev) => prev.filter((t) => t.id !== tagId));
+      } else {
+        await tagEntry(selectedEntry!.id, tagId);
+        const tag = allTags.find((t) => t.id === tagId);
+        if (tag) {
+          setEntryTags((prev) => [...prev, tag]);
+        }
+      }
+    } catch (e: any) {
+      toast(String(e), "error");
+    }
+  };
+
   const saveFile = async (defaultName: string, content: string, format: ExportFormat) => {
     if (isTauri()) {
       const { save } = await import("@tauri-apps/plugin-dialog");
@@ -436,6 +503,73 @@ export function ReaderView() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
             </button>
+
+            {/* Tags button */}
+            <div className="relative">
+              <button
+                onClick={() => setShowTagPanel(!showTagPanel)}
+                className={`p-1.5 rounded-lg hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)] transition-colors ${showTagPanel ? "bg-[var(--bg-tertiary)]" : ""}`}
+                title={t("标签")}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h7l2 5-2 5H7l2-5-2-5zM12 7v10" />
+                </svg>
+              </button>
+
+              {/* Tag panel dropdown */}
+              {showTagPanel && (
+                <div className="absolute right-0 mt-2 w-64 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg shadow-xl z-50 p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <input
+                      type="text"
+                      value={newTagName}
+                      onChange={(e) => setNewTagName(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleAddNewTag()}
+                      placeholder={t("新建标签...")}
+                      className="flex-1 px-2 py-1 text-xs bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded focus:outline-none focus:border-[var(--accent-color)]"
+                    />
+                    <button
+                      onClick={handleAddNewTag}
+                      className="px-2 py-1 text-xs bg-[var(--accent-color)] text-white rounded hover:opacity-90"
+                    >{t("添加")}</button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {entryTags.map((tag) => (
+                      <span
+                        key={tag.id}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full cursor-pointer"
+                        style={{ backgroundColor: tag.color + "20", color: tag.color }}
+                        onClick={() => handleToggleTag(tag.id)}
+                      >
+                        {tag.name}
+                        <span className="ml-0.5">×</span>
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="border-t border-[var(--border-color)] pt-2">
+                    <p className="text-xs text-[var(--text-tertiary)] mb-2">{t("所有标签")}</p>
+                    <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
+                      {allTags.map((tag) => (
+                        <span
+                          key={tag.id}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full cursor-pointer transition-colors ${
+                            entryTags.some((et) => et.id === tag.id)
+                              ? "opacity-50"
+                              : "hover:opacity-80"
+                          }`}
+                          style={{ backgroundColor: tag.color + "20", color: tag.color }}
+                          onClick={() => handleToggleTag(tag.id)}
+                        >
+                          {tag.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

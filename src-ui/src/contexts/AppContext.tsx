@@ -6,7 +6,7 @@ import {
   useEffect,
   type ReactNode,
 } from "react";
-import type { FeedSummary, EntryListItem, Entry, EntryPage, ViewMode } from "@/lib/types";
+import type { FeedSummary, EntryListItem, Entry, EntryPage, ViewMode, Tag } from "@/lib/types";
 import { mockFeedSummaries, mockEntries, mockApi } from "@/api/mock";
 import {
   isTauri,
@@ -19,6 +19,7 @@ import {
   refreshAllFeeds as refreshAllFeedsReal,
   searchEntries as searchEntriesReal,
   markRead as markReadReal,
+  listTags as listTagsReal,
 } from "@/api/feed";
 import { toast } from "@/components/ui/Toast";
 import { t } from "@/lib/utils";
@@ -33,6 +34,8 @@ interface State {
   entries: EntryListItem[];
   searchQuery: string;
   sidebarCollapsed: boolean;
+  tags: Tag[];
+  selectedTagId: number | null;
 }
 
 type Action =
@@ -48,7 +51,9 @@ type Action =
   | { type: "SELECT_FEED"; feedId: number }
   | { type: "SELECT_ENTRY"; entry: Entry | null }
   | { type: "MARK_READ"; entryId: number; feedId: number }
-  | { type: "MARK_ALL_READ"; feedId: number };
+  | { type: "MARK_ALL_READ"; feedId: number }
+  | { type: "SET_TAGS"; tags: Tag[] }
+  | { type: "SELECT_TAG"; tagId: number | null };
 
 const initialState: State = {
   feeds: [],
@@ -58,6 +63,8 @@ const initialState: State = {
   entries: [],
   searchQuery: "",
   sidebarCollapsed: false,
+  tags: [],
+  selectedTagId: null,
 };
 
 function reducer(state: State, action: Action): State {
@@ -123,6 +130,15 @@ function reducer(state: State, action: Action): State {
       );
       return { ...state, feeds, entries };
     }
+    case "SET_TAGS":
+      return { ...state, tags: action.tags };
+    case "SELECT_TAG":
+      return {
+        ...state,
+        selectedTagId: action.tagId,
+        selectedFeedId: action.tagId ? null : state.selectedFeedId,
+        viewMode: "list",
+      };
     default:
       return state;
   }
@@ -138,6 +154,8 @@ interface AppContextType {
   entries: EntryListItem[];
   searchQuery: string;
   sidebarCollapsed: boolean;
+  tags: Tag[];
+  selectedTagId: number | null;
 
   selectFeed: (feedId: number) => void;
   selectEntry: (entry: EntryListItem) => void;
@@ -151,6 +169,8 @@ interface AppContextType {
   reloadFeeds: () => void;
   markEntryRead: (id: number) => void;
   markAllRead: (feedId: number) => void;
+  selectTag: (tagId: number | null) => void;
+  reloadTags: () => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -175,6 +195,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
             dispatch({ type: "SET_SELECTED_FEED_ID", feedId: 1 });
           }
         });
+      listTagsReal()
+        .then((tags) => {
+          if (!cancelled) dispatch({ type: "SET_TAGS", tags });
+        })
+        .catch(() => {});
     } else {
       dispatch({ type: "SET_FEEDS", feeds: mockFeedSummaries });
       dispatch({ type: "SET_SELECTED_FEED_ID", feedId: 1 });
@@ -182,28 +207,46 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; };
   }, []);
 
-  // ---- 选中的 feed 变化 → 加载 entries ----
+  // ---- 选中的 feed 或 tag 变化 → 加载 entries ----
   useEffect(() => {
     let cancelled = false;
-    if (!state.selectedFeedId) {
+    if (!state.selectedFeedId && !state.selectedTagId) {
       dispatch({ type: "SET_ENTRIES", entries: [] });
       return;
     }
 
     if (isTauri()) {
-      listEntriesReal(state.selectedFeedId, 1, 50)
-        .then((page: EntryPage) => {
-          if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: page.entries });
-        })
-        .catch(() => {
-          if (!cancelled)
-            dispatch({ type: "SET_ENTRIES", entries: mockEntries[state.selectedFeedId!] || [] });
+      if (state.selectedTagId) {
+        import("@tauri-apps/api/core").then(({ invoke }) => {
+          invoke<EntryPage>("list_entries_by_tag", { tagId: state.selectedTagId, page: 1, pageSize: 50 })
+            .then((page) => {
+              if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: page.entries });
+            })
+            .catch(() => {
+              if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: [] });
+            });
         });
+      } else {
+        listEntriesReal(state.selectedFeedId!, 1, 50)
+          .then((page: EntryPage) => {
+            if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: page.entries });
+          })
+          .catch(() => {
+            if (!cancelled)
+              dispatch({ type: "SET_ENTRIES", entries: mockEntries[state.selectedFeedId!] || [] });
+          });
+      }
     } else {
-      dispatch({ type: "SET_ENTRIES", entries: mockEntries[state.selectedFeedId] || [] });
+      if (state.selectedTagId) {
+        dispatch({ type: "SET_ENTRIES", entries: [] });
+      } else if (state.selectedFeedId) {
+        dispatch({ type: "SET_ENTRIES", entries: mockEntries[state.selectedFeedId] || [] });
+      } else {
+        dispatch({ type: "SET_ENTRIES", entries: [] });
+      }
     }
     return () => { cancelled = true; };
-  }, [state.selectedFeedId]);
+  }, [state.selectedFeedId, state.selectedTagId]);
 
   // ---- 搜索 ----
   useEffect(() => {
@@ -326,6 +369,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "MARK_ALL_READ", feedId });
   }, []);
 
+  const selectTag = useCallback((tagId: number | null) => {
+    dispatch({ type: "SELECT_TAG", tagId });
+  }, []);
+
+  const reloadTags = useCallback(() => {
+    if (isTauri()) {
+      listTagsReal()
+        .then((tags) => dispatch({ type: "SET_TAGS", tags }))
+        .catch(() => {});
+    }
+  }, []);
+
   const setViewMode = useCallback((mode: ViewMode) => {
     dispatch({ type: "SET_VIEW_MODE", mode });
   }, []);
@@ -350,6 +405,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         reloadFeeds,
         markEntryRead,
         markAllRead,
+        selectTag,
+        reloadTags,
       }}
     >
       {children}

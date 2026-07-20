@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { Button, Input, Modal } from "@/components/ui";
 import { cn, t } from "@/lib/utils";
-import type { FeedSummary } from "@/lib/types";
+import type { FeedSummary, Tag } from "@/lib/types";
 
 export function SidebarView() {
   const {
@@ -17,6 +17,9 @@ export function SidebarView() {
     removeFeed,
     refreshAll,
     setViewMode,
+    tags,
+    selectedTagId,
+    selectTag,
   } = useApp();
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -123,9 +126,28 @@ export function SidebarView() {
           />
         ))}
         {feeds.length === 0 && (
-          <p className="text-sm text-[var(--text-tertiary)] text-center py-8">
-            {t("暂无订阅源，点击下方按钮添加")}
+          <p className="text-sm text-[var(--text-tertiary)] text-center py-4">
+            {t("暂无订阅源")}
           </p>
+        )}
+
+        {/* Tags list */}
+        {tags.length > 0 && (
+          <>
+            <div className="px-3 mb-2 mt-4">
+              <p className="text-xs font-medium text-[var(--text-tertiary)] uppercase tracking-wider px-2 py-1">
+                {t("标签")}
+              </p>
+            </div>
+            {tags.map((tag) => (
+              <TagItem
+                key={tag.id}
+                tag={tag}
+                isSelected={selectedTagId === tag.id}
+                onSelect={() => selectTag(tag.id)}
+              />
+            ))}
+          </>
         )}
       </div>
 
@@ -225,6 +247,34 @@ function FeedItem({
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
         </svg>
       </button>
+    </div>
+  );
+}
+
+function TagItem({
+  tag,
+  isSelected,
+  onSelect,
+}: {
+  tag: Tag;
+  isSelected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <div
+      onClick={onSelect}
+      className={cn(
+        "flex items-center gap-2 px-3 py-1.5 mx-2 rounded-lg cursor-pointer transition-colors",
+        isSelected
+          ? "bg-[var(--sidebar-active)]"
+          : "hover:bg-[var(--sidebar-hover)]"
+      )}
+    >
+      <div
+        className="w-2 h-2 rounded-full flex-shrink-0"
+        style={{ backgroundColor: tag.color }}
+      />
+      <span className="text-sm truncate text-[var(--text-secondary)]">{tag.name}</span>
     </div>
   );
 }

@@ -123,3 +123,15 @@ export interface DigestTemplate {
   created_at: string;
   updated_at: string;
 }
+
+export interface Tag {
+  id: number;
+  name: string;
+  color: string;
+  createdAt: string;
+}
+
+export interface TagWithCount {
+  tag: Tag;
+  count: number;
+}

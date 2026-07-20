@@ -1,4 +1,4 @@
-import type { Feed, Entry, Content, EntryPage, Provider, Summary, Note, FeedSummary, ImportResult } from "@/lib/types";
+import type { Feed, Entry, Content, EntryPage, Provider, Summary, Note, FeedSummary, ImportResult, Tag } from "@/lib/types";
 
 // 检查是否在 Tauri 环境中
 export function isTauri(): boolean {
@@ -143,4 +143,46 @@ export async function exportMultiDigest(entryIds: number[], format: string = "ma
 /// Write text content to a file path on disk.
 export async function writeTextFile(path: string, content: string): Promise<void> {
   return invoke("write_text_file", { path, content });
+}
+
+// ============ Tags API (Stage 5) ============
+
+export async function addTag(name: string, color: string = "#3b82f6"): Promise<Tag> {
+  return invoke<Tag>("add_tag", { name, color });
+}
+
+export async function listTags(): Promise<Tag[]> {
+  return invoke<Tag[]>("list_tags");
+}
+
+export async function getTag(id: number): Promise<Tag> {
+  return invoke<Tag>("get_tag", { id });
+}
+
+export async function updateTag(id: number, name: string, color: string): Promise<Tag> {
+  return invoke<Tag>("update_tag", { id, name, color });
+}
+
+export async function deleteTag(id: number): Promise<void> {
+  return invoke("delete_tag", { id });
+}
+
+export async function tagEntry(entryId: number, tagId: number): Promise<void> {
+  return invoke("tag_entry", { entryId, tagId });
+}
+
+export async function untagEntry(entryId: number, tagId: number): Promise<void> {
+  return invoke("untag_entry", { entryId, tagId });
+}
+
+export async function getEntryTags(entryId: number): Promise<Tag[]> {
+  return invoke<Tag[]>("get_entry_tags", { entryId });
+}
+
+export async function getTagsWithCount(): Promise<[Tag, number][]> {
+  return invoke<[Tag, number][]>("get_tags_with_count");
+}
+
+export async function getTagStats(tagId: number): Promise<{ entryCount: number }> {
+  return invoke<{ entryCount: number }>("get_tag_stats", { tagId });
 }

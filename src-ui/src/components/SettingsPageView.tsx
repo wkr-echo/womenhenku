@@ -9,12 +9,18 @@ import {
   addProviderModel,
   validateProvider,
 } from "@/api/provider";
-import type { Provider, AgentConfig, ImportResult } from "@/lib/types";
+import type { Provider, AgentConfig, ImportResult, Tag } from "@/lib/types";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useApp } from "@/contexts/AppContext";
 import { t } from "@/lib/utils";
-import { isTauri, exportOpml, importOpml } from "@/api/feed";
+import { isTauri, exportOpml, importOpml, listTags, addTag, updateTag, deleteTag, getTagStats } from "@/api/feed";
 import { toast } from "@/components/ui/Toast";
+
+const TAG_COLORS = [
+  "#ef4444", "#f97316", "#f59e0b", "#84cc16", "#22c55e",
+  "#10b981", "#14b8a6", "#06b6d4", "#0ea5e9", "#3b82f6",
+  "#6366f1", "#8b5cf6", "#a855f7", "#d946ef", "#ec4899",
+];
 
 export function SettingsPageView() {
   const { theme, toggleTheme } = useTheme();
@@ -25,6 +31,7 @@ export function SettingsPageView() {
     { key: "agent", label: t("Agent 参数") },
     { key: "appearance", label: t("外观") },
     { key: "sync", label: t("同步") },
+    { key: "tags", label: t("标签") },
     { key: "about", label: t("关于") },
   ];
 
@@ -56,6 +63,7 @@ export function SettingsPageView() {
         {activeSection === "agent" && <AgentSettings />}
         {activeSection === "appearance" && <AppearanceSettings theme={theme} onToggleTheme={toggleTheme} />}
         {activeSection === "sync" && <SyncSettings />}
+        {activeSection === "tags" && <TagManagement />}
         {activeSection === "about" && <AboutSection />}
       </div>
     </div>
@@ -664,6 +672,212 @@ function AboutSection() {
           <span>MIT</span>
         </div>
       </div>
+    </div>
+  );
+}
+
+function TagManagement() {
+  const { reloadTags } = useApp();
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [stats, setStats] = useState<Record<number, number>>({});
+  const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editColor, setEditColor] = useState("#3b82f6");
+  const [showAdd, setShowAdd] = useState(false);
+  const [newTagName, setNewTagName] = useState("");
+  const [newTagColor, setNewTagColor] = useState("#3b82f6");
+
+  const loadTags = async () => {
+    if (!isTauri()) return;
+    setLoading(true);
+    try {
+      const data = await listTags();
+      setTags(data);
+      const statsMap: Record<number, number> = {};
+      for (const tag of data) {
+        try {
+          const s = await getTagStats(tag.id);
+          statsMap[tag.id] = s.entryCount;
+        } catch {
+          statsMap[tag.id] = 0;
+        }
+      }
+      setStats(statsMap);
+    } catch (e: any) {
+      console.error("Failed to load tags", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadTags();
+  }, []);
+
+  const handleAdd = async () => {
+    if (!newTagName.trim()) return;
+    try {
+      await addTag(newTagName.trim(), newTagColor);
+      setNewTagName("");
+      setNewTagColor("#3b82f6");
+      setShowAdd(false);
+      await loadTags();
+      reloadTags();
+      toast(t("标签已添加"), "success");
+    } catch (e: any) {
+      toast(t("添加失败: ") + String(e), "error");
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await deleteTag(id);
+      await loadTags();
+      reloadTags();
+      toast(t("标签已删除"), "success");
+    } catch (e: any) {
+      toast(t("删除失败: ") + String(e), "error");
+    }
+  };
+
+  const handleStartEdit = (tag: Tag) => {
+    setEditingId(tag.id);
+    setEditName(tag.name);
+    setEditColor(tag.color);
+  };
+
+  const handleSaveEdit = async (tagId: number) => {
+    try {
+      await updateTag(tagId, editName, editColor);
+      setEditingId(null);
+      await loadTags();
+      reloadTags();
+      toast(t("标签已更新"), "success");
+    } catch (e: any) {
+      toast(t("更新失败: ") + String(e), "error");
+    }
+  };
+
+  if (loading) {
+    return <div className="text-center py-8 text-sm text-[var(--text-tertiary)]">{t("加载中...")}</div>;
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-lg font-semibold">{t("标签管理")}</h3>
+          <p className="text-sm text-[var(--text-tertiary)] mt-1">
+            {t("管理全局标签，支持创建、编辑、删除和合并")}
+          </p>
+        </div>
+        <Button size="sm" onClick={() => setShowAdd(true)}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          {t("新建标签")}
+        </Button>
+      </div>
+
+      <div className="space-y-3">
+        {tags.length === 0 && (
+          <div className="text-center py-8 text-sm text-[var(--text-tertiary)]">
+            {t("还没有标签，点击上方按钮创建")}
+          </div>
+        )}
+        {tags.map((tag) => (
+          <div key={tag.id} className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-4">
+            {editingId === tag.id ? (
+              <div>
+                <div className="flex items-center gap-3 mb-3">
+                  <Input
+                    placeholder={t("标签名称")}
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="flex-1"
+                  />
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-[var(--text-tertiary)]">{t("颜色")}</span>
+                    <div className="flex gap-1">
+                      {TAG_COLORS.map((color) => (
+                        <button
+                          key={color}
+                          onClick={() => setEditColor(color)}
+                          className={`w-6 h-6 rounded-full border-2 transition-transform ${
+                            editColor === color ? "border-white scale-110" : "border-transparent"
+                          }`}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => setEditingId(null)}>{t("取消")}</Button>
+                  <Button size="sm" onClick={() => handleSaveEdit(tag.id)}>{t("保存")}</Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-4 h-4 rounded-full"
+                    style={{ backgroundColor: tag.color }}
+                  />
+                  <span className="font-medium text-sm">{tag.name}</span>
+                  <span className="text-xs text-[var(--text-tertiary)]">
+                    {t(`${stats[tag.id] || 0} 篇文章`)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="sm" onClick={() => handleStartEdit(tag)}>
+                    {t("编辑")}
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => handleDelete(tag.id)}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {showAdd && (
+        <div className="mt-4 rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-4">
+          <h4 className="font-medium text-sm mb-3">{t("新建标签")}</h4>
+          <div className="flex items-center gap-3 mb-3">
+            <Input
+              placeholder={t("标签名称")}
+              value={newTagName}
+              onChange={(e) => setNewTagName(e.target.value)}
+              className="flex-1"
+            />
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-[var(--text-tertiary)]">{t("颜色")}</span>
+              <div className="flex gap-1">
+                {TAG_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    onClick={() => setNewTagColor(color)}
+                    className={`w-5 h-5 rounded-full border-2 transition-transform ${
+                      newTagColor === color ? "border-white scale-110" : "border-transparent"
+                    }`}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setShowAdd(false)}>{t("取消")}</Button>
+            <Button size="sm" onClick={handleAdd}>{t("添加")}</Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

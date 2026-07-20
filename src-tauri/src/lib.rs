@@ -162,6 +162,18 @@ pub fn run() {
             list_system_fonts,
             // System
             open_url,
+            // Tags (Stage 5)
+            add_tag,
+            list_tags,
+            get_tag,
+            update_tag,
+            delete_tag,
+            tag_entry,
+            untag_entry,
+            get_entry_tags,
+            get_tags_with_count,
+            get_tag_stats,
+            list_entries_by_tag,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -403,6 +415,74 @@ fn export_multi_digest(state: State<'_, DbPool>, entry_ids: Vec<i64>, format: St
 fn write_text_file(state: State<'_, DbPool>, path: String, content: String) -> Result<(), String> {
     let _ = state; // unused but required for Tauri command registration
     commands::write_text_file(&path, &content)
+}
+
+// -- Tags (Stage 5) --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn add_tag(state: State<'_, DbPool>, name: String, color: String) -> Result<crate::db::model::Tag, String> {
+    commands::add_tag(&state, &name, &color)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn list_tags(state: State<'_, DbPool>) -> Result<Vec<crate::db::model::Tag>, String> {
+    commands::list_tags(&state)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_tag(state: State<'_, DbPool>, id: i64) -> Result<crate::db::model::Tag, String> {
+    commands::get_tag(&state, id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn update_tag(state: State<'_, DbPool>, id: i64, name: String, color: String) -> Result<crate::db::model::Tag, String> {
+    commands::update_tag(&state, id, &name, &color)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn delete_tag(state: State<'_, DbPool>, id: i64) -> Result<(), String> {
+    commands::delete_tag(&state, id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn tag_entry(state: State<'_, DbPool>, entry_id: i64, tag_id: i64) -> Result<(), String> {
+    commands::tag_entry(&state, entry_id, tag_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn untag_entry(state: State<'_, DbPool>, entry_id: i64, tag_id: i64) -> Result<(), String> {
+    commands::untag_entry(&state, entry_id, tag_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_entry_tags(state: State<'_, DbPool>, entry_id: i64) -> Result<Vec<crate::db::model::Tag>, String> {
+    commands::get_entry_tags(&state, entry_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_tags_with_count(state: State<'_, DbPool>) -> Result<Vec<(crate::db::model::Tag, i64)>, String> {
+    commands::get_tags_with_count(&state)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_tag_stats(state: State<'_, DbPool>, tag_id: i64) -> Result<serde_json::Value, String> {
+    commands::get_tag_stats(&state, tag_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn list_entries_by_tag(state: State<'_, DbPool>, tag_id: i64, page: i32, page_size: i32) -> Result<crate::db::model::EntryPage, String> {
+    commands::list_entries_by_tag(&state, tag_id, page, page_size)
 }
 
 // ============================================================

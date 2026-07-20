@@ -200,3 +200,22 @@ pub struct NewAgentRun {
     pub target_language: String,
     pub detail_level: Option<String>,
 }
+
+// === Tags ===
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Tag {
+    pub id: i64,
+    pub name: String,
+    pub color: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EntryTag {
+    pub entry_id: i64,
+    pub tag_id: i64,
+    pub created_at: String,
+}

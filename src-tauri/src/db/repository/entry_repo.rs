@@ -242,6 +242,39 @@ impl EntryRepository {
         )?;
         Ok(affected)
     }
+
+    pub fn list_by_tag(
+        &self, tag_id: i64, page: i32, page_size: i32,
+    ) -> Result<EntryPage, RepositoryError> {
+        let conn = self.pool.get()?;
+        let offset = (page - 1) * page_size;
+
+        let count_sql = "SELECT COUNT(*) FROM entries e JOIN entry_tags et ON e.id = et.entry_id WHERE et.tag_id = ?1";
+        let total: i64 = conn.query_row(count_sql, params![tag_id], |row| row.get(0))?;
+
+        let list_sql = "SELECT e.id, e.feed_id, e.title, e.author, e.summary, e.published_at, e.is_read
+                        FROM entries e
+                        JOIN entry_tags et ON e.id = et.entry_id
+                        WHERE et.tag_id = ?1
+                        ORDER BY COALESCE(e.published_at, e.created_at) DESC
+                        LIMIT ?2 OFFSET ?3";
+        let mut stmt = conn.prepare(list_sql)?;
+        let entries: Vec<EntryListItem> = stmt
+            .query_map(params![tag_id, page_size, offset], |row| {
+                Ok(EntryListItem {
+                    id: row.get(0)?,
+                    feed_id: row.get(1)?,
+                    title: row.get(2)?,
+                    author: row.get(3)?,
+                    summary: row.get::<_, String>(4).unwrap_or_default(),
+                    published_at: row.get(5)?,
+                    is_read: row.get::<_, i32>(6)? != 0,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(EntryPage { entries, total, page, page_size })
+    }
 }
 
 fn map_entry(row: &rusqlite::Row<'_>) -> rusqlite::Result<Entry> {
