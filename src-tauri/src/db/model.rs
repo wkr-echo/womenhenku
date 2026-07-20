@@ -209,6 +209,8 @@ pub struct Tag {
     pub id: i64,
     pub name: String,
     pub color: String,
+    pub status: String,
+    pub usage_count: i64,
     pub created_at: String,
 }
 
@@ -218,4 +220,104 @@ pub struct EntryTag {
     pub entry_id: i64,
     pub tag_id: i64,
     pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TagAlias {
+    pub id: i64,
+    pub tag_id: i64,
+    pub alias: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TagRecommendation {
+    pub id: i64,
+    pub entry_id: i64,
+    pub tag_name: String,
+    pub source_type: String,
+    pub confidence: f64,
+    pub created_at: String,
+}
+
+// === LLM Usage ===
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LlmUsageEvent {
+    pub id: i64,
+    pub provider_id: i64,
+    pub provider_name: String,
+    pub provider_base_url: String,
+    pub provider_host: String,
+    pub model_id: i64,
+    pub model_name: String,
+    pub agent_type: String,
+    pub prompt_tokens: i64,
+    pub completion_tokens: i64,
+    pub total_tokens: i64,
+    pub request_status: String,
+    pub timestamp: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LlmUsageStats {
+    pub total_tokens: i64,
+    pub prompt_tokens: i64,
+    pub completion_tokens: i64,
+    pub request_count: i64,
+    pub success_rate: f64,
+    pub avg_tokens_per_request: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DailyUsage {
+    pub date: String,
+    pub total_tokens: i64,
+    pub prompt_tokens: i64,
+    pub completion_tokens: i64,
+    pub request_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderUsage {
+    pub provider_id: i64,
+    pub provider_name: String,
+    pub total_tokens: i64,
+    pub request_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelUsage {
+    pub model_id: i64,
+    pub model_name: String,
+    pub total_tokens: i64,
+    pub request_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentUsage {
+    pub agent_type: String,
+    pub total_tokens: i64,
+    pub request_count: i64,
+}
+
+// === Settings ===
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Setting {
+    pub id: i64,
+    pub key: String,
+    pub value: String,
+    pub created_at: String,
+    pub updated_at: String,
 }

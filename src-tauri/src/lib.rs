@@ -174,6 +174,25 @@ pub fn run() {
             get_tags_with_count,
             get_tag_stats,
             list_entries_by_tag,
+            // Tags Enhancements (Stage 5)
+            update_tag_status,
+            merge_tags,
+            add_tag_alias,
+            remove_tag_alias,
+            get_tag_aliases,
+            save_tag_recommendations,
+            get_tag_recommendations,
+            tag_entries_batch,
+            // LLM Usage Stats (Stage 5)
+            insert_llm_usage_event,
+            get_llm_usage_stats,
+            get_llm_daily_usage,
+            get_llm_provider_usage,
+            get_llm_model_usage,
+            get_llm_agent_usage,
+            cleanup_old_llm_events,
+            // Settings (Stage 5)
+            delete_setting,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -483,6 +502,108 @@ fn get_tag_stats(state: State<'_, DbPool>, tag_id: i64) -> Result<serde_json::Va
 #[tauri::command]
 fn list_entries_by_tag(state: State<'_, DbPool>, tag_id: i64, page: i32, page_size: i32) -> Result<crate::db::model::EntryPage, String> {
     commands::list_entries_by_tag(&state, tag_id, page, page_size)
+}
+
+// -- Tags Enhancements (Stage 5) --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn update_tag_status(state: State<'_, DbPool>, id: i64, status: String) -> Result<crate::db::model::Tag, String> {
+    commands::update_tag_status(&state, id, &status)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn merge_tags(state: State<'_, DbPool>, source_id: i64, target_id: i64) -> Result<(), String> {
+    commands::merge_tags(&state, source_id, target_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn add_tag_alias(state: State<'_, DbPool>, tag_id: i64, alias: String) -> Result<crate::db::model::TagAlias, String> {
+    commands::add_tag_alias(&state, tag_id, &alias)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn remove_tag_alias(state: State<'_, DbPool>, tag_id: i64, alias: String) -> Result<(), String> {
+    commands::remove_tag_alias(&state, tag_id, &alias)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_tag_aliases(state: State<'_, DbPool>, tag_id: i64) -> Result<Vec<crate::db::model::TagAlias>, String> {
+    commands::get_tag_aliases(&state, tag_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn save_tag_recommendations(state: State<'_, DbPool>, entry_id: i64, recommendations: Vec<(String, String, f64)>) -> Result<(), String> {
+    commands::save_tag_recommendations(&state, entry_id, recommendations)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_tag_recommendations(state: State<'_, DbPool>, entry_id: i64) -> Result<Vec<crate::db::model::TagRecommendation>, String> {
+    commands::get_tag_recommendations(&state, entry_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn tag_entries_batch(state: State<'_, DbPool>, entry_ids: Vec<i64>, tag_id: i64) -> Result<(), String> {
+    commands::tag_entries_batch(&state, entry_ids, tag_id)
+}
+
+// -- LLM Usage Stats (Stage 5) --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn insert_llm_usage_event(state: State<'_, DbPool>, event: crate::db::model::LlmUsageEvent) -> Result<(), String> {
+    commands::insert_llm_usage_event(&state, event)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_llm_usage_stats(state: State<'_, DbPool>, days: i64, agent_type: Option<String>) -> Result<crate::db::model::LlmUsageStats, String> {
+    commands::get_llm_usage_stats(&state, days, agent_type)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_llm_daily_usage(state: State<'_, DbPool>, days: i64, agent_type: Option<String>) -> Result<Vec<crate::db::model::DailyUsage>, String> {
+    commands::get_llm_daily_usage(&state, days, agent_type)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_llm_provider_usage(state: State<'_, DbPool>, days: i64) -> Result<Vec<crate::db::model::ProviderUsage>, String> {
+    commands::get_llm_provider_usage(&state, days)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_llm_model_usage(state: State<'_, DbPool>, days: i64) -> Result<Vec<crate::db::model::ModelUsage>, String> {
+    commands::get_llm_model_usage(&state, days)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_llm_agent_usage(state: State<'_, DbPool>, days: i64) -> Result<Vec<crate::db::model::AgentUsage>, String> {
+    commands::get_llm_agent_usage(&state, days)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn cleanup_old_llm_events(state: State<'_, DbPool>, retention_days: i64) -> Result<usize, String> {
+    commands::cleanup_old_llm_events(&state, retention_days)
+}
+
+// -- Settings (Stage 5) --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn delete_setting(state: State<'_, DbPool>, key: String) -> Result<(), String> {
+    commands::delete_setting(&state, &key)
 }
 
 // ============================================================

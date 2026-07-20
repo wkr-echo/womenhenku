@@ -186,3 +186,106 @@ export async function getTagsWithCount(): Promise<[Tag, number][]> {
 export async function getTagStats(tagId: number): Promise<{ entryCount: number }> {
   return invoke<{ entryCount: number }>("get_tag_stats", { tagId });
 }
+
+// ============ Tags Enhancements API (Stage 5) ============
+
+export async function updateTagStatus(id: number, status: string): Promise<Tag> {
+  return invoke<Tag>("update_tag_status", { id, status });
+}
+
+export async function mergeTags(sourceId: number, targetId: number): Promise<void> {
+  return invoke("merge_tags", { sourceId, targetId });
+}
+
+export async function addTagAlias(tagId: number, alias: string): Promise<{ id: number; tagId: number; alias: string; createdAt: string }> {
+  return invoke("add_tag_alias", { tagId, alias });
+}
+
+export async function removeTagAlias(tagId: number, alias: string): Promise<void> {
+  return invoke("remove_tag_alias", { tagId, alias });
+}
+
+export async function getTagAliases(tagId: number): Promise<{ id: number; tagId: number; alias: string; createdAt: string }[]> {
+  return invoke("get_tag_aliases", { tagId });
+}
+
+export async function saveTagRecommendations(entryId: number, recommendations: [string, string, number][]): Promise<void> {
+  return invoke("save_tag_recommendations", { entryId, recommendations });
+}
+
+export async function getTagRecommendations(entryId: number): Promise<{ id: number; entryId: number; tagName: string; sourceType: string; confidence: number; createdAt: string }[]> {
+  return invoke("get_tag_recommendations", { entryId });
+}
+
+export async function tagEntriesBatch(entryIds: number[], tagId: number): Promise<void> {
+  return invoke("tag_entries_batch", { entryIds, tagId });
+}
+
+// ============ LLM Usage Stats API (Stage 5) ============
+
+export interface LlmUsageStats {
+  totalTokens: number;
+  promptTokens: number;
+  completionTokens: number;
+  requestCount: number;
+  successRate: number;
+  avgTokensPerRequest: number;
+}
+
+export interface DailyUsage {
+  date: string;
+  totalTokens: number;
+  promptTokens: number;
+  completionTokens: number;
+  requestCount: number;
+}
+
+export interface ProviderUsage {
+  providerId: number;
+  providerName: string;
+  totalTokens: number;
+  requestCount: number;
+}
+
+export interface ModelUsage {
+  modelId: number;
+  modelName: string;
+  totalTokens: number;
+  requestCount: number;
+}
+
+export interface AgentUsage {
+  agentType: string;
+  totalTokens: number;
+  requestCount: number;
+}
+
+export async function getLlmUsageStats(days: number = 30, agentType?: string): Promise<LlmUsageStats> {
+  return invoke<LlmUsageStats>("get_llm_usage_stats", { days, agentType });
+}
+
+export async function getLlmDailyUsage(days: number = 30, agentType?: string): Promise<DailyUsage[]> {
+  return invoke<DailyUsage[]>("get_llm_daily_usage", { days, agentType });
+}
+
+export async function getLlmProviderUsage(days: number = 30): Promise<ProviderUsage[]> {
+  return invoke<ProviderUsage[]>("get_llm_provider_usage", { days });
+}
+
+export async function getLlmModelUsage(days: number = 30): Promise<ModelUsage[]> {
+  return invoke<ModelUsage[]>("get_llm_model_usage", { days });
+}
+
+export async function getLlmAgentUsage(days: number = 30): Promise<AgentUsage[]> {
+  return invoke<AgentUsage[]>("get_llm_agent_usage", { days });
+}
+
+export async function cleanupOldLlmEvents(retentionDays: number = 90): Promise<number> {
+  return invoke<number>("cleanup_old_llm_events", { retentionDays });
+}
+
+// ============ Settings API (Stage 5) ============
+
+export async function deleteSetting(key: string): Promise<void> {
+  return invoke("delete_setting", { key });
+}

@@ -250,6 +250,113 @@ pub fn list_entries_by_tag(pool: &DbPool, tag_id: i64, page: i32, page_size: i32
 }
 
 // ============================================================
+// Tags Enhancements (Stage 5)
+// ============================================================
+
+pub fn update_tag_status(pool: &DbPool, id: i64, status: &str) -> Result<crate::db::model::Tag, String> {
+    let repo = crate::db::repository::TagRepository::new(pool.clone());
+    repo.update_status(id, status).map_err(|e| e.to_string())
+}
+
+pub fn merge_tags(pool: &DbPool, source_id: i64, target_id: i64) -> Result<(), String> {
+    let repo = crate::db::repository::TagRepository::new(pool.clone());
+    repo.merge_tags(source_id, target_id).map_err(|e| e.to_string())
+}
+
+pub fn add_tag_alias(pool: &DbPool, tag_id: i64, alias: &str) -> Result<crate::db::model::TagAlias, String> {
+    let repo = crate::db::repository::TagRepository::new(pool.clone());
+    repo.add_alias(tag_id, alias).map_err(|e| e.to_string())
+}
+
+pub fn remove_tag_alias(pool: &DbPool, tag_id: i64, alias: &str) -> Result<(), String> {
+    let repo = crate::db::repository::TagRepository::new(pool.clone());
+    repo.remove_alias(tag_id, alias).map_err(|e| e.to_string())
+}
+
+pub fn get_tag_aliases(pool: &DbPool, tag_id: i64) -> Result<Vec<crate::db::model::TagAlias>, String> {
+    let repo = crate::db::repository::TagRepository::new(pool.clone());
+    repo.find_aliases_by_tag_id(tag_id).map_err(|e| e.to_string())
+}
+
+pub fn save_tag_recommendations(pool: &DbPool, entry_id: i64, recommendations: Vec<(String, String, f64)>) -> Result<(), String> {
+    let repo = crate::db::repository::TagRepository::new(pool.clone());
+    repo.save_recommendations(entry_id, &recommendations).map_err(|e| e.to_string())
+}
+
+pub fn get_tag_recommendations(pool: &DbPool, entry_id: i64) -> Result<Vec<crate::db::model::TagRecommendation>, String> {
+    let repo = crate::db::repository::TagRepository::new(pool.clone());
+    repo.find_recommendations_by_entry_id(entry_id).map_err(|e| e.to_string())
+}
+
+pub fn tag_entries_batch(pool: &DbPool, entry_ids: Vec<i64>, tag_id: i64) -> Result<(), String> {
+    let repo = crate::db::repository::TagRepository::new(pool.clone());
+    for entry_id in entry_ids {
+        repo.add_tag_to_entry(entry_id, tag_id).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+// ============================================================
+// LLM Usage Stats (Stage 5)
+// ============================================================
+
+pub fn insert_llm_usage_event(pool: &DbPool, event: crate::db::model::LlmUsageEvent) -> Result<(), String> {
+    let repo = crate::db::repository::LlmUsageRepository::new(pool.clone());
+    repo.insert_event(&event).map_err(|e| e.to_string())
+}
+
+pub fn get_llm_usage_stats(pool: &DbPool, days: i64, agent_type: Option<String>) -> Result<crate::db::model::LlmUsageStats, String> {
+    let repo = crate::db::repository::LlmUsageRepository::new(pool.clone());
+    let agent_type_opt = agent_type.as_deref();
+    repo.get_stats(days, agent_type_opt).map_err(|e| e.to_string())
+}
+
+pub fn get_llm_daily_usage(pool: &DbPool, days: i64, agent_type: Option<String>) -> Result<Vec<crate::db::model::DailyUsage>, String> {
+    let repo = crate::db::repository::LlmUsageRepository::new(pool.clone());
+    let agent_type_opt = agent_type.as_deref();
+    repo.get_daily_usage(days, agent_type_opt).map_err(|e| e.to_string())
+}
+
+pub fn get_llm_provider_usage(pool: &DbPool, days: i64) -> Result<Vec<crate::db::model::ProviderUsage>, String> {
+    let repo = crate::db::repository::LlmUsageRepository::new(pool.clone());
+    repo.get_provider_usage(days).map_err(|e| e.to_string())
+}
+
+pub fn get_llm_model_usage(pool: &DbPool, days: i64) -> Result<Vec<crate::db::model::ModelUsage>, String> {
+    let repo = crate::db::repository::LlmUsageRepository::new(pool.clone());
+    repo.get_model_usage(days).map_err(|e| e.to_string())
+}
+
+pub fn get_llm_agent_usage(pool: &DbPool, days: i64) -> Result<Vec<crate::db::model::AgentUsage>, String> {
+    let repo = crate::db::repository::LlmUsageRepository::new(pool.clone());
+    repo.get_agent_usage(days).map_err(|e| e.to_string())
+}
+
+pub fn cleanup_old_llm_events(pool: &DbPool, retention_days: i64) -> Result<usize, String> {
+    let repo = crate::db::repository::LlmUsageRepository::new(pool.clone());
+    repo.cleanup_old_events(retention_days).map_err(|e| e.to_string())
+}
+
+// ============================================================
+// Settings (Stage 5)
+// ============================================================
+
+pub fn get_setting(pool: &DbPool, key: &str) -> Result<Option<String>, String> {
+    let repo = crate::db::repository::SettingsRepository::new(pool.clone());
+    repo.get(key).map_err(|e| e.to_string())
+}
+
+pub fn set_setting(pool: &DbPool, key: &str, value: &str) -> Result<(), String> {
+    let repo = crate::db::repository::SettingsRepository::new(pool.clone());
+    repo.set(key, value).map_err(|e| e.to_string())
+}
+
+pub fn delete_setting(pool: &DbPool, key: &str) -> Result<(), String> {
+    let repo = crate::db::repository::SettingsRepository::new(pool.clone());
+    repo.delete(key).map_err(|e| e.to_string())
+}
+
+// ============================================================
 // Digest export (Stage 4)
 // ============================================================
 

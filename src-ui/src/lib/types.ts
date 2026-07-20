@@ -128,10 +128,90 @@ export interface Tag {
   id: number;
   name: string;
   color: string;
+  status: string;
+  usageCount: number;
   createdAt: string;
 }
 
 export interface TagWithCount {
   tag: Tag;
   count: number;
+}
+
+export interface TagAlias {
+  id: number;
+  tagId: number;
+  alias: string;
+  createdAt: string;
+}
+
+export interface TagRecommendation {
+  id: number;
+  entryId: number;
+  tagName: string;
+  sourceType: string;
+  confidence: number;
+  createdAt: string;
+}
+
+export interface LlmUsageEvent {
+  id: number;
+  providerId: number;
+  providerName: string;
+  providerBaseUrl: string;
+  providerHost: string;
+  modelId: number;
+  modelName: string;
+  agentType: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  requestStatus: string;
+  timestamp: string;
+  createdAt: string;
+}
+
+export interface LlmUsageStats {
+  totalTokens: number;
+  promptTokens: number;
+  completionTokens: number;
+  requestCount: number;
+  successRate: number;
+  avgTokensPerRequest: number;
+}
+
+export interface DailyUsage {
+  date: string;
+  totalTokens: number;
+  promptTokens: number;
+  completionTokens: number;
+  requestCount: number;
+}
+
+export interface ProviderUsage {
+  providerId: number;
+  providerName: string;
+  totalTokens: number;
+  requestCount: number;
+}
+
+export interface ModelUsage {
+  modelId: number;
+  modelName: string;
+  totalTokens: number;
+  requestCount: number;
+}
+
+export interface AgentUsage {
+  agentType: string;
+  totalTokens: number;
+  requestCount: number;
+}
+
+export interface Setting {
+  id: number;
+  key: string;
+  value: string;
+  createdAt: string;
+  updatedAt: string;
 }
