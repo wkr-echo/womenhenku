@@ -707,12 +707,6 @@ function TagManagement() {
 
   const loadTags = async () => {
     setLoading(true);
-    if (!isTauri()) {
-      setTags([]);
-      setStats({});
-      setLoading(false);
-      return;
-    }
     try {
       const data = await listTags();
       setTags(data);
@@ -722,7 +716,7 @@ function TagManagement() {
           const s = await getTagStats(tag.id);
           statsMap[tag.id] = s.entryCount;
         } catch {
-          statsMap[tag.id] = 0;
+          statsMap[tag.id] = tag.usageCount || 0;
         }
       }
       setStats(statsMap);

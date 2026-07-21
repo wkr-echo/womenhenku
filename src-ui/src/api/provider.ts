@@ -4,6 +4,7 @@
 
 import type { Provider } from "@/lib/types";
 import { isTauri } from "./feed";
+import { mockListProviders, mockAddProvider, mockUpdateProvider, mockDeleteProvider } from "./provider-mock";
 
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   if (isTauri()) {
@@ -13,19 +14,23 @@ async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T
   throw new Error("Not in Tauri environment");
 }
 
-// ============ Provider CRUD ============
-
 export async function addProvider(provider: {
   name: string;
   baseUrl: string;
   apiKeyRef: string;
   isDefault: boolean;
 }): Promise<Provider> {
-  return invoke<Provider>("add_provider", { provider });
+  if (isTauri()) {
+    return invoke<Provider>("add_provider", { provider });
+  }
+  return mockAddProvider(provider);
 }
 
 export async function listProviders(): Promise<Provider[]> {
-  return invoke<Provider[]>("list_providers");
+  if (isTauri()) {
+    return invoke<Provider[]>("list_providers");
+  }
+  return mockListProviders();
 }
 
 export async function updateProvider(
@@ -37,11 +42,17 @@ export async function updateProvider(
     isDefault?: boolean;
   }
 ): Promise<Provider> {
-  return invoke<Provider>("update_provider", { id, update });
+  if (isTauri()) {
+    return invoke<Provider>("update_provider", { id, update });
+  }
+  return mockUpdateProvider(id, update);
 }
 
 export async function deleteProvider(id: number): Promise<void> {
-  return invoke("delete_provider", { id });
+  if (isTauri()) {
+    return invoke("delete_provider", { id });
+  }
+  return mockDeleteProvider(id);
 }
 
 export async function validateProvider(

@@ -1,11 +1,11 @@
 import type { Feed, Entry, Content, EntryPage, Provider, Summary, Note, FeedSummary, ImportResult, Tag, TagAlias, DuplicateTagPair } from "@/lib/types";
+import { mockAddTag, mockListTags, mockGetTag, mockUpdateTag, mockDeleteTag, mockAddTagAlias, mockRemoveTagAlias, mockGetTagAliases, mockMergeTags, mockDetectDuplicateTags, mockFindUnusedTags, mockDeleteUnusedTags } from "./mock";
+import { mockGetLlmUsageStats, mockGetDailyLlmUsage, mockGetProviderStats, mockGetModelStats } from "./provider-mock";
 
-// 检查是否在 Tauri 环境中
 export function isTauri(): boolean {
   return typeof window !== "undefined" && ("__TAURI__" in window || "__TAURI_INTERNALS__" in window);
 }
 
-// 动态导入 Tauri invoke，避免在非 Tauri 环境报错
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   if (isTauri()) {
     const { invoke: tauriInvoke } = await import("@tauri-apps/api/core");
@@ -148,23 +148,38 @@ export async function writeTextFile(path: string, content: string): Promise<void
 // ============ Tags API (Stage 5) ============
 
 export async function addTag(name: string, color: string = "#3b82f6"): Promise<Tag> {
-  return invoke<Tag>("add_tag", { name, color });
+  if (isTauri()) {
+    return invoke<Tag>("add_tag", { name, color });
+  }
+  return mockAddTag(name, color);
 }
 
 export async function listTags(): Promise<Tag[]> {
-  return invoke<Tag[]>("list_tags");
+  if (isTauri()) {
+    return invoke<Tag[]>("list_tags");
+  }
+  return mockListTags();
 }
 
 export async function getTag(id: number): Promise<Tag> {
-  return invoke<Tag>("get_tag", { id });
+  if (isTauri()) {
+    return invoke<Tag>("get_tag", { id });
+  }
+  return mockGetTag(id);
 }
 
 export async function updateTag(id: number, name: string, color: string): Promise<Tag> {
-  return invoke<Tag>("update_tag", { id, name, color });
+  if (isTauri()) {
+    return invoke<Tag>("update_tag", { id, name, color });
+  }
+  return mockUpdateTag(id, name, color);
 }
 
 export async function deleteTag(id: number): Promise<void> {
-  return invoke("delete_tag", { id });
+  if (isTauri()) {
+    return invoke("delete_tag", { id });
+  }
+  return mockDeleteTag(id);
 }
 
 export async function tagEntry(entryId: number, tagId: number): Promise<void> {
@@ -194,19 +209,31 @@ export async function updateTagStatus(id: number, isProvisional: boolean): Promi
 }
 
 export async function mergeTags(sourceId: number, targetId: number): Promise<void> {
-  return invoke("merge_tags", { sourceId, targetId });
+  if (isTauri()) {
+    return invoke("merge_tags", { sourceId, targetId });
+  }
+  return mockMergeTags(targetId, [sourceId]);
 }
 
 export async function addTagAlias(tagId: number, alias: string): Promise<TagAlias> {
-  return invoke<TagAlias>("add_tag_alias", { tagId, alias });
+  if (isTauri()) {
+    return invoke<TagAlias>("add_tag_alias", { tagId, alias });
+  }
+  return mockAddTagAlias(tagId, alias);
 }
 
 export async function removeTagAlias(tagId: number, alias: string): Promise<void> {
-  return invoke("remove_tag_alias", { tagId, alias });
+  if (isTauri()) {
+    return invoke("remove_tag_alias", { tagId, alias });
+  }
+  return mockRemoveTagAlias(tagId, alias);
 }
 
 export async function getTagAliases(tagId: number): Promise<TagAlias[]> {
-  return invoke<TagAlias[]>("get_tag_aliases", { tagId });
+  if (isTauri()) {
+    return invoke<TagAlias[]>("get_tag_aliases", { tagId });
+  }
+  return mockGetTagAliases(tagId);
 }
 
 export async function saveTagRecommendations(entryId: number, recommendations: [string, string, number][]): Promise<void> {
@@ -222,16 +249,25 @@ export async function tagEntriesBatch(entryIds: number[], tagId: number): Promis
 }
 
 export async function findPotentialDuplicates(): Promise<DuplicateTagPair[]> {
-  const result: [Tag, Tag, string][] = await invoke("find_potential_duplicates");
-  return result.map(([tagA, tagB, reason]) => ({ tagA, tagB, reason }));
+  if (isTauri()) {
+    const result: [Tag, Tag, string][] = await invoke("find_potential_duplicates");
+    return result.map(([tagA, tagB, reason]) => ({ tagA, tagB, reason }));
+  }
+  return mockDetectDuplicateTags();
 }
 
 export async function findUnusedTags(): Promise<Tag[]> {
-  return invoke<Tag[]>("find_unused_tags");
+  if (isTauri()) {
+    return invoke<Tag[]>("find_unused_tags");
+  }
+  return mockFindUnusedTags();
 }
 
 export async function deleteUnusedTags(): Promise<number> {
-  return invoke<number>("delete_unused_tags");
+  if (isTauri()) {
+    return invoke<number>("delete_unused_tags");
+  }
+  return mockDeleteUnusedTags();
 }
 
 export async function getTagByName(name: string): Promise<Tag | null> {
@@ -278,19 +314,31 @@ export interface AgentUsage {
 }
 
 export async function getLlmUsageStats(days: number = 30, agentType?: string): Promise<LlmUsageStats> {
-  return invoke<LlmUsageStats>("get_llm_usage_stats", { days, agentType });
+  if (isTauri()) {
+    return invoke<LlmUsageStats>("get_llm_usage_stats", { days, agentType });
+  }
+  return mockGetLlmUsageStats(days);
 }
 
 export async function getLlmDailyUsage(days: number = 30, agentType?: string): Promise<DailyUsage[]> {
-  return invoke<DailyUsage[]>("get_llm_daily_usage", { days, agentType });
+  if (isTauri()) {
+    return invoke<DailyUsage[]>("get_llm_daily_usage", { days, agentType });
+  }
+  return mockGetDailyLlmUsage(days);
 }
 
 export async function getLlmProviderUsage(days: number = 30): Promise<ProviderUsage[]> {
-  return invoke<ProviderUsage[]>("get_llm_provider_usage", { days });
+  if (isTauri()) {
+    return invoke<ProviderUsage[]>("get_llm_provider_usage", { days });
+  }
+  return mockGetProviderStats();
 }
 
 export async function getLlmModelUsage(days: number = 30): Promise<ModelUsage[]> {
-  return invoke<ModelUsage[]>("get_llm_model_usage", { days });
+  if (isTauri()) {
+    return invoke<ModelUsage[]>("get_llm_model_usage", { days });
+  }
+  return mockGetModelStats();
 }
 
 export async function getLlmAgentUsage(days: number = 30): Promise<AgentUsage[]> {
