@@ -3,6 +3,7 @@ import { useApp } from "@/contexts/AppContext";
 import { Button, Input, Modal } from "@/components/ui";
 import { cn, t } from "@/lib/utils";
 import type { FeedSummary, Tag } from "@/lib/types";
+import { TagList } from "./TagList";
 
 export function SidebarView() {
   const {
@@ -20,6 +21,8 @@ export function SidebarView() {
     tags,
     selectedTagId,
     selectTag,
+    sidebarMode,
+    setSidebarMode,
   } = useApp();
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -109,45 +112,57 @@ export function SidebarView() {
         />
       </div>
 
-      {/* Feed list */}
-      <div className="flex-1 overflow-y-auto py-2">
-        <div className="px-3 mb-2">
-          <p className="text-xs font-medium text-[var(--text-tertiary)] uppercase tracking-wider px-2 py-1">
+      {/* Mode toggle */}
+      <div className="px-3 py-2">
+        <div className="flex bg-[var(--sidebar-hover)] rounded-lg p-1">
+          <button
+            onClick={() => setSidebarMode("feed")}
+            className={cn(
+              "flex-1 py-1.5 text-xs font-medium rounded-md transition-colors",
+              sidebarMode === "feed"
+                ? "bg-[var(--accent-color)] text-white"
+                : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            )}
+          >
             {t("订阅源")}
-          </p>
+          </button>
+          <button
+            onClick={() => setSidebarMode("tag")}
+            className={cn(
+              "flex-1 py-1.5 text-xs font-medium rounded-md transition-colors",
+              sidebarMode === "tag"
+                ? "bg-[var(--accent-color)] text-white"
+                : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+            )}
+          >
+            {t("标签")}
+          </button>
         </div>
-        {feeds.map((feed) => (
-          <FeedItem
-            key={feed.id}
-            feed={feed}
-            isSelected={selectedFeedId === feed.id}
-            onSelect={() => selectFeed(feed.id)}
-            onRemove={() => removeFeed(feed.id)}
-          />
-        ))}
-        {feeds.length === 0 && (
-          <p className="text-sm text-[var(--text-tertiary)] text-center py-4">
-            {t("暂无订阅源")}
-          </p>
-        )}
+      </div>
 
-        {/* Tags list */}
-        {tags.length > 0 && (
-          <>
-            <div className="px-3 mb-2 mt-4">
-              <p className="text-xs font-medium text-[var(--text-tertiary)] uppercase tracking-wider px-2 py-1">
-                {t("标签")}
-              </p>
-            </div>
-            {tags.map((tag) => (
-              <TagItem
-                key={tag.id}
-                tag={tag}
-                isSelected={selectedTagId === tag.id}
-                onSelect={() => selectTag(tag.id)}
+      {/* Content area */}
+      <div className="flex-1 overflow-hidden">
+        {sidebarMode === "feed" ? (
+          <div className="h-full overflow-y-auto py-2">
+            {feeds.map((feed) => (
+              <FeedItem
+                key={feed.id}
+                feed={feed}
+                isSelected={selectedFeedId === feed.id}
+                onSelect={() => selectFeed(feed.id)}
+                onRemove={() => removeFeed(feed.id)}
               />
             ))}
-          </>
+            {feeds.length === 0 && (
+              <p className="text-sm text-[var(--text-tertiary)] text-center py-4">
+                {t("暂无订阅源")}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="h-full">
+            <TagList />
+          </div>
         )}
       </div>
 

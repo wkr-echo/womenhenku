@@ -55,6 +55,17 @@ export const mockApi = {
       createdAt: "2026-07-20T08:00:00Z",
     };
   },
+  filterEntriesByTags: (tagIds: number[], matchMode: "or" | "and"): EntryListItem[] => {
+    const allEntries = Object.values(mockEntries).flat();
+    return allEntries.filter(entry => {
+      const entryTagIds = entryTags.filter(et => et.entryId === entry.id).map(et => et.tagId);
+      if (matchMode === "or") {
+        return tagIds.some(tagId => entryTagIds.includes(tagId));
+      } else {
+        return tagIds.every(tagId => entryTagIds.includes(tagId));
+      }
+    });
+  },
 };
 
 let tags: Tag[] = [
@@ -80,7 +91,14 @@ interface EntryTag {
   tagId: number;
 }
 
-let entryTags: EntryTag[] = [];
+let entryTags: EntryTag[] = [
+  { entryId: 1, tagId: 1 }, { entryId: 1, tagId: 2 },
+  { entryId: 2, tagId: 1 }, { entryId: 2, tagId: 3 },
+  { entryId: 3, tagId: 2 }, { entryId: 3, tagId: 4 },
+  { entryId: 4, tagId: 3 }, { entryId: 4, tagId: 5 },
+  { entryId: 5, tagId: 1 }, { entryId: 5, tagId: 6 },
+  { entryId: 6, tagId: 2 }, { entryId: 6, tagId: 3 },
+];
 
 function normalizeName(name: string): string {
   return name.trim().toLowerCase().replace(/[-_.\s]+/g, " ").trim();

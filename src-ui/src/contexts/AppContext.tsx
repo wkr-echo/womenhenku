@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import type { FeedSummary, EntryListItem, Entry, EntryPage, ViewMode, Tag } from "@/lib/types";
-import { mockFeedSummaries, mockEntries, mockApi } from "@/api/mock";
+import { mockFeedSummaries, mockEntries, mockApi, mockListTags } from "@/api/mock";
 import {
   isTauri,
   listFeeds as listFeedsReal,
@@ -36,6 +36,10 @@ interface State {
   sidebarCollapsed: boolean;
   tags: Tag[];
   selectedTagId: number | null;
+  sidebarMode: "feed" | "tag";
+  selectedTagIds: number[];
+  tagMatchMode: "or" | "and";
+  isBatchTagging: boolean;
 }
 
 type Action =
@@ -53,7 +57,11 @@ type Action =
   | { type: "MARK_READ"; entryId: number; feedId: number }
   | { type: "MARK_ALL_READ"; feedId: number }
   | { type: "SET_TAGS"; tags: Tag[] }
-  | { type: "SELECT_TAG"; tagId: number | null };
+  | { type: "SELECT_TAG"; tagId: number | null }
+  | { type: "SET_SIDEBAR_MODE"; mode: "feed" | "tag" }
+  | { type: "TOGGLE_TAG_SELECTION"; tagId: number }
+  | { type: "SET_TAG_MATCH_MODE"; mode: "or" | "and" }
+  | { type: "SET_BATCH_TAGGING"; isRunning: boolean };
 
 const initialState: State = {
   feeds: [],
@@ -65,6 +73,10 @@ const initialState: State = {
   sidebarCollapsed: false,
   tags: [],
   selectedTagId: null,
+  sidebarMode: "feed",
+  selectedTagIds: [],
+  tagMatchMode: "or",
+  isBatchTagging: false,
 };
 
 function reducer(state: State, action: Action): State {
@@ -139,6 +151,20 @@ function reducer(state: State, action: Action): State {
         selectedFeedId: action.tagId ? null : state.selectedFeedId,
         viewMode: "list",
       };
+    case "SET_SIDEBAR_MODE":
+      return { ...state, sidebarMode: action.mode };
+    case "TOGGLE_TAG_SELECTION": {
+      const current = state.selectedTagIds;
+      if (current.includes(action.tagId)) {
+        return { ...state, selectedTagIds: current.filter(id => id !== action.tagId) };
+      } else {
+        return { ...state, selectedTagIds: [...current, action.tagId] };
+      }
+    }
+    case "SET_TAG_MATCH_MODE":
+      return { ...state, tagMatchMode: action.mode };
+    case "SET_BATCH_TAGGING":
+      return { ...state, isBatchTagging: action.isRunning };
     default:
       return state;
   }
@@ -156,6 +182,10 @@ interface AppContextType {
   sidebarCollapsed: boolean;
   tags: Tag[];
   selectedTagId: number | null;
+  sidebarMode: "feed" | "tag";
+  selectedTagIds: number[];
+  tagMatchMode: "or" | "and";
+  isBatchTagging: boolean;
 
   selectFeed: (feedId: number) => void;
   selectEntry: (entry: EntryListItem) => void;
@@ -171,6 +201,10 @@ interface AppContextType {
   markAllRead: (feedId: number) => void;
   selectTag: (tagId: number | null) => void;
   reloadTags: () => void;
+  setSidebarMode: (mode: "feed" | "tag") => void;
+  toggleTagSelection: (tagId: number) => void;
+  setTagMatchMode: (mode: "or" | "and") => void;
+  setBatchTagging: (isRunning: boolean) => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -203,6 +237,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } else {
       dispatch({ type: "SET_FEEDS", feeds: mockFeedSummaries });
       dispatch({ type: "SET_SELECTED_FEED_ID", feedId: 1 });
+      mockListTags().then(tags => dispatch({ type: "SET_TAGS", tags }));
     }
     return () => { cancelled = true; };
   }, []);
@@ -210,13 +245,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // ---- 选中的 feed 或 tag 变化 → 加载 entries ----
   useEffect(() => {
     let cancelled = false;
-    if (!state.selectedFeedId && !state.selectedTagId) {
-      dispatch({ type: "SET_ENTRIES", entries: [] });
-      return;
-    }
-
-    if (isTauri()) {
-      if (state.selectedTagId) {
+    
+    if (state.selectedTagIds.length > 0) {
+      if (isTauri()) {
+        import("@tauri-apps/api/core").then(({ invoke }) => {
+          invoke<EntryPage>("list_entries_by_tags", { 
+            tagIds: state.selectedTagIds, 
+            matchMode: state.tagMatchMode,
+            page: 1, 
+            pageSize: 50 
+          })
+            .then((page) => {
+              if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: page.entries });
+            })
+            .catch(() => {
+              if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: [] });
+            });
+        });
+      } else {
+        dispatch({ type: "SET_ENTRIES", entries: mockApi.filterEntriesByTags(state.selectedTagIds, state.tagMatchMode) });
+      }
+    } else if (state.selectedFeedId) {
+      const feedId = state.selectedFeedId;
+      if (isTauri()) {
+        listEntriesReal(feedId, 1, 50)
+          .then((page: EntryPage) => {
+            if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: page.entries });
+          })
+          .catch(() => {
+            if (!cancelled)
+              dispatch({ type: "SET_ENTRIES", entries: mockEntries[feedId] || [] });
+          });
+      } else {
+        dispatch({ type: "SET_ENTRIES", entries: mockEntries[feedId] || [] });
+      }
+    } else if (state.selectedTagId) {
+      if (isTauri()) {
         import("@tauri-apps/api/core").then(({ invoke }) => {
           invoke<EntryPage>("list_entries_by_tag", { tagId: state.selectedTagId, page: 1, pageSize: 50 })
             .then((page) => {
@@ -227,26 +291,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
             });
         });
       } else {
-        listEntriesReal(state.selectedFeedId!, 1, 50)
-          .then((page: EntryPage) => {
-            if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: page.entries });
-          })
-          .catch(() => {
-            if (!cancelled)
-              dispatch({ type: "SET_ENTRIES", entries: mockEntries[state.selectedFeedId!] || [] });
-          });
+        dispatch({ type: "SET_ENTRIES", entries: [] });
       }
     } else {
-      if (state.selectedTagId) {
-        dispatch({ type: "SET_ENTRIES", entries: [] });
-      } else if (state.selectedFeedId) {
-        dispatch({ type: "SET_ENTRIES", entries: mockEntries[state.selectedFeedId] || [] });
-      } else {
-        dispatch({ type: "SET_ENTRIES", entries: [] });
-      }
+      dispatch({ type: "SET_ENTRIES", entries: [] });
     }
     return () => { cancelled = true; };
-  }, [state.selectedFeedId, state.selectedTagId]);
+  }, [state.selectedFeedId, state.selectedTagId, state.selectedTagIds, state.tagMatchMode]);
 
   // ---- 搜索 ----
   useEffect(() => {
@@ -381,6 +432,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const setSidebarMode = useCallback((mode: "feed" | "tag") => {
+    dispatch({ type: "SET_SIDEBAR_MODE", mode });
+  }, []);
+
+  const toggleTagSelection = useCallback((tagId: number) => {
+    dispatch({ type: "TOGGLE_TAG_SELECTION", tagId });
+  }, []);
+
+  const setTagMatchMode = useCallback((mode: "or" | "and") => {
+    dispatch({ type: "SET_TAG_MATCH_MODE", mode });
+  }, []);
+
+  const setBatchTagging = useCallback((isRunning: boolean) => {
+    dispatch({ type: "SET_BATCH_TAGGING", isRunning });
+  }, []);
+
   const setViewMode = useCallback((mode: ViewMode) => {
     dispatch({ type: "SET_VIEW_MODE", mode });
   }, []);
@@ -407,6 +474,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         markAllRead,
         selectTag,
         reloadTags,
+        setSidebarMode,
+        toggleTagSelection,
+        setTagMatchMode,
+        setBatchTagging,
       }}
     >
       {children}
