@@ -1,5 +1,5 @@
 import type { Feed, Entry, Content, EntryPage, Provider, Summary, Note, FeedSummary, ImportResult, Tag, TagAlias, DuplicateTagPair } from "@/lib/types";
-import { mockAddTag, mockListTags, mockGetTag, mockUpdateTag, mockDeleteTag, mockAddTagAlias, mockRemoveTagAlias, mockGetTagAliases, mockMergeTags, mockDetectDuplicateTags, mockFindUnusedTags, mockDeleteUnusedTags } from "./mock";
+import { mockAddTag, mockListTags, mockGetTag, mockUpdateTag, mockDeleteTag, mockAddTagAlias, mockRemoveTagAlias, mockGetTagAliases, mockMergeTags, mockDetectDuplicateTags, mockFindUnusedTags, mockDeleteUnusedTags, mockGetEntryTags, mockTagEntry, mockUntagEntry } from "./mock";
 import { mockGetLlmUsageStats, mockGetDailyLlmUsage, mockGetProviderStats, mockGetModelStats } from "./provider-mock";
 
 export function isTauri(): boolean {
@@ -183,15 +183,24 @@ export async function deleteTag(id: number): Promise<void> {
 }
 
 export async function tagEntry(entryId: number, tagId: number): Promise<void> {
-  return invoke("tag_entry", { entryId, tagId });
+  if (isTauri()) {
+    return invoke("tag_entry", { entryId, tagId });
+  }
+  return mockTagEntry(entryId, tagId);
 }
 
 export async function untagEntry(entryId: number, tagId: number): Promise<void> {
-  return invoke("untag_entry", { entryId, tagId });
+  if (isTauri()) {
+    return invoke("untag_entry", { entryId, tagId });
+  }
+  return mockUntagEntry(entryId, tagId);
 }
 
 export async function getEntryTags(entryId: number): Promise<Tag[]> {
-  return invoke<Tag[]>("get_entry_tags", { entryId });
+  if (isTauri()) {
+    return invoke<Tag[]>("get_entry_tags", { entryId });
+  }
+  return mockGetEntryTags(entryId);
 }
 
 export async function getTagsWithCount(): Promise<[Tag, number][]> {

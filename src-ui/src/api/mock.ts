@@ -75,6 +75,13 @@ let aliases: TagAlias[] = [
 let nextTagId = 8;
 let nextAliasId = 3;
 
+interface EntryTag {
+  entryId: number;
+  tagId: number;
+}
+
+let entryTags: EntryTag[] = [];
+
 function normalizeName(name: string): string {
   return name.trim().toLowerCase().replace(/[-_.\s]+/g, " ").trim();
 }
@@ -202,6 +209,32 @@ export async function mockDeleteUnusedTags(): Promise<number> {
   const count = tags.filter(t => t.usageCount === 0).length;
   tags = tags.filter(t => t.usageCount > 0);
   return count;
+}
+
+export async function mockGetEntryTags(entryId: number): Promise<Tag[]> {
+  const entryTagIds = entryTags.filter(et => et.entryId === entryId).map(et => et.tagId);
+  return tags.filter(t => entryTagIds.includes(t.id));
+}
+
+export async function mockTagEntry(entryId: number, tagId: number): Promise<void> {
+  if (!entryTags.some(et => et.entryId === entryId && et.tagId === tagId)) {
+    entryTags.push({ entryId, tagId });
+    const tag = tags.find(t => t.id === tagId);
+    if (tag) {
+      tag.usageCount++;
+    }
+  }
+}
+
+export async function mockUntagEntry(entryId: number, tagId: number): Promise<void> {
+  const index = entryTags.findIndex(et => et.entryId === entryId && et.tagId === tagId);
+  if (index !== -1) {
+    entryTags.splice(index, 1);
+    const tag = tags.find(t => t.id === tagId);
+    if (tag && tag.usageCount > 0) {
+      tag.usageCount--;
+    }
+  }
 }
 
 function levenshteinDistance(a: string, b: string): number {
