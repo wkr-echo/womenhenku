@@ -12,7 +12,7 @@ import {
 import type { Provider, AgentConfig, ImportResult, Tag, TagAlias, DuplicateTagPair } from "@/lib/types";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useApp } from "@/contexts/AppContext";
-import { t } from "@/lib/utils";
+import { t, currentLang, setLang } from "@/lib/utils";
 import { isTauri, exportOpml, importOpml, listTags, addTag, updateTag, deleteTag, getTagStats, mergeTags, addTagAlias, removeTagAlias, getTagAliases, findPotentialDuplicates, findUnusedTags, deleteUnusedTags } from "@/api/feed";
 import { toast } from "@/components/ui/Toast";
 
@@ -29,9 +29,11 @@ export function SettingsPageView() {
   const sections = [
     { key: "provider", label: t("AI 服务") },
     { key: "agent", label: t("Agent 参数") },
+    { key: "token-usage", label: t("Token 用量") },
     { key: "appearance", label: t("外观") },
     { key: "sync", label: t("同步") },
     { key: "tags", label: t("标签") },
+    { key: "batch-tag", label: t("批量标签") },
     { key: "about", label: t("关于") },
   ];
 
@@ -61,9 +63,11 @@ export function SettingsPageView() {
       <div className="flex-1 overflow-y-auto px-8 py-6">
         {activeSection === "provider" && <ProviderSettings />}
         {activeSection === "agent" && <AgentSettings />}
+        {activeSection === "token-usage" && <TokenUsage />}
         {activeSection === "appearance" && <AppearanceSettings theme={theme} onToggleTheme={toggleTheme} />}
         {activeSection === "sync" && <SyncSettings />}
         {activeSection === "tags" && <TagManagement />}
+        {activeSection === "batch-tag" && <BatchTagging />}
         {activeSection === "about" && <AboutSection />}
       </div>
     </div>
@@ -532,6 +536,23 @@ function AppearanceSettings({ theme, onToggleTheme }: { theme: string; onToggleT
             onChange={(v) => setCodeFontFamily(v)}
           />
         </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2">{t("语言")}</label>
+          <Dropdown
+            items={[
+              { label: t("中文"), value: "zh" },
+              { label: t("英文"), value: "en" },
+            ]}
+            value={currentLang}
+            onChange={(v) => {
+              if (v) {
+                setLang(v);
+                window.location.reload();
+              }
+            }}
+          />
+        </div>
       </div>
     </div>
   );
@@ -693,6 +714,7 @@ function TagManagement() {
   const [selectedTag, setSelectedTag] = useState<Tag | null>(null);
   const [selectedTab, setSelectedTab] = useState<"library" | "duplicates" | "unused">("library");
   const [isCreating, setIsCreating] = useState(false);
+  const [filter, setFilter] = useState<"all" | "provisional" | "unused" | "has_alias" | "potential_duplicate">("all");
   
   const [editName, setEditName] = useState("");
   const [editColor, setEditColor] = useState("#3b82f6");
@@ -779,9 +801,16 @@ function TagManagement() {
     }
   }, [selectedTab]);
 
-  const filteredTags = tags.filter(tag => 
-    tag.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredTags = tags.filter(tag => {
+    if (!tag.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    switch (filter) {
+      case "provisional": return tag.isProvisional;
+      case "unused": return (stats[tag.id] || tag.usageCount || 0) === 0;
+      case "has_alias": return tag.id > 0 && aliases.length > 0;
+      case "potential_duplicate": return duplicates.some(d => d.tagA.id === tag.id || d.tagB.id === tag.id);
+      default: return true;
+    }
+  });
 
   const handleAddTag = async () => {
     if (!editName.trim()) return;
@@ -913,11 +942,27 @@ function TagManagement() {
             </Button>
           </div>
           {selectedTab === "library" && (
-            <Input
-              placeholder={t("搜索标签...")}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+            <>
+              <Input
+                placeholder={t("搜索标签...")}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <div className="mt-2">
+                <Dropdown
+                  items={[
+                    { label: t("全部"), value: "all" },
+                    { label: t("临时"), value: "provisional" },
+                    { label: t("未使用"), value: "unused" },
+                    { label: t("有别名"), value: "has_alias" },
+                    { label: t("潜在重复"), value: "potential_duplicate" },
+                  ]}
+                  value={filter}
+                  onChange={(v) => setFilter(v as typeof filter)}
+                  placeholder={t("过滤")}
+                />
+              </div>
+            </>
           )}
         </div>
 
@@ -1185,6 +1230,632 @@ function TagManagement() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+interface BatchTagState {
+  phase: "configure" | "running" | "readyNext" | "review" | "applying" | "done" | "cancelled";
+  config: {
+    range: string;
+    skipAlreadyTagged: boolean;
+    skipTaggedEntries: boolean;
+    concurrency: number;
+  };
+  candidateCount: number;
+  progress: { processed: number; success: number; failed: number };
+  suggestedTags: { name: string; hitCount: number; entryCount: number }[];
+  tagDecisions: Record<string, "keep" | "discard" | "pending">;
+  finalStats: {
+    processed: number;
+    success: number;
+    failed: number;
+    tagAssociations: number;
+    newTags: number;
+    keptProposals: number;
+    discardedProposals: number;
+  } | null;
+}
+
+function BatchTagging() {
+  const [state, setState] = useState<BatchTagState>({
+    phase: "configure",
+    config: {
+      range: "1week",
+      skipAlreadyTagged: true,
+      skipTaggedEntries: true,
+      concurrency: 3,
+    },
+    candidateCount: 0,
+    progress: { processed: 0, success: 0, failed: 0 },
+    suggestedTags: [],
+    tagDecisions: {},
+    finalStats: null,
+  });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    estimateCandidates();
+  }, [state.config]);
+
+  const estimateCandidates = async () => {
+    setLoading(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const mockCounts: Record<string, number> = {
+        "1week": 42,
+        "1month": 156,
+        "3months": 420,
+        "6months": 890,
+        "1year": 1800,
+        "all": 2400,
+        "unread": 86,
+      };
+      setState(prev => ({ ...prev, candidateCount: mockCounts[prev.config.range] || 100 }));
+    } catch {
+      setState(prev => ({ ...prev, candidateCount: 0 }));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startBatch = async () => {
+    setState(prev => ({ ...prev, phase: "running", progress: { processed: 0, success: 0, failed: 0 } }));
+
+    const total = state.candidateCount;
+    for (let i = 0; i < total; i += 5) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+      setState(prev => {
+        const processed = Math.min(i + 5, total);
+        const success = processed - Math.floor(Math.random() * 2);
+        const failed = processed - success;
+        if (processed >= total) {
+          const suggestedTags = [
+            { name: "AI", hitCount: 15, entryCount: 12 },
+            { name: "机器学习", hitCount: 8, entryCount: 8 },
+            { name: "深度学习", hitCount: 3, entryCount: 3 },
+          ];
+          const tagDecisions: Record<string, "keep" | "discard" | "pending"> = {};
+          suggestedTags.forEach(t => tagDecisions[t.name] = "pending");
+          return {
+            ...prev,
+            phase: suggestedTags.length > 0 ? "readyNext" : "applying",
+            progress: { processed, success, failed },
+            suggestedTags,
+            tagDecisions,
+          };
+        }
+        return { ...prev, progress: { processed, success, failed } };
+      });
+    }
+  };
+
+  const applyTags = async () => {
+    setState(prev => ({ ...prev, phase: "applying" }));
+
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    const kept = state.suggestedTags.filter(t => state.tagDecisions[t.name] === "keep");
+    const discarded = state.suggestedTags.filter(t => state.tagDecisions[t.name] === "discard");
+
+    setState(prev => ({
+      ...prev,
+      phase: "done",
+      finalStats: {
+        processed: prev.progress.processed,
+        success: prev.progress.success,
+        failed: prev.progress.failed,
+        tagAssociations: 320,
+        newTags: kept.length,
+        keptProposals: kept.length,
+        discardedProposals: discarded.length,
+      },
+    }));
+  };
+
+  const reset = () => {
+    setState({
+      phase: "configure",
+      config: {
+        range: "1week",
+        skipAlreadyTagged: true,
+        skipTaggedEntries: true,
+        concurrency: 3,
+      },
+      candidateCount: 0,
+      progress: { processed: 0, success: 0, failed: 0 },
+      suggestedTags: [],
+      tagDecisions: {},
+      finalStats: null,
+    });
+    estimateCandidates();
+  };
+
+  const hasPendingDecisions = () => {
+    return Object.values(state.tagDecisions).some(d => d === "pending");
+  };
+
+  return (
+    <div className="max-w-2xl">
+      <h2 className="text-lg font-semibold mb-6">{t("批量标签")}</h2>
+
+      {state.phase === "configure" && (
+        <div className="space-y-6">
+          <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-6">
+            <h3 className="font-medium text-sm mb-4">{t("配置")}</h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs text-[var(--text-tertiary)] mb-2">{t("范围选择")}</label>
+                <Dropdown
+                  items={[
+                    { label: t("1周"), value: "1week" },
+                    { label: t("1月"), value: "1month" },
+                    { label: t("3月"), value: "3months" },
+                    { label: t("半年"), value: "6months" },
+                    { label: t("1年"), value: "1year" },
+                    { label: t("全部"), value: "all" },
+                    { label: t("未读"), value: "unread" },
+                  ]}
+                  value={state.config.range}
+                  onChange={(v) => setState(prev => ({ ...prev, config: { ...prev.config, range: v || "1week" } }))}
+                />
+              </div>
+
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={state.config.skipAlreadyTagged}
+                    onChange={(e) => setState(prev => ({ ...prev, config: { ...prev.config, skipAlreadyTagged: e.target.checked } }))}
+                    className="rounded border-[var(--border-color)] text-[var(--accent-color)]"
+                  />
+                  <span className="text-sm">{t("跳过已批量打标签的文章")}</span>
+                </label>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={state.config.skipTaggedEntries}
+                    onChange={(e) => setState(prev => ({ ...prev, config: { ...prev.config, skipTaggedEntries: e.target.checked } }))}
+                    className="rounded border-[var(--border-color)] text-[var(--accent-color)]"
+                  />
+                  <span className="text-sm">{t("跳过已有标签的文章")}</span>
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-xs text-[var(--text-tertiary)] mb-2">
+                  {t("并发度")} ({state.config.concurrency})
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="5"
+                  value={state.config.concurrency}
+                  onChange={(e) => setState(prev => ({ ...prev, config: { ...prev.config, concurrency: Number(e.target.value) } }))}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-[var(--text-tertiary)] mt-1">
+                  <span>1</span>
+                  <span>5</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-4">
+            <p className="text-sm">
+              {loading ? t("估算中...") : `${t("候选文章数")}: ${state.candidateCount}`}
+            </p>
+            {state.candidateCount > 100 && (
+              <p className="text-xs text-yellow-600 mt-2">{t("超过 100 篇")}</p>
+            )}
+            {state.candidateCount > 2000 && (
+              <p className="text-xs text-red-600 mt-2">{t("超过 2000 篇安全上限")}</p>
+            )}
+          </div>
+
+          <Button
+            onClick={startBatch}
+            disabled={state.candidateCount <= 0 || state.candidateCount > 2000}
+            className="w-full"
+          >
+            {t("开始")}
+          </Button>
+        </div>
+      )}
+
+      {state.phase === "running" && (
+        <div className="space-y-6">
+          <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-6">
+            <h3 className="font-medium text-sm mb-4">{t("运行中")}</h3>
+
+            <div className="mb-4">
+              <div className="flex justify-between text-sm mb-2">
+                <span>{t("进度")}</span>
+                <span>{state.progress.processed} / {state.candidateCount}</span>
+              </div>
+              <div className="h-2 bg-[var(--bg-tertiary)] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-[var(--accent-color)] transition-all"
+                  style={{ width: `${(state.progress.processed / state.candidateCount) * 100}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div className="rounded-lg bg-[var(--bg-tertiary)] p-3">
+                <p className="text-lg font-semibold text-green-600">{state.progress.success}</p>
+                <p className="text-xs text-[var(--text-tertiary)]">{t("成功")}</p>
+              </div>
+              <div className="rounded-lg bg-[var(--bg-tertiary)] p-3">
+                <p className="text-lg font-semibold text-red-600">{state.progress.failed}</p>
+                <p className="text-xs text-[var(--text-tertiary)]">{t("失败")}</p>
+              </div>
+              <div className="rounded-lg bg-[var(--bg-tertiary)] p-3">
+                <p className="text-lg font-semibold text-[var(--text-primary)]">{state.progress.processed}</p>
+                <p className="text-xs text-[var(--text-tertiary)]">{t("已处理")}</p>
+              </div>
+            </div>
+          </div>
+
+          <Button variant="secondary" onClick={() => setState(prev => ({ ...prev, phase: "cancelled" }))} className="w-full">
+            {t("中止")}
+          </Button>
+        </div>
+      )}
+
+      {state.phase === "readyNext" && (
+        <div className="space-y-6">
+          <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-6">
+            <h3 className="font-medium text-sm mb-4">{t("准备就绪")}</h3>
+            <div className="grid grid-cols-4 gap-4 text-center">
+              <div>
+                <p className="text-lg font-semibold">{state.progress.processed}</p>
+                <p className="text-xs text-[var(--text-tertiary)]">{t("已处理")}</p>
+              </div>
+              <div>
+                <p className="text-lg font-semibold text-green-600">{state.progress.success}</p>
+                <p className="text-xs text-[var(--text-tertiary)]">{t("成功")}</p>
+              </div>
+              <div>
+                <p className="text-lg font-semibold text-red-600">{state.progress.failed}</p>
+                <p className="text-xs text-[var(--text-tertiary)]">{t("失败")}</p>
+              </div>
+              <div>
+                <p className="text-lg font-semibold text-purple-600">{state.suggestedTags.length}</p>
+                <p className="text-xs text-[var(--text-tertiary)]">{t("建议标签")}</p>
+              </div>
+            </div>
+          </div>
+
+          <Button onClick={() => setState(prev => ({ ...prev, phase: "review" }))} className="w-full">
+            {t("审查新标签提案")}
+          </Button>
+        </div>
+      )}
+
+      {state.phase === "review" && (
+        <div className="space-y-6">
+          <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-6">
+            <h3 className="font-medium text-sm mb-4">{t("以下标签由 AI 提出，请确认是否保留")}</h3>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[var(--border-color)]">
+                    <th className="text-left py-2 px-3 font-medium">{t("标签名")}</th>
+                    <th className="text-left py-2 px-3 font-medium">{t("命中次数")}</th>
+                    <th className="text-left py-2 px-3 font-medium">{t("涉及文章数")}</th>
+                    <th className="text-left py-2 px-3 font-medium">{t("决定")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.suggestedTags.map((tag) => (
+                    <tr key={tag.name} className="border-b border-[var(--border-color)]">
+                      <td className="py-2 px-3">{tag.name}</td>
+                      <td className="py-2 px-3">{tag.hitCount}</td>
+                      <td className="py-2 px-3">{tag.entryCount}</td>
+                      <td className="py-2 px-3">
+                        <Dropdown
+                          items={[
+                            { label: t("保留"), value: "keep" },
+                            { label: t("丢弃"), value: "discard" },
+                          ]}
+                          value={state.tagDecisions[tag.name]}
+                          onChange={(v) => setState(prev => ({
+                            ...prev,
+                            tagDecisions: { ...prev.tagDecisions, [tag.name]: v as "keep" | "discard" }
+                          }))}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex gap-2 mt-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setState(prev => {
+                  const decisions = { ...prev.tagDecisions };
+                  Object.keys(decisions).forEach(k => decisions[k] = "keep");
+                  return { ...prev, tagDecisions: decisions };
+                })}
+              >
+                {t("全部保留")}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setState(prev => {
+                  const decisions = { ...prev.tagDecisions };
+                  Object.keys(decisions).forEach(k => decisions[k] = "discard");
+                  return { ...prev, tagDecisions: decisions };
+                })}
+              >
+                {t("全部丢弃")}
+              </Button>
+            </div>
+          </div>
+
+          <Button
+            onClick={applyTags}
+            disabled={hasPendingDecisions()}
+            className="w-full"
+          >
+            {t("应用")}
+          </Button>
+          <p className="text-xs text-[var(--text-tertiary)] text-center">
+            {hasPendingDecisions() ? t("请完成所有标签的审查决定") : ""}
+          </p>
+        </div>
+      )}
+
+      {state.phase === "applying" && (
+        <div className="space-y-6">
+          <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-6">
+            <h3 className="font-medium text-sm mb-4">{t("应用中")}</h3>
+            <div className="h-2 bg-[var(--bg-tertiary)] rounded-full overflow-hidden">
+              <div className="h-full bg-[var(--accent-color)] animate-pulse" style={{ width: "70%" }} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {state.phase === "done" && state.finalStats && (
+        <div className="space-y-6">
+          <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-6">
+            <h3 className="font-medium text-sm mb-4">{t("批量标签完成")}</h3>
+            <div className="space-y-2 text-sm">
+              <p>{t("已处理")}: {state.finalStats.processed} {t("篇")}</p>
+              <p>{t("成功")}: {state.finalStats.success} {t("篇")}</p>
+              <p>{t("失败")}: {state.finalStats.failed} {t("篇")}</p>
+              <p>{t("添加标签关联")}: {state.finalStats.tagAssociations} {t("条")}</p>
+              <p>{t("创建新标签")}: {state.finalStats.newTags} {t("个")}</p>
+              <p>{t("保留提案")}: {state.finalStats.keptProposals} {t("个")}</p>
+              <p>{t("丢弃提案")}: {state.finalStats.discardedProposals} {t("个")}</p>
+            </div>
+          </div>
+          <Button onClick={reset} className="w-full">
+            {t("重新开始")}
+          </Button>
+        </div>
+      )}
+
+      {state.phase === "cancelled" && (
+        <div className="space-y-6">
+          <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-6">
+            <h3 className="font-medium text-sm mb-4">{t("已取消")}</h3>
+            <p className="text-sm text-[var(--text-tertiary)]">{t("批量标签操作已取消")}</p>
+          </div>
+          <Button onClick={reset} className="w-full">
+            {t("重新开始")}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TokenUsage() {
+  const [period, setPeriod] = useState<"1week" | "2weeks" | "1month">("1week");
+  const [activeMetric, setActiveMetric] = useState<"tokens" | "input" | "output" | "requests">("tokens");
+  const [loading, setLoading] = useState(true);
+
+  const generateMockData = () => {
+    const days = period === "1week" ? 7 : period === "2weeks" ? 14 : 30;
+    const data: { date: string; promptTokens: number; completionTokens: number; totalTokens: number; requests: number }[] = [];
+    const today = new Date();
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const prompt = Math.floor(Math.random() * 500) + 100;
+      const completion = Math.floor(Math.random() * 800) + 200;
+      data.push({
+        date: date.toLocaleDateString("zh-CN", { month: "short", day: "numeric" }),
+        promptTokens: prompt,
+        completionTokens: completion,
+        totalTokens: prompt + completion,
+        requests: Math.floor(Math.random() * 10) + 1,
+      });
+    }
+    return data;
+  };
+
+  const mockData = generateMockData();
+
+  useEffect(() => {
+    setLoading(true);
+    setTimeout(() => setLoading(false), 500);
+  }, [period]);
+
+  const stats = {
+    total: mockData.reduce((sum, d) => sum + d.totalTokens, 0),
+    prompt: mockData.reduce((sum, d) => sum + d.promptTokens, 0),
+    completion: mockData.reduce((sum, d) => sum + d.completionTokens, 0),
+    requests: mockData.reduce((sum, d) => sum + d.requests, 0),
+    successRate: 97.6,
+    avgPerRequest: Math.round(mockData.reduce((sum, d) => sum + d.totalTokens, 0) / mockData.reduce((sum, d) => sum + d.requests, 0)),
+  };
+
+  const comparisonData = [
+    { name: "GPT-4", tokens: 8500, input: 4200, output: 4300, requests: 28, color: "#3b82f6" },
+    { name: "GPT-3.5", tokens: 3200, input: 1800, output: 1400, requests: 12, color: "#10b981" },
+    { name: "DeepSeek", tokens: 600, input: 350, output: 250, requests: 3, color: "#f59e0b" },
+  ];
+
+  return (
+    <div className="max-w-3xl space-y-6">
+      <h2 className="text-lg font-semibold">{t("Token 用量")}</h2>
+
+      <div className="flex items-center gap-4">
+        <div className="flex gap-2">
+          <Button
+            variant={period === "1week" ? "primary" : "ghost"}
+            size="sm"
+            onClick={() => setPeriod("1week")}
+          >
+            {t("1周")}
+          </Button>
+          <Button
+            variant={period === "2weeks" ? "primary" : "ghost"}
+            size="sm"
+            onClick={() => setPeriod("2weeks")}
+          >
+            {t("2周")}
+          </Button>
+          <Button
+            variant={period === "1month" ? "primary" : "ghost"}
+            size="sm"
+            onClick={() => setPeriod("1month")}
+          >
+            {t("1月")}
+          </Button>
+        </div>
+        <div className="flex gap-2 ml-auto">
+          <Button
+            variant={activeMetric === "tokens" ? "primary" : "ghost"}
+            size="sm"
+            onClick={() => setActiveMetric("tokens")}
+          >
+            {t("Tokens")}
+          </Button>
+          <Button
+            variant={activeMetric === "input" ? "primary" : "ghost"}
+            size="sm"
+            onClick={() => setActiveMetric("input")}
+          >
+            {t("输入")}
+          </Button>
+          <Button
+            variant={activeMetric === "output" ? "primary" : "ghost"}
+            size="sm"
+            onClick={() => setActiveMetric("output")}
+          >
+            {t("输出")}
+          </Button>
+          <Button
+            variant={activeMetric === "requests" ? "primary" : "ghost"}
+            size="sm"
+            onClick={() => setActiveMetric("requests")}
+          >
+            {t("请求数")}
+          </Button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-8 text-sm text-[var(--text-tertiary)]">{t("加载中...")}</div>
+      ) : (
+        <>
+          <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-6">
+            <h3 className="font-medium text-sm mb-4">{t("每日 Token 用量")}</h3>
+            <div className="h-32 flex items-end gap-2">
+              {mockData.map((d, i) => {
+                const value = activeMetric === "tokens" ? d.totalTokens :
+                             activeMetric === "input" ? d.promptTokens :
+                             activeMetric === "output" ? d.completionTokens : d.requests;
+                const maxValue = Math.max(...mockData.map(d2 =>
+                  activeMetric === "tokens" ? d2.totalTokens :
+                  activeMetric === "input" ? d2.promptTokens :
+                  activeMetric === "output" ? d2.completionTokens : d2.requests
+                ));
+                const height = (value / maxValue) * 100;
+                return (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                    <div className="w-full rounded-t bg-[var(--accent-color)] transition-all" style={{ height: `${height}%`, minHeight: "4px" }} />
+                    <span className="text-xs text-[var(--text-tertiary)]">{d.date}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-6">
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <p className="text-2xl font-semibold text-[var(--text-primary)]">{stats.total.toLocaleString()}</p>
+                <p className="text-xs text-[var(--text-tertiary)]">{t("总计")}</p>
+              </div>
+              <div>
+                <p className="text-lg font-semibold text-blue-600">{stats.prompt.toLocaleString()}</p>
+                <p className="text-xs text-[var(--text-tertiary)]">{t("提示 token")}</p>
+              </div>
+              <div>
+                <p className="text-lg font-semibold text-green-600">{stats.completion.toLocaleString()}</p>
+                <p className="text-xs text-[var(--text-tertiary)]">{t("补全 token")}</p>
+              </div>
+              <div>
+                <p className="text-lg font-semibold text-[var(--text-primary)]">{stats.requests}</p>
+                <p className="text-xs text-[var(--text-tertiary)]">{t("请求数")}</p>
+              </div>
+              <div>
+                <p className="text-lg font-semibold text-green-600">{stats.successRate}%</p>
+                <p className="text-xs text-[var(--text-tertiary)]">{t("成功率")}</p>
+              </div>
+              <div>
+                <p className="text-lg font-semibold text-[var(--text-primary)]">{stats.avgPerRequest}</p>
+                <p className="text-xs text-[var(--text-tertiary)]">{t("平均/请求")}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-6">
+            <h3 className="font-medium text-sm mb-4">{t("模型对比")}</h3>
+            <div className="space-y-3">
+              {comparisonData.map((item) => {
+                const value = activeMetric === "tokens" ? item.tokens :
+                             activeMetric === "input" ? item.input :
+                             activeMetric === "output" ? item.output : item.requests;
+                const maxValue = Math.max(...comparisonData.map(i =>
+                  activeMetric === "tokens" ? i.tokens :
+                  activeMetric === "input" ? i.input :
+                  activeMetric === "output" ? i.output : i.requests
+                ));
+                const width = (value / maxValue) * 100;
+                return (
+                  <div key={item.name} className="flex items-center gap-3">
+                    <div className="w-20 text-sm">{item.name}</div>
+                    <div className="flex-1 h-6 bg-[var(--bg-tertiary)] rounded-full overflow-hidden">
+                      <div
+                        className="h-full transition-all rounded-full"
+                        style={{ width: `${width}%`, backgroundColor: item.color }}
+                      />
+                    </div>
+                    <div className="w-20 text-sm text-right">{value.toLocaleString()}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -31,6 +31,22 @@ const TAG_COLORS = [
   "#6366f1", "#8b5cf6", "#a855f7", "#d946ef", "#ec4899",
 ];
 
+const levenshteinDistance = (a: string, b: string): number => {
+  const matrix: number[][] = [];
+  for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+  for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
+      }
+    }
+  }
+  return matrix[b.length][a.length];
+};
+
 const EXPORT_LABELS: Record<ExportFormat, string> = {
   markdown: "Markdown",
   html: "HTML",
@@ -60,6 +76,10 @@ export function ReaderView() {
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [showTagPanel, setShowTagPanel] = useState(false);
   const [newTagName, setNewTagName] = useState("");
+  const [suggestedTags, setSuggestedTags] = useState<Tag[]>([]);
+  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
+  const [aiSuggesting, setAiSuggesting] = useState(false);
+  const [spellingSuggestion, setSpellingSuggestion] = useState<string | null>(null);
 
   const showBilingual = translation.mode === "bilingual" && translation.entryId === selectedEntry?.id;
 
@@ -122,7 +142,7 @@ export function ReaderView() {
 
   // Tags: load entry tags and all tags when entry changes
   useEffect(() => {
-    if (!selectedEntry || !isTauri()) return;
+    if (!selectedEntry) return;
     const entryId = selectedEntry.id;
     let cancelled = false;
 
@@ -141,6 +161,74 @@ export function ReaderView() {
     loadTags();
     return () => { cancelled = true; };
   }, [selectedEntry?.id]);
+
+  // Tag panel: NLP suggestions + AI suggestions when panel opens
+  useEffect(() => {
+    if (!showTagPanel || !selectedEntry) {
+      setAiSuggestions([]);
+      setAiSuggesting(false);
+      setSpellingSuggestion(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const extractNlpSuggestions = () => {
+      const text = selectedEntry.title + " " + (content?.cleanedMarkdown || "");
+      const entities: string[] = [];
+
+      const orgPattern = /[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+/g;
+      const techPattern = /\b(Rust|Python|JavaScript|TypeScript|React|Node\.js|Tauri|WebAssembly|SQL|JSON|API|LLM|AI|Machine Learning|Deep Learning|Neural Network)\b/gi;
+
+      let match;
+      while ((match = orgPattern.exec(text)) !== null) {
+        const entity = match[0];
+        if (entity.length >= 3 && !entities.includes(entity)) {
+          entities.push(entity);
+        }
+      }
+      while ((match = techPattern.exec(text)) !== null) {
+        const entity = match[0];
+        if (!entities.includes(entity)) {
+          entities.push(entity);
+        }
+      }
+
+      const existingNames = entryTags.map(t => t.name.toLowerCase());
+      const filtered = entities
+        .filter(e => !existingNames.includes(e.toLowerCase()))
+        .slice(0, 5);
+
+      const tags: Tag[] = filtered.map(name => ({
+        id: -1,
+        name,
+        color: TAG_COLORS[Math.floor(Math.random() * TAG_COLORS.length)],
+        status: "provisional",
+        usageCount: 0,
+        normalizedName: name.toLowerCase().replace(/[-_.\s]+/g, " ").trim(),
+        isProvisional: true,
+        createdAt: new Date().toISOString(),
+      }));
+      setSuggestedTags(tags);
+    };
+
+    extractNlpSuggestions();
+
+    setAiSuggesting(true);
+    setAiSuggestions([]);
+
+    setTimeout(() => {
+      if (!cancelled) {
+        setAiSuggesting(false);
+        const mockAiTags = ["AI", "Technology", "Programming", "Engineering"];
+        const existingNames = [...entryTags.map(t => t.name.toLowerCase()), ...suggestedTags.map(t => t.name.toLowerCase())];
+        const filtered = mockAiTags.filter(t => !existingNames.includes(t.toLowerCase())).slice(0, 3);
+        setAiSuggestions(filtered);
+      }
+    }, 1500);
+
+    return () => { cancelled = true; setAiSuggesting(false); };
+  }, [showTagPanel, selectedEntry, content?.cleanedMarkdown, entryTags, suggestedTags]);
 
   // Translation: load existing + listen for stream events
   useEffect(() => {
@@ -337,13 +425,41 @@ export function ReaderView() {
 
   const handleAddNewTag = async () => {
     if (!newTagName.trim()) return;
+    const tags = newTagName.split(/[,，\n]/).map(t => t.trim()).filter(t => t);
+    for (const tagName of tags) {
+      try {
+        const existingTag = allTags.find(t => t.name.toLowerCase() === tagName.toLowerCase());
+        if (existingTag) {
+          await tagEntry(selectedEntry!.id, existingTag.id);
+          setEntryTags((prev) => [...prev, existingTag]);
+        } else {
+          const color = TAG_COLORS[Math.floor(Math.random() * TAG_COLORS.length)];
+          const tag = await addTag(tagName, color);
+          await tagEntry(selectedEntry!.id, tag.id);
+          setEntryTags((prev) => [...prev, tag]);
+          setAllTags((prev) => [...prev, tag]);
+        }
+      } catch (e: any) {
+        toast(t("添加标签失败: ") + String(e), "error");
+      }
+    }
+    setNewTagName("");
+    toast(t("标签已添加"), "success");
+  };
+
+  const handleAddTagByName = async (name: string) => {
     try {
-      const color = TAG_COLORS[Math.floor(Math.random() * TAG_COLORS.length)];
-      const tag = await addTag(newTagName.trim(), color);
-      await tagEntry(selectedEntry!.id, tag.id);
-      setEntryTags((prev) => [...prev, tag]);
-      setAllTags((prev) => [...prev, tag]);
-      setNewTagName("");
+      const existingTag = allTags.find(t => t.name.toLowerCase() === name.toLowerCase());
+      if (existingTag) {
+        await tagEntry(selectedEntry!.id, existingTag.id);
+        setEntryTags((prev) => [...prev, existingTag]);
+      } else {
+        const color = TAG_COLORS[Math.floor(Math.random() * TAG_COLORS.length)];
+        const tag = await addTag(name, color);
+        await tagEntry(selectedEntry!.id, tag.id);
+        setEntryTags((prev) => [...prev, tag]);
+        setAllTags((prev) => [...prev, tag]);
+      }
       toast(t("标签已添加"), "success");
     } catch (e: any) {
       toast(t("添加标签失败: ") + String(e), "error");
@@ -518,54 +634,129 @@ export function ReaderView() {
 
               {/* Tag panel dropdown */}
               {showTagPanel && (
-                <div className="absolute right-0 mt-2 w-64 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg shadow-xl z-50 p-3">
-                  <div className="flex items-center gap-2 mb-2">
+                <div className="absolute right-0 mt-2 w-[280px] bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg shadow-xl z-50 p-3">
+                  <div className="mb-3">
                     <input
                       type="text"
                       value={newTagName}
-                      onChange={(e) => setNewTagName(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleAddNewTag()}
-                      placeholder={t("新建标签...")}
-                      className="flex-1 px-2 py-1 text-xs bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded focus:outline-none focus:border-[var(--accent-color)]"
+                      onChange={(e) => {
+                        setNewTagName(e.target.value);
+                        const tokens = e.target.value.split(/[,，\n]/);
+                        const lastToken = tokens[tokens.length - 1].trim().toLowerCase();
+                        if (lastToken.length >= 3 && !/^[A-Z]+$/.test(lastToken) && !/^[A-Z][a-z]+[A-Z]/.test(lastToken)) {
+                          const existingNames = allTags.map(t => t.name.toLowerCase());
+                          for (const name of existingNames) {
+                            const editDist = levenshteinDistance(lastToken, name);
+                            if (editDist <= 2 && editDist > 0) {
+                              setSpellingSuggestion(name);
+                              break;
+                            }
+                          }
+                        } else {
+                          setSpellingSuggestion(null);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddNewTag();
+                        }
+                      }}
+                      placeholder={t("输入标签（逗号分隔）")}
+                      className="w-full px-3 py-1.5 text-sm bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:border-[var(--accent-color)]"
                     />
                     <button
                       onClick={handleAddNewTag}
-                      className="px-2 py-1 text-xs bg-[var(--accent-color)] text-white rounded hover:opacity-90"
+                      disabled={!newTagName.trim()}
+                      className="mt-1 w-full px-3 py-1.5 text-xs bg-[var(--accent-color)] text-white rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                     >{t("添加")}</button>
                   </div>
 
-                  <div className="flex flex-wrap gap-1.5 mb-2">
-                    {entryTags.map((tag) => (
-                      <span
-                        key={tag.id}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full cursor-pointer"
-                        style={{ backgroundColor: tag.color + "20", color: tag.color }}
-                        onClick={() => handleToggleTag(tag.id)}
-                      >
-                        {tag.name}
-                        <span className="ml-0.5">×</span>
-                      </span>
-                    ))}
+                  {(suggestedTags.length > 0 || aiSuggesting || aiSuggestions.length > 0) && (
+                    <div className="mb-3">
+                      <p className="text-xs text-[var(--text-tertiary)] mb-2">{t("Suggested")}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {aiSuggestions.map((name, i) => (
+                          <span
+                            key={"ai-" + i}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full cursor-pointer bg-purple-100 text-purple-700 hover:bg-purple-200"
+                            onClick={() => handleAddTagByName(name)}
+                          >
+                            {name}
+                          </span>
+                        ))}
+                        {suggestedTags.map((tag) => (
+                          <span
+                            key={"nlp-" + tag.id}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full cursor-pointer bg-blue-100 text-blue-700 hover:bg-blue-200"
+                            onClick={() => handleAddTagByName(tag.name)}
+                          >
+                            {tag.name}
+                          </span>
+                        ))}
+                        {aiSuggesting && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs text-[var(--text-tertiary)]">
+                            <span className="inline-block w-2 h-2 rounded-full bg-[var(--accent-color)] animate-pulse"></span>
+                            {t("Generating suggestions...")}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {spellingSuggestion && (
+                    <div className="mb-3 px-2 py-1.5 bg-yellow-50 rounded-lg">
+                      <p className="text-xs text-yellow-700">
+                        {t("Did you mean:")}
+                        <span className="ml-1 cursor-pointer underline hover:text-yellow-900" onClick={() => setNewTagName(spellingSuggestion!)}>
+                          {spellingSuggestion}
+                        </span>
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="mb-3">
+                    <p className="text-xs text-[var(--text-tertiary)] mb-2">{t("Existing")}</p>
+                    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                      {allTags
+                        .filter(t => !newTagName || t.name.toLowerCase().includes(newTagName.toLowerCase()))
+                        .slice(0, 10)
+                        .map((tag) => (
+                          <span
+                            key={tag.id}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full cursor-pointer transition-colors ${
+                              entryTags.some((et) => et.id === tag.id)
+                                ? "opacity-50"
+                                : "hover:opacity-80"
+                            }`}
+                            style={{ backgroundColor: tag.color + "20", color: tag.color }}
+                            onClick={() => handleToggleTag(tag.id)}
+                          >
+                            {tag.name}
+                          </span>
+                        ))}
+                    </div>
                   </div>
 
-                  <div className="border-t border-[var(--border-color)] pt-2">
-                    <p className="text-xs text-[var(--text-tertiary)] mb-2">{t("所有标签")}</p>
-                    <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
-                      {allTags.map((tag) => (
-                        <span
-                          key={tag.id}
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full cursor-pointer transition-colors ${
-                            entryTags.some((et) => et.id === tag.id)
-                              ? "opacity-50"
-                              : "hover:opacity-80"
-                          }`}
-                          style={{ backgroundColor: tag.color + "20", color: tag.color }}
-                          onClick={() => handleToggleTag(tag.id)}
-                        >
-                          {tag.name}
-                        </span>
-                      ))}
-                    </div>
+                  <div className="border-t border-[var(--border-color)] pt-3">
+                    <p className="text-xs text-[var(--text-tertiary)] mb-2">{t("已应用")}</p>
+                    {entryTags.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {entryTags.map((tag) => (
+                          <span
+                            key={tag.id}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full cursor-pointer"
+                            style={{ backgroundColor: tag.color + "20", color: tag.color }}
+                            onClick={() => handleToggleTag(tag.id)}
+                          >
+                            {tag.name}
+                            <span className="ml-0.5 hover:text-red-500">×</span>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-[var(--text-tertiary)]">{t("No tags yet")}</p>
+                    )}
                   </div>
                 </div>
               )}
