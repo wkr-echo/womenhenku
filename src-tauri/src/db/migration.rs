@@ -38,6 +38,11 @@ const MIGRATIONS: &[Migration] = &[
         name: "007_llm_usage",
         sql: include_str!("migrations/007_llm_usage.sql"),
     },
+    Migration {
+        version: 8,
+        name: "008_tag_schema_enhance",
+        sql: include_str!("migrations/008_tag_schema_enhance.sql"),
+    },
 ];
 
 struct Migration {
@@ -108,7 +113,7 @@ mod tests {
                 row.get(0)
             })
             .expect("Failed to query schema_version");
-        assert_eq!(version, 7);
+        assert_eq!(version, 8);
 
         // Verify core tables exist
         let tables: Vec<String> = conn
@@ -146,6 +151,6 @@ mod tests {
         let count: i32 = conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |row| row.get(0))
             .expect("Failed to count schema_version");
-        assert_eq!(count, 7); // 1, 2, 3, 4, 5, 6, 7 — seven migrations
+        assert_eq!(count, 8); // 1, 2, 3, 4, 5, 6, 7, 8 — eight migrations
     }
 }

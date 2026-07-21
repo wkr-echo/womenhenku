@@ -220,7 +220,7 @@ pub fn delete_tag(pool: &DbPool, id: i64) -> Result<(), String> {
 
 pub fn tag_entry(pool: &DbPool, entry_id: i64, tag_id: i64) -> Result<(), String> {
     let repo = crate::db::repository::TagRepository::new(pool.clone());
-    repo.add_tag_to_entry(entry_id, tag_id).map_err(|e| e.to_string())
+    repo.add_tag_to_entry(entry_id, tag_id, "manual", 0.0).map_err(|e| e.to_string())
 }
 
 pub fn untag_entry(pool: &DbPool, entry_id: i64, tag_id: i64) -> Result<(), String> {
@@ -253,9 +253,9 @@ pub fn list_entries_by_tag(pool: &DbPool, tag_id: i64, page: i32, page_size: i32
 // Tags Enhancements (Stage 5)
 // ============================================================
 
-pub fn update_tag_status(pool: &DbPool, id: i64, status: &str) -> Result<crate::db::model::Tag, String> {
+pub fn update_tag_status(pool: &DbPool, id: i64, is_provisional: bool) -> Result<crate::db::model::Tag, String> {
     let repo = crate::db::repository::TagRepository::new(pool.clone());
-    repo.update_status(id, status).map_err(|e| e.to_string())
+    repo.update_status(id, is_provisional).map_err(|e| e.to_string())
 }
 
 pub fn merge_tags(pool: &DbPool, source_id: i64, target_id: i64) -> Result<(), String> {
@@ -291,9 +291,29 @@ pub fn get_tag_recommendations(pool: &DbPool, entry_id: i64) -> Result<Vec<crate
 pub fn tag_entries_batch(pool: &DbPool, entry_ids: Vec<i64>, tag_id: i64) -> Result<(), String> {
     let repo = crate::db::repository::TagRepository::new(pool.clone());
     for entry_id in entry_ids {
-        repo.add_tag_to_entry(entry_id, tag_id).map_err(|e| e.to_string())?;
+        repo.add_tag_to_entry(entry_id, tag_id, "batch", 0.0).map_err(|e| e.to_string())?;
     }
     Ok(())
+}
+
+pub fn find_potential_duplicates(pool: &DbPool) -> Result<Vec<(crate::db::model::Tag, crate::db::model::Tag, String)>, String> {
+    let repo = crate::db::repository::TagRepository::new(pool.clone());
+    repo.find_potential_duplicates().map_err(|e| e.to_string())
+}
+
+pub fn find_unused_tags(pool: &DbPool) -> Result<Vec<crate::db::model::Tag>, String> {
+    let repo = crate::db::repository::TagRepository::new(pool.clone());
+    repo.find_unused().map_err(|e| e.to_string())
+}
+
+pub fn delete_unused_tags(pool: &DbPool) -> Result<usize, String> {
+    let repo = crate::db::repository::TagRepository::new(pool.clone());
+    repo.delete_unused_tags().map_err(|e| e.to_string())
+}
+
+pub fn get_tag_by_name(pool: &DbPool, name: &str) -> Result<Option<crate::db::model::Tag>, String> {
+    let repo = crate::db::repository::TagRepository::new(pool.clone());
+    repo.find_by_name(name).map_err(|e| e.to_string())
 }
 
 // ============================================================

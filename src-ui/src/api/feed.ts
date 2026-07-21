@@ -1,4 +1,4 @@
-import type { Feed, Entry, Content, EntryPage, Provider, Summary, Note, FeedSummary, ImportResult, Tag } from "@/lib/types";
+import type { Feed, Entry, Content, EntryPage, Provider, Summary, Note, FeedSummary, ImportResult, Tag, TagAlias, DuplicateTagPair } from "@/lib/types";
 
 // 检查是否在 Tauri 环境中
 export function isTauri(): boolean {
@@ -189,24 +189,24 @@ export async function getTagStats(tagId: number): Promise<{ entryCount: number }
 
 // ============ Tags Enhancements API (Stage 5) ============
 
-export async function updateTagStatus(id: number, status: string): Promise<Tag> {
-  return invoke<Tag>("update_tag_status", { id, status });
+export async function updateTagStatus(id: number, isProvisional: boolean): Promise<Tag> {
+  return invoke<Tag>("update_tag_status", { id, isProvisional });
 }
 
 export async function mergeTags(sourceId: number, targetId: number): Promise<void> {
   return invoke("merge_tags", { sourceId, targetId });
 }
 
-export async function addTagAlias(tagId: number, alias: string): Promise<{ id: number; tagId: number; alias: string; createdAt: string }> {
-  return invoke("add_tag_alias", { tagId, alias });
+export async function addTagAlias(tagId: number, alias: string): Promise<TagAlias> {
+  return invoke<TagAlias>("add_tag_alias", { tagId, alias });
 }
 
 export async function removeTagAlias(tagId: number, alias: string): Promise<void> {
   return invoke("remove_tag_alias", { tagId, alias });
 }
 
-export async function getTagAliases(tagId: number): Promise<{ id: number; tagId: number; alias: string; createdAt: string }[]> {
-  return invoke("get_tag_aliases", { tagId });
+export async function getTagAliases(tagId: number): Promise<TagAlias[]> {
+  return invoke<TagAlias[]>("get_tag_aliases", { tagId });
 }
 
 export async function saveTagRecommendations(entryId: number, recommendations: [string, string, number][]): Promise<void> {
@@ -219,6 +219,23 @@ export async function getTagRecommendations(entryId: number): Promise<{ id: numb
 
 export async function tagEntriesBatch(entryIds: number[], tagId: number): Promise<void> {
   return invoke("tag_entries_batch", { entryIds, tagId });
+}
+
+export async function findPotentialDuplicates(): Promise<DuplicateTagPair[]> {
+  const result: [Tag, Tag, string][] = await invoke("find_potential_duplicates");
+  return result.map(([tagA, tagB, reason]) => ({ tagA, tagB, reason }));
+}
+
+export async function findUnusedTags(): Promise<Tag[]> {
+  return invoke<Tag[]>("find_unused_tags");
+}
+
+export async function deleteUnusedTags(): Promise<number> {
+  return invoke<number>("delete_unused_tags");
+}
+
+export async function getTagByName(name: string): Promise<Tag | null> {
+  return invoke<Tag | null>("get_tag_by_name", { name });
 }
 
 // ============ LLM Usage Stats API (Stage 5) ============

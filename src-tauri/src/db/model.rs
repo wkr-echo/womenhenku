@@ -208,8 +208,9 @@ pub struct NewAgentRun {
 pub struct Tag {
     pub id: i64,
     pub name: String,
+    pub normalized_name: String,
     pub color: String,
-    pub status: String,
+    pub is_provisional: bool,
     pub usage_count: i64,
     pub created_at: String,
 }
@@ -219,6 +220,8 @@ pub struct Tag {
 pub struct EntryTag {
     pub entry_id: i64,
     pub tag_id: i64,
+    pub source: String,
+    pub confidence: f64,
     pub created_at: String,
 }
 
@@ -228,6 +231,7 @@ pub struct TagAlias {
     pub id: i64,
     pub tag_id: i64,
     pub alias: String,
+    pub normalized_alias: String,
     pub created_at: String,
 }
 

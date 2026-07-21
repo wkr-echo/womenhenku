@@ -127,8 +127,9 @@ export interface DigestTemplate {
 export interface Tag {
   id: number;
   name: string;
+  normalizedName: string;
   color: string;
-  status: string;
+  isProvisional: boolean;
   usageCount: number;
   createdAt: string;
 }
@@ -142,7 +143,14 @@ export interface TagAlias {
   id: number;
   tagId: number;
   alias: string;
+  normalizedAlias: string;
   createdAt: string;
+}
+
+export interface DuplicateTagPair {
+  tagA: Tag;
+  tagB: Tag;
+  reason: string;
 }
 
 export interface TagRecommendation {

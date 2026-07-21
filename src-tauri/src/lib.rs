@@ -183,6 +183,10 @@ pub fn run() {
             save_tag_recommendations,
             get_tag_recommendations,
             tag_entries_batch,
+            find_potential_duplicates,
+            find_unused_tags,
+            delete_unused_tags,
+            get_tag_by_name,
             // LLM Usage Stats (Stage 5)
             insert_llm_usage_event,
             get_llm_usage_stats,
@@ -508,8 +512,8 @@ fn list_entries_by_tag(state: State<'_, DbPool>, tag_id: i64, page: i32, page_si
 
 #[cfg(feature = "tauri-runtime")]
 #[tauri::command]
-fn update_tag_status(state: State<'_, DbPool>, id: i64, status: String) -> Result<crate::db::model::Tag, String> {
-    commands::update_tag_status(&state, id, &status)
+fn update_tag_status(state: State<'_, DbPool>, id: i64, is_provisional: bool) -> Result<crate::db::model::Tag, String> {
+    commands::update_tag_status(&state, id, is_provisional)
 }
 
 #[cfg(feature = "tauri-runtime")]
@@ -552,6 +556,30 @@ fn get_tag_recommendations(state: State<'_, DbPool>, entry_id: i64) -> Result<Ve
 #[tauri::command]
 fn tag_entries_batch(state: State<'_, DbPool>, entry_ids: Vec<i64>, tag_id: i64) -> Result<(), String> {
     commands::tag_entries_batch(&state, entry_ids, tag_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn find_potential_duplicates(state: State<'_, DbPool>) -> Result<Vec<(crate::db::model::Tag, crate::db::model::Tag, String)>, String> {
+    commands::find_potential_duplicates(&state)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn find_unused_tags(state: State<'_, DbPool>) -> Result<Vec<crate::db::model::Tag>, String> {
+    commands::find_unused_tags(&state)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn delete_unused_tags(state: State<'_, DbPool>) -> Result<usize, String> {
+    commands::delete_unused_tags(&state)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_tag_by_name(state: State<'_, DbPool>, name: String) -> Result<Option<crate::db::model::Tag>, String> {
+    commands::get_tag_by_name(&state, &name)
 }
 
 // -- LLM Usage Stats (Stage 5) --
