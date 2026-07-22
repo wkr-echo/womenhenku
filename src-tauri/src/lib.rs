@@ -183,6 +183,7 @@ pub fn run() {
             get_tag_aliases,
             save_tag_recommendations,
             get_tag_recommendations,
+            generate_tag_recommendations,
             tag_entries_batch,
             find_potential_duplicates,
             find_unused_tags,
@@ -557,6 +558,12 @@ fn save_tag_recommendations(state: State<'_, DbPool>, entry_id: i64, recommendat
 #[tauri::command]
 fn get_tag_recommendations(state: State<'_, DbPool>, entry_id: i64) -> Result<Vec<crate::db::model::TagRecommendation>, String> {
     commands::get_tag_recommendations(&state, entry_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn generate_tag_recommendations(state: State<'_, DbPool>, entry_id: i64) -> Result<Vec<crate::db::model::TagRecommendation>, String> {
+    commands::generate_tag_recommendations(&state, entry_id).await
 }
 
 #[cfg(feature = "tauri-runtime")]

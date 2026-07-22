@@ -104,6 +104,53 @@ impl AiClient {
         Self { http_client }
     }
 
+    /// 发送非流式请求，返回 LLM 回复文本
+    pub async fn chat(
+        &self,
+        base_url: &str,
+        api_key: &str,
+        model: &str,
+        system_prompt: &str,
+        user_prompt: &str,
+    ) -> Result<String, AiClientError> {
+        let url = format!("{}/chat/completions", base_url.trim_end_matches('/'));
+
+        let body = json!({
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            "temperature": 0.3,
+            "stream": false,
+        });
+
+        let mut req = self.http_client.post(&url).json(&body);
+        if !api_key.is_empty() {
+            req = req.header("Authorization", format!("Bearer {}", api_key));
+        }
+
+        let resp = req
+            .send()
+            .await
+            .map_err(|e| AiClientError::Http(e.to_string()))?;
+
+        let status = resp.status().as_u16();
+        let text = resp.text().await.unwrap_or_default();
+
+        if status == 200 || status == 201 {
+            let parsed: serde_json::Value = serde_json::from_str(&text)
+                .map_err(|e| AiClientError::SseParse(format!("JSON parse: {}", e)))?;
+            let content = parsed["choices"][0]["message"]["content"]
+                .as_str()
+                .unwrap_or("")
+                .to_string();
+            Ok(content)
+        } else {
+            Err(AiClientError::Api(format!("HTTP {}: {}", status, text)))
+        }
+    }
+
     /// 发送非流式请求（用于连接验证）
     pub async fn validate(
         &self,

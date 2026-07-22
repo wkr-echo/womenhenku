@@ -411,3 +411,91 @@ pub fn export_multi_digest(
 pub fn write_text_file(path: &str, content: &str) -> Result<(), String> {
     std::fs::write(path, content).map_err(|e| format!("Failed to write file: {}", e))
 }
+
+// ============================================================
+// AI Tag Recommendations
+// ============================================================
+
+/// Generate tag recommendations for an article using AI.
+/// Returns the generated recommendations.
+pub async fn generate_tag_recommendations(
+    pool: &DbPool,
+    entry_id: i64,
+) -> Result<Vec<crate::db::model::TagRecommendation>, String> {
+    // Get article content
+    let content_repo = crate::db::repository::ContentRepository::new(pool.clone());
+    let content = content_repo
+        .find_by_entry_id(entry_id)
+        .map_err(|e| format!("读取文章内容失败: {}", e))?
+        .ok_or_else(|| "文章内容不存在".to_string())?;
+
+    let entry_repo = crate::db::repository::EntryRepository::new(pool.clone());
+    let entry = entry_repo
+        .find_by_id(entry_id)
+        .map_err(|e| format!("读取文章失败: {}", e))?
+        .ok_or_else(|| "文章不存在".to_string())?;
+
+    // Get default provider
+    let provider_repo = crate::db::repository::ProviderRepository::new(pool.clone());
+    let provider = provider_repo
+        .find_default()
+        .map_err(|e| format!("读取 Provider 失败: {}", e))?
+        .ok_or_else(|| "未配置默认 AI Provider".to_string())?;
+
+    let models = provider_repo
+        .list_models(provider.id)
+        .map_err(|e| format!("读取模型列表失败: {}", e))?;
+
+    let model = models
+        .iter()
+        .find(|m| m.is_default)
+        .map(|m| m.model_name.clone())
+        .or_else(|| models.first().map(|m| m.model_name.clone()))
+        .unwrap_or_else(|| "gpt-3.5-turbo".to_string());
+
+    let api_key = crate::agent::crypto::decrypt(&provider.api_key_ref)
+        .unwrap_or_else(|_| provider.api_key_ref.clone());
+
+    // Build article text for analysis (title + first 2000 chars of content)
+    let article_text = content
+        .cleaned_markdown
+        .unwrap_or_else(|| content.raw_html.clone());
+    let truncated: String = article_text.chars().take(2000).collect();
+
+    let system_prompt = "你是一个文章标签推荐助手。根据文章标题和内容，推荐3-5个简洁的标签（每标签1-3个词）。只输出标签名，用逗号分隔，不要加编号、解释或任何其他内容。";
+    let user_prompt = format!("标题：{}\n\n内容：{}", entry.title, truncated);
+
+    // Call AI
+    let client = crate::agent::client::AiClient::new();
+    let response = client
+        .chat(&provider.base_url, &api_key, &model, system_prompt, &user_prompt)
+        .await
+        .map_err(|e| format!("AI 调用失败: {}", e))?;
+
+    // Parse response: comma-separated tag names
+    let tag_names: Vec<String> = response
+        .split(|c: char| c == ',' || c == '，' || c == '\n')
+        .map(|s| s.trim().trim_matches(|c: char| c == '"' || c == '\'' || c == ' ' || c == '.' || c == '-' || c == '*').to_string())
+        .filter(|s| !s.is_empty() && s.len() <= 50)
+        .take(5)
+        .collect();
+
+    if tag_names.is_empty() {
+        return Err("AI 未返回有效标签".to_string());
+    }
+
+    // Save to database
+    let tag_repo = crate::db::repository::TagRepository::new(pool.clone());
+    let recommendations: Vec<(String, String, f64)> = tag_names
+        .iter()
+        .map(|name| (name.clone(), "ai".to_string(), 0.8))
+        .collect();
+    tag_repo
+        .save_recommendations(entry_id, &recommendations)
+        .map_err(|e| format!("保存推荐失败: {}", e))?;
+
+    // Return the saved recommendations
+    tag_repo
+        .find_recommendations_by_entry_id(entry_id)
+        .map_err(|e| format!("读取推荐失败: {}", e))
+}

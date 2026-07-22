@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { t } from "@/lib/utils";
-import { getEntryTags, listTags, addTag, tagEntry, untagEntry, getTagRecommendations } from "@/api/feed";
+import { getEntryTags, listTags, addTag, tagEntry, untagEntry, getTagRecommendations, generateTagRecommendations } from "@/api/feed";
 import { useApp } from "@/contexts/AppContext";
 import type { Tag } from "@/lib/types";
 import { toast } from "@/components/ui/Toast";
@@ -125,6 +125,20 @@ export function TagPanelView({ entryId }: TagPanelViewProps) {
     }
   }, [allTags, entryId, reloadTags]);
 
+  const handleGenerateRecommendations = useCallback(async () => {
+    setIsLoadingRecommendations(true);
+    try {
+      const recs = await generateTagRecommendations(entryId);
+      setRecommendations(recs);
+      toast(t("AI 推荐已生成"), "success");
+    } catch (e: any) {
+      console.error("Failed to generate recommendations", e);
+      toast(t("生成推荐失败: ") + String(e?.message || e?.toString?.() || String(e)), "error");
+    } finally {
+      setIsLoadingRecommendations(false);
+    }
+  }, [entryId]);
+
   return (
     <div style={{
       position: "absolute", right: 0, top: 8, width: 280,
@@ -161,7 +175,7 @@ export function TagPanelView({ entryId }: TagPanelViewProps) {
       {isLoadingRecommendations ? (
         <div style={{ marginBottom: 16 }}>
           <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>AI 推荐标签</p>
-          <p style={{ fontSize: 12, color: "#9ca3af" }}>加载中...</p>
+          <p style={{ fontSize: 12, color: "#9ca3af" }}>生成中...</p>
         </div>
       ) : recommendations.length > 0 ? (
         <div style={{ marginBottom: 16 }}>
@@ -182,8 +196,30 @@ export function TagPanelView({ entryId }: TagPanelViewProps) {
               </span>
             ))}
           </div>
+          <button
+            onClick={handleGenerateRecommendations}
+            style={{
+              marginTop: 6, padding: "4px 10px", fontSize: 11,
+              backgroundColor: "transparent", color: "#6b7280",
+              border: "1px solid #d1d5db", borderRadius: 4,
+              cursor: "pointer"
+            }}
+          >重新生成</button>
         </div>
-      ) : null}
+      ) : (
+        <div style={{ marginBottom: 16 }}>
+          <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>AI 推荐标签</p>
+          <button
+            onClick={handleGenerateRecommendations}
+            style={{
+              padding: "6px 12px", fontSize: 12,
+              backgroundColor: "#2563eb", color: "white",
+              border: "none", borderRadius: 6,
+              cursor: "pointer"
+            }}
+          >AI 生成推荐</button>
+        </div>
+      )}
 
       <div style={{ marginBottom: 16 }}>
         <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>已有标签 ({allTags.length})</p>

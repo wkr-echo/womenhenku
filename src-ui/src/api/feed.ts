@@ -253,6 +253,10 @@ export async function getTagRecommendations(entryId: number): Promise<{ id: numb
   return invoke("get_tag_recommendations", { entryId });
 }
 
+export async function generateTagRecommendations(entryId: number): Promise<{ id: number; entryId: number; tagName: string; sourceType: string; confidence: number; createdAt: string }[]> {
+  return invoke("generate_tag_recommendations", { entryId });
+}
+
 export async function tagEntriesBatch(entryIds: number[], tagId: number): Promise<void> {
   return invoke("tag_entries_batch", { entryIds, tagId });
 }
