@@ -308,5 +308,9 @@
   "默认模型名": "Default Model",
   "5（快）": "5 (fast)",
   "标准": "Standard",
-  "1（慢）": "1 (slow)"
+  "1（慢）": "1 (slow)",
+  "刚刚": "just now",
+  "分钟前": "min ago",
+  "小时前": "hr ago",
+  "天前": "d ago"
 }
