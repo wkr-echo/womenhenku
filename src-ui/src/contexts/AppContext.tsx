@@ -156,9 +156,20 @@ function reducer(state: State, action: Action): State {
     case "TOGGLE_TAG_SELECTION": {
       const current = state.selectedTagIds;
       if (current.includes(action.tagId)) {
-        return { ...state, selectedTagIds: current.filter(id => id !== action.tagId) };
+        const next = current.filter(id => id !== action.tagId);
+        return { 
+          ...state, 
+          selectedTagIds: next,
+          viewMode: next.length > 0 ? "list" : state.viewMode,
+          selectedFeedId: null,
+        };
       } else {
-        return { ...state, selectedTagIds: [...current, action.tagId] };
+        return { 
+          ...state, 
+          selectedTagIds: [...current, action.tagId],
+          viewMode: "list",
+          selectedFeedId: null,
+        };
       }
     }
     case "SET_TAG_MATCH_MODE":
