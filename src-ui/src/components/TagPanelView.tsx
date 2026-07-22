@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { t } from "@/lib/utils";
 import { getEntryTags, listTags, addTag, tagEntry, untagEntry, getTagRecommendations } from "@/api/feed";
+import { useApp } from "@/contexts/AppContext";
 import type { Tag } from "@/lib/types";
 import { toast } from "@/components/ui/Toast";
 
@@ -25,6 +26,7 @@ interface TagRecommendation {
 }
 
 export function TagPanelView({ entryId }: TagPanelViewProps) {
+  const { reloadTags } = useApp();
   const [entryTags, setEntryTags] = useState<Tag[]>([]);
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [newTagName, setNewTagName] = useState("");
@@ -76,12 +78,13 @@ export function TagPanelView({ entryId }: TagPanelViewProps) {
         setAllTags(prev => [...prev, tag]);
       }
       setNewTagName("");
+      reloadTags();
       toast(t("标签已添加"), "success");
     } catch (e: any) {
       console.error("Failed to add tag", e);
       toast(t("添加标签失败: ") + String(e), "error");
     }
-  }, [newTagName, allTags, entryId]);
+  }, [newTagName, allTags, entryId, reloadTags]);
 
   const handleToggleTag = useCallback(async (tagId: number) => {
     const isTagged = entryTags.some(t => t.id === tagId);
@@ -114,12 +117,13 @@ export function TagPanelView({ entryId }: TagPanelViewProps) {
         setAllTags(prev => [...prev, tag]);
       }
       setRecommendations(prev => prev.filter(r => r.id !== rec.id));
+      reloadTags();
       toast(t("标签已添加"), "success");
     } catch (e: any) {
       console.error("Failed to add recommended tag", e);
       toast(String(e), "error");
     }
-  }, [allTags, entryId]);
+  }, [allTags, entryId, reloadTags]);
 
   return (
     <div style={{
