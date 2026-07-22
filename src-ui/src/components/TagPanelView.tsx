@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { t } from "@/lib/utils";
-import { getEntryTags, listTags, addTag, tagEntry, untagEntry, getTagRecommendations, generateTagRecommendations } from "@/api/feed";
+import { getEntryTags, listTags, addTag, tagEntry, untagEntry, generateTagRecommendations } from "@/api/feed";
 import { useApp } from "@/contexts/AppContext";
 import type { Tag } from "@/lib/types";
 import { toast } from "@/components/ui/Toast";
@@ -16,51 +16,100 @@ interface TagPanelViewProps {
   contentMarkdown?: string;
 }
 
-interface TagRecommendation {
-  id: number;
-  entryId: number;
+interface TagSuggestion {
   tagName: string;
-  sourceType: string;
+  sourceType: "ai" | "nlp";
   confidence: number;
-  createdAt: string;
 }
 
-export function TagPanelView({ entryId }: TagPanelViewProps) {
-  const { reloadTags } = useApp();
+/** NLP: extract capitalized words (>=3 chars, <=4 words, <=25 chars total) from title+summary */
+function extractNlpEntities(title: string, summary?: string): string[] {
+  const results = new Set<string>();
+  const re = /\b[A-Z][a-zA-Z]{2,}(?:\s+[A-Z][a-zA-Z]{2,}){0,3}\b/g;
+  const titleMatches = title.match(re) || [];
+  for (const m of titleMatches) {
+    if (m.length <= 25 && m.split(/\s+/).length <= 4) results.add(m);
+  }
+  if (summary) {
+    const sm = summary.match(re) || [];
+    for (const m of sm) {
+      if (m.length <= 25 && m.split(/\s+/).length <= 4) results.add(m);
+    }
+  }
+  return Array.from(results).slice(0, 10);
+}
+
+export function TagPanelView({ entryId, selectedEntryTitle, contentMarkdown }: TagPanelViewProps) {
+  const { reloadTags, tags: appTags } = useApp();
   const [entryTags, setEntryTags] = useState<Tag[]>([]);
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [newTagName, setNewTagName] = useState("");
-  const [recommendations, setRecommendations] = useState<TagRecommendation[]>([]);
-  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<TagSuggestion[]>([]);
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const aiAbortRef = useRef(false);
 
+  // NLP extraction (sync, runs immediately on render)
+  const nlpSuggestions = useMemo(() => {
+    return extractNlpEntities(selectedEntryTitle, contentMarkdown).map(name => ({
+      tagName: name,
+      sourceType: "nlp" as const,
+      confidence: 0.5,
+    }));
+  }, [selectedEntryTitle, contentMarkdown]);
+
+  // Load tags + auto-generate AI recommendations on entry change
   useEffect(() => {
-    async function loadTags() {
+    let cancelled = false;
+    aiAbortRef.current = false;
+
+    (async () => {
       try {
         const [entryT, allT] = await Promise.all([getEntryTags(entryId), listTags()]);
-        setEntryTags(entryT);
-        setAllTags(allT);
+        if (!cancelled) { setEntryTags(entryT); setAllTags(allT); }
       } catch (e: any) {
-        console.error("Failed to load tags", e);
-        toast(t("加载标签失败") + ": " + String(e?.message || e?.toString?.() || String(e)), "error");
+        if (!cancelled) toast(t("加载标签失败") + ": " + String(e?.message || String(e)), "error");
       }
-    }
-    loadTags();
-  }, [entryId]);
+    })();
 
-  useEffect(() => {
-    async function loadRecommendations() {
-      setIsLoadingRecommendations(true);
+    // Auto-generate AI recommendations (silent fail)
+    (async () => {
+      setIsAiLoading(true);
       try {
-        const recs = await getTagRecommendations(entryId);
-        setRecommendations(recs);
-      } catch (e) {
-        console.error("Failed to load recommendations", e);
+        const existingNames = appTags.map(t => t.name);
+        const recs = await generateTagRecommendations(entryId, existingNames);
+        if (!cancelled && !aiAbortRef.current) {
+          setAiSuggestions(recs.map(r => ({
+            tagName: r.tagName,
+            sourceType: "ai" as const,
+            confidence: r.confidence,
+          })));
+        }
+      } catch {
+        // Silent fail — NLP results still show
       } finally {
-        setIsLoadingRecommendations(false);
+        if (!cancelled) setIsAiLoading(false);
       }
+    })();
+
+    return () => {
+      cancelled = true;
+      aiAbortRef.current = true;
+    };
+  }, [entryId, appTags]);
+
+  // Merge AI + NLP, filter applied tags, AI first
+  const allSuggestions = useMemo(() => {
+    const appliedNames = new Set(entryTags.map(t => t.name.toLowerCase()));
+    const seen = new Set<string>();
+    const merged: TagSuggestion[] = [];
+    for (const s of [...aiSuggestions, ...nlpSuggestions]) {
+      const lower = s.tagName.toLowerCase();
+      if (appliedNames.has(lower) || seen.has(lower)) continue;
+      seen.add(lower);
+      merged.push(s);
     }
-    loadRecommendations();
-  }, [entryId]);
+    return merged;
+  }, [aiSuggestions, nlpSuggestions, entryTags]);
 
   const handleAddNewTag = useCallback(async () => {
     if (!newTagName.trim()) return;
@@ -79,9 +128,7 @@ export function TagPanelView({ entryId }: TagPanelViewProps) {
       }
       setNewTagName("");
       reloadTags();
-      toast(t("标签已添加"), "success");
     } catch (e: any) {
-      console.error("Failed to add tag", e);
       toast(t("添加标签失败: ") + String(e), "error");
     }
   }, [newTagName, allTags, entryId, reloadTags]);
@@ -98,126 +145,74 @@ export function TagPanelView({ entryId }: TagPanelViewProps) {
         if (tag) setEntryTags(prev => [...prev, tag]);
       }
     } catch (e: any) {
-      console.error("Failed to toggle tag", e);
       toast(String(e), "error");
     }
   }, [entryTags, allTags, entryId]);
 
-  const handleAddRecommendedTag = useCallback(async (rec: TagRecommendation) => {
+  const handleAddSuggested = useCallback(async (suggestion: TagSuggestion) => {
     try {
-      const existingTag = allTags.find(t => t.name.toLowerCase() === rec.tagName.toLowerCase());
+      const existingTag = allTags.find(t => t.name.toLowerCase() === suggestion.tagName.toLowerCase());
       if (existingTag) {
         await tagEntry(entryId, existingTag.id);
         setEntryTags(prev => [...prev, existingTag]);
       } else {
         const color = TAG_COLORS[Math.floor(Math.random() * TAG_COLORS.length)];
-        const tag = await addTag(rec.tagName, color);
+        const tag = await addTag(suggestion.tagName, color);
         await tagEntry(entryId, tag.id);
         setEntryTags(prev => [...prev, tag]);
         setAllTags(prev => [...prev, tag]);
       }
-      setRecommendations(prev => prev.filter(r => r.id !== rec.id));
+      if (suggestion.sourceType === "ai") {
+        setAiSuggestions(prev => prev.filter(s => s.tagName !== suggestion.tagName));
+      }
       reloadTags();
-      toast(t("标签已添加"), "success");
     } catch (e: any) {
-      console.error("Failed to add recommended tag", e);
       toast(String(e), "error");
     }
   }, [allTags, entryId, reloadTags]);
-
-  const handleGenerateRecommendations = useCallback(async () => {
-    setIsLoadingRecommendations(true);
-    try {
-      const recs = await generateTagRecommendations(entryId);
-      setRecommendations(recs);
-      toast(t("AI 推荐已生成"), "success");
-    } catch (e: any) {
-      console.error("Failed to generate recommendations", e);
-      toast(t("生成推荐失败: ") + String(e?.message || e?.toString?.() || String(e)), "error");
-    } finally {
-      setIsLoadingRecommendations(false);
-    }
-  }, [entryId]);
 
   return (
     <div style={{
       position: "absolute", right: 0, top: 8, width: 280,
       backgroundColor: "white", border: "1px solid #e5e7eb",
       borderRadius: 8, boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
-      padding: 16, zIndex: 100
+      padding: 16, zIndex: 100, maxHeight: "80vh", overflowY: "auto",
     }}>
       <div style={{ marginBottom: 16 }}>
-        <input
-          type="text"
-          value={newTagName}
-          onChange={(e) => setNewTagName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") { e.preventDefault(); handleAddNewTag(); }
-          }}
+        <input type="text" value={newTagName} onChange={(e) => setNewTagName(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddNewTag(); } }}
           placeholder="输入标签"
-          style={{
-            width: "100%", padding: "8px 12px", fontSize: 14,
-            backgroundColor: "#f9fafb", border: "1px solid #d1d5db",
-            borderRadius: 6, boxSizing: "border-box"
-          }}
-        />
-        <button
-          onClick={handleAddNewTag}
-          disabled={!newTagName.trim()}
-          style={{
-            marginTop: 8, width: "100%", padding: "8px", fontSize: 12,
-            backgroundColor: "#2563eb", color: "white", border: "none",
-            borderRadius: 6, cursor: "pointer"
-          }}
-        >添加</button>
+          style={{ width: "100%", padding: "8px 12px", fontSize: 14,
+            backgroundColor: "#f9fafb", border: "1px solid #d1d5db", borderRadius: 6, boxSizing: "border-box" }} />
+        <button onClick={handleAddNewTag} disabled={!newTagName.trim()}
+          style={{ marginTop: 8, width: "100%", padding: "8px", fontSize: 12,
+            backgroundColor: "#2563eb", color: "white", border: "none", borderRadius: 6, cursor: "pointer" }}>
+          添加
+        </button>
       </div>
 
-      {isLoadingRecommendations ? (
+      {(allSuggestions.length > 0 || isAiLoading) && (
         <div style={{ marginBottom: 16 }}>
-          <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>AI 推荐标签</p>
-          <p style={{ fontSize: 12, color: "#9ca3af" }}>生成中...</p>
-        </div>
-      ) : recommendations.length > 0 ? (
-        <div style={{ marginBottom: 16 }}>
-          <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>AI 推荐标签 ({recommendations.length})</p>
+          <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>
+            {t("建议标签")}
+            {isAiLoading && <span style={{ color: "#9ca3af", marginLeft: 4 }}>AI 生成中...</span>}
+          </p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {recommendations.map((rec, index) => (
-              <span
-                key={`${rec.id}-${index}`}
-                onClick={() => handleAddRecommendedTag(rec)}
-                style={{
-                  padding: "4px 8px", fontSize: 12, borderRadius: 12,
-                  backgroundColor: "#dbeafe", color: "#1d4ed8",
-                  border: "1px solid #93c5fd",
-                  cursor: "pointer"
-                }}
-              >
-                + {rec.tagName}
+            {aiSuggestions.map((s, i) => (
+              <span key={`ai-${i}`} onClick={() => handleAddSuggested(s)}
+                style={{ padding: "4px 8px", fontSize: 12, borderRadius: 12,
+                  backgroundColor: "#dbeafe", color: "#1d4ed8", border: "1px solid #93c5fd", cursor: "pointer" }}>
+                + {s.tagName}
+              </span>
+            ))}
+            {nlpSuggestions.map((s, i) => (
+              <span key={`nlp-${i}`} onClick={() => handleAddSuggested(s)}
+                style={{ padding: "4px 8px", fontSize: 12, borderRadius: 12,
+                  backgroundColor: "#f3f4f6", color: "#4b5563", border: "1px solid #d1d5db", cursor: "pointer" }}>
+                + {s.tagName}
               </span>
             ))}
           </div>
-          <button
-            onClick={handleGenerateRecommendations}
-            style={{
-              marginTop: 6, padding: "4px 10px", fontSize: 11,
-              backgroundColor: "transparent", color: "#6b7280",
-              border: "1px solid #d1d5db", borderRadius: 4,
-              cursor: "pointer"
-            }}
-          >重新生成</button>
-        </div>
-      ) : (
-        <div style={{ marginBottom: 16 }}>
-          <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>AI 推荐标签</p>
-          <button
-            onClick={handleGenerateRecommendations}
-            style={{
-              padding: "6px 12px", fontSize: 12,
-              backgroundColor: "#2563eb", color: "white",
-              border: "none", borderRadius: 6,
-              cursor: "pointer"
-            }}
-          >AI 生成推荐</button>
         </div>
       )}
 
@@ -225,17 +220,10 @@ export function TagPanelView({ entryId }: TagPanelViewProps) {
         <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>已有标签 ({allTags.length})</p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           {allTags.map(tag => (
-            <span
-              key={tag.id}
-              onClick={() => handleToggleTag(tag.id)}
-              style={{
-                padding: "4px 8px", fontSize: 12, borderRadius: 12,
-                backgroundColor: "#f3f4f6", color: "#4b5563",
-                border: "1px solid #d1d5db",
-                cursor: "pointer",
-                opacity: entryTags.some(et => et.id === tag.id) ? 0.5 : 1
-              }}
-            >
+            <span key={tag.id} onClick={() => handleToggleTag(tag.id)}
+              style={{ padding: "4px 8px", fontSize: 12, borderRadius: 12,
+                backgroundColor: "#f3f4f6", color: "#4b5563", border: "1px solid #d1d5db",
+                cursor: "pointer", opacity: entryTags.some(et => et.id === tag.id) ? 0.5 : 1 }}>
               {tag.name}
             </span>
           ))}
@@ -247,30 +235,17 @@ export function TagPanelView({ entryId }: TagPanelViewProps) {
         {entryTags.length > 0 ? (
           <div>
             {entryTags.map(tag => (
-              <button
-                key={tag.id}
-                onClick={() => handleToggleTag(tag.id)}
-                style={{
-                  width: "100%",
-                  marginBottom: 6,
-                  padding: "10px 14px", fontSize: 14,
-                  backgroundColor: "#2563eb", color: "white",
-                  border: "2px solid #1d4ed8",
-                  borderRadius: 8,
-                  cursor: "pointer",
-                  fontWeight: "bold",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between"
-                }}
-              >
-                <span>{tag.name}</span>
-                <span style={{ fontSize: 20, fontWeight: "normal" }}>✕</span>
+              <button key={tag.id} onClick={() => handleToggleTag(tag.id)}
+                style={{ width: "100%", marginBottom: 6, padding: "10px 14px", fontSize: 14,
+                  backgroundColor: "#2563eb", color: "white", border: "2px solid #1d4ed8",
+                  borderRadius: 8, cursor: "pointer", fontWeight: "bold",
+                  display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                {tag.name} <span style={{ fontSize: 12, opacity: 0.7 }}>×</span>
               </button>
             ))}
           </div>
         ) : (
-          <p style={{ fontSize: 12, color: "#9ca3af" }}>暂无标签</p>
+          <p style={{ fontSize: 12, color: "#9ca3af" }}>暂无</p>
         )}
       </div>
     </div>

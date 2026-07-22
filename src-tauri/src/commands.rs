@@ -421,19 +421,21 @@ pub fn write_text_file(path: &str, content: &str) -> Result<(), String> {
 pub async fn generate_tag_recommendations(
     pool: &DbPool,
     entry_id: i64,
+    existing_tags: Vec<String>,
 ) -> Result<Vec<crate::db::model::TagRecommendation>, String> {
-    // Get article content
-    let content_repo = crate::db::repository::ContentRepository::new(pool.clone());
-    let content = content_repo
-        .find_by_entry_id(entry_id)
-        .map_err(|e| format!("读取文章内容失败: {}", e))?
-        .ok_or_else(|| "文章内容不存在".to_string())?;
-
+    // Get article title + summary (first 2000 chars only, no full content)
     let entry_repo = crate::db::repository::EntryRepository::new(pool.clone());
     let entry = entry_repo
         .find_by_id(entry_id)
         .map_err(|e| format!("读取文章失败: {}", e))?
         .ok_or_else(|| "文章不存在".to_string())?;
+
+    let article_text = format!(
+        "标题：{}\n摘要：{}",
+        entry.title,
+        entry.summary
+    );
+    let truncated: String = article_text.chars().take(2000).collect();
 
     // Get default provider
     let provider_repo = crate::db::repository::ProviderRepository::new(pool.clone());
@@ -456,26 +458,45 @@ pub async fn generate_tag_recommendations(
     let api_key = crate::agent::crypto::decrypt(&provider.api_key_ref)
         .unwrap_or_else(|_| provider.api_key_ref.clone());
 
-    // Build article text for analysis (title + first 2000 chars of content)
-    let article_text = content
-        .cleaned_markdown
-        .unwrap_or_else(|| content.raw_html.clone());
-    let truncated: String = article_text.chars().take(2000).collect();
+    // Inject existing tag library as vocabulary reference
+    let tags_json = serde_json::to_string(&existing_tags).unwrap_or_else(|_| "[]".to_string());
 
-    let system_prompt = "你是一个文章标签推荐助手。根据文章标题和内容，推荐3-5个简洁的标签（每标签1-3个词）。只输出标签名，用逗号分隔，不要加编号、解释或任何其他内容。";
-    let user_prompt = format!("标题：{}\n\n内容：{}", entry.title, truncated);
+    let system_prompt = "你是一个文章标签推荐助手。根据文章标题和摘要，推荐3-5个简洁精准的标签。优先使用已有标签库中的标签名。用JSON数组格式返回，如：[\"tag1\",\"tag2\"]。只输出JSON，不要其他内容。";
 
-    // Call AI
+    let user_prompt = format!(
+        "已有标签库：{}\n\n文章信息：{}",
+        tags_json,
+        truncated
+    );
+
+    // Call AI with timeout
     let client = crate::agent::client::AiClient::new();
-    let response = client
-        .chat(&provider.base_url, &api_key, &model, system_prompt, &user_prompt)
-        .await
-        .map_err(|e| format!("AI 调用失败: {}", e))?;
+    let response = tokio::time::timeout(
+        std::time::Duration::from_secs(60),
+        client.chat(&provider.base_url, &api_key, &model, system_prompt, &user_prompt),
+    )
+    .await
+    .map_err(|_| "AI 请求超时（60秒）".to_string())?
+    .map_err(|e| format!("AI 调用失败: {}", e))?;
 
-    // Parse response: comma-separated tag names
-    let tag_names: Vec<String> = response
-        .split(|c: char| c == ',' || c == '，' || c == '\n')
-        .map(|s| s.trim().trim_matches(|c: char| c == '"' || c == '\'' || c == ' ' || c == '.' || c == '-' || c == '*').to_string())
+    // Parse JSON response
+    let tag_names: Vec<String> = serde_json::from_str::<Vec<String>>(&response)
+        .unwrap_or_else(|_| {
+            // Fallback: try to extract JSON array from text
+            if let Some(start) = response.find('[') {
+                if let Some(end) = response.rfind(']') {
+                    let json_part = &response[start..=end];
+                    serde_json::from_str(json_part).unwrap_or_default()
+                } else {
+                    vec![]
+                }
+            } else {
+                vec![]
+            }
+        });
+
+    let tag_names: Vec<String> = tag_names
+        .into_iter()
         .filter(|s| !s.is_empty() && s.len() <= 50)
         .take(5)
         .collect();
@@ -494,7 +515,6 @@ pub async fn generate_tag_recommendations(
         .save_recommendations(entry_id, &recommendations)
         .map_err(|e| format!("保存推荐失败: {}", e))?;
 
-    // Return the saved recommendations
     tag_repo
         .find_recommendations_by_entry_id(entry_id)
         .map_err(|e| format!("读取推荐失败: {}", e))

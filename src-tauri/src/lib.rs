@@ -562,8 +562,8 @@ fn get_tag_recommendations(state: State<'_, DbPool>, entry_id: i64) -> Result<Ve
 
 #[cfg(feature = "tauri-runtime")]
 #[tauri::command]
-async fn generate_tag_recommendations(state: State<'_, DbPool>, entry_id: i64) -> Result<Vec<crate::db::model::TagRecommendation>, String> {
-    commands::generate_tag_recommendations(&state, entry_id).await
+async fn generate_tag_recommendations(state: State<'_, DbPool>, entry_id: i64, existing_tags: Vec<String>) -> Result<Vec<crate::db::model::TagRecommendation>, String> {
+    commands::generate_tag_recommendations(&state, entry_id, existing_tags).await
 }
 
 #[cfg(feature = "tauri-runtime")]
