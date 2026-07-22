@@ -1,4 +1,4 @@
-{
+const translations: Record<string, string> = {
   "7天": "7天",
   "14天": "14天",
   "30天": "30天",
@@ -310,3 +310,4 @@
   "标准": "标准",
   "1（慢）": "1（慢）"
 }
+export default translations;
