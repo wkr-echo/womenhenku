@@ -292,7 +292,7 @@ impl EntryRepository {
         let (count_sql, list_sql) = if match_mode == "and" {
             let tag_count = tag_ids.len() as i64;
             (
-                format!("SELECT COUNT(*) FROM entries e JOIN entry_tags et ON e.id = et.entry_id WHERE et.tag_id IN ({}) GROUP BY e.id HAVING COUNT(DISTINCT et.tag_id) = {}", placeholders_str, tag_count),
+                format!("SELECT COUNT(*) FROM (SELECT e.id FROM entries e JOIN entry_tags et ON e.id = et.entry_id WHERE et.tag_id IN ({}) GROUP BY e.id HAVING COUNT(DISTINCT et.tag_id) = {})", placeholders_str, tag_count),
                 format!("SELECT e.id, e.feed_id, e.title, e.author, e.summary, e.published_at, e.is_read FROM entries e JOIN entry_tags et ON e.id = et.entry_id WHERE et.tag_id IN ({}) GROUP BY e.id HAVING COUNT(DISTINCT et.tag_id) = {} ORDER BY COALESCE(e.published_at, e.created_at) DESC LIMIT ?{} OFFSET ?{}", placeholders_str, tag_count, tag_ids.len() + 1, tag_ids.len() + 2),
             )
         } else {
