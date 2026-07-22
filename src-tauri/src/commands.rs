@@ -515,6 +515,25 @@ pub async fn generate_tag_recommendations(
         .save_recommendations(entry_id, &recommendations)
         .map_err(|e| format!("保存推荐失败: {}", e))?;
 
+    // Record usage (stored but not shown in stats UI)
+    let _ = crate::db::repository::LlmUsageRepository::new(pool.clone())
+        .insert_event(&crate::db::model::LlmUsageEvent {
+            id: 0,
+            provider_id: provider.id,
+            provider_name: provider.name.clone(),
+            provider_base_url: provider.base_url.clone(),
+            provider_host: provider.base_url.clone(),
+            model_id: 0,
+            model_name: model.clone(),
+            agent_type: "tagging".to_string(),
+            prompt_tokens: 0,
+            completion_tokens: 0,
+            total_tokens: 0,
+            request_status: "success".to_string(),
+            timestamp: chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string(),
+            created_at: String::new(),
+        });
+
     tag_repo
         .find_recommendations_by_entry_id(entry_id)
         .map_err(|e| format!("读取推荐失败: {}", e))
