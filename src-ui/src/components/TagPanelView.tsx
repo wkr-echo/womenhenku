@@ -37,9 +37,9 @@ export function TagPanelView({ entryId }: TagPanelViewProps) {
         const [entryT, allT] = await Promise.all([getEntryTags(entryId), listTags()]);
         setEntryTags(entryT);
         setAllTags(allT);
-      } catch (e) {
+      } catch (e: any) {
         console.error("Failed to load tags", e);
-        toast(t("加载标签失败"), "error");
+        toast(t("加载标签失败") + ": " + String(e?.message || e?.toString?.() || String(e)), "error");
       }
     }
     loadTags();
