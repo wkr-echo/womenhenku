@@ -219,28 +219,28 @@ export async function updateTagStatus(id: number, isProvisional: boolean): Promi
 
 export async function mergeTags(sourceId: number, targetId: number): Promise<void> {
   if (isTauri()) {
-    return invoke("merge_tags", { source_id: sourceId, target_id: targetId });
+    return invoke("merge_tags", { sourceId, targetId });
   }
   return mockMergeTags(targetId, [sourceId]);
 }
 
 export async function addTagAlias(tagId: number, alias: string): Promise<TagAlias> {
   if (isTauri()) {
-    return invoke<TagAlias>("add_tag_alias", { tag_id: tagId, alias });
+    return invoke<TagAlias>("add_tag_alias", { tagId, alias });
   }
   return mockAddTagAlias(tagId, alias);
 }
 
 export async function removeTagAlias(tagId: number, alias: string): Promise<void> {
   if (isTauri()) {
-    return invoke("remove_tag_alias", { tag_id: tagId, alias });
+    return invoke("remove_tag_alias", { tagId, alias });
   }
   return mockRemoveTagAlias(tagId, alias);
 }
 
 export async function getTagAliases(tagId: number): Promise<TagAlias[]> {
   if (isTauri()) {
-    return invoke<TagAlias[]>("get_tag_aliases", { tag_id: tagId });
+    return invoke<TagAlias[]>("get_tag_aliases", { tagId });
   }
   return mockGetTagAliases(tagId);
 }

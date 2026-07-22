@@ -250,10 +250,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (isTauri()) {
         import("@tauri-apps/api/core").then(({ invoke }) => {
           invoke<EntryPage>("list_entries_by_tags", { 
-            tag_ids: state.selectedTagIds, 
-            match_mode: state.tagMatchMode,
+            tagIds: state.selectedTagIds, 
+            matchMode: state.tagMatchMode,
             page: 1, 
-            page_size: 50 
+            pageSize: 50 
           })
             .then((page) => {
               if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: page.entries });
