@@ -33,6 +33,27 @@ export function truncate(str: string, len: number): string {
 
 export let currentLang = "zh";
 
+export async function loadLanguage(): Promise<void> {
+  if (typeof window !== "undefined" && ("__TAURI__" in window || "__TAURI_INTERNALS__" in window)) {
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const saved = await invoke<string | null>("get_setting", { key: "app_language" });
+      if (saved) {
+        currentLang = saved;
+        return;
+      }
+    } catch {}
+  }
+  const savedFromStorage = localStorage.getItem("uiLang");
+  if (savedFromStorage) {
+    currentLang = savedFromStorage;
+    return;
+  }
+  if (typeof navigator !== "undefined") {
+    currentLang = navigator.language.startsWith("zh") ? "zh" : "en";
+  }
+}
+
 export const translations: Record<string, Record<string, string>> = {
   zh: {
     "设置": "设置",

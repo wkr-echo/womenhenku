@@ -13,7 +13,7 @@ import type { Provider, AgentConfig, ImportResult, Tag, TagAlias, DuplicateTagPa
 import { useTheme } from "@/contexts/ThemeContext";
 import { useApp } from "@/contexts/AppContext";
 import { t, currentLang, setLang } from "@/lib/utils";
-import { isTauri, exportOpml, importOpml, listTags, addTag, updateTag, deleteTag, getTagStats, mergeTags, addTagAlias, removeTagAlias, getTagAliases, findPotentialDuplicates, findUnusedTags, deleteUnusedTags } from "@/api/feed";
+import { isTauri, exportOpml, importOpml, listTags, addTag, updateTag, deleteTag, getTagStats, mergeTags, addTagAlias, removeTagAlias, getTagAliases, findPotentialDuplicates, findUnusedTags, deleteUnusedTags, getLlmDailyUsage, getLlmUsageStats, getLlmProviderUsage, getLlmModelUsage, getLlmAgentUsage, cleanupOldLlmEvents, getSetting, setSetting } from "@/api/feed";
 import { toast } from "@/components/ui/Toast";
 
 const TAG_COLORS = [
@@ -548,6 +548,9 @@ function AppearanceSettings({ theme, onToggleTheme }: { theme: string; onToggleT
             onChange={(v) => {
               if (v) {
                 setLang(v);
+                if (isTauri()) {
+                  setSetting("app_language", v);
+                }
                 window.location.reload();
               }
             }}
@@ -1664,51 +1667,97 @@ function BatchTagging() {
 }
 
 function TokenUsage() {
-  const [period, setPeriod] = useState<"1week" | "2weeks" | "1month">("1week");
+  const [days, setDays] = useState<number>(30);
+  const [agentType, setAgentType] = useState<string | undefined>(undefined);
   const [activeMetric, setActiveMetric] = useState<"tokens" | "input" | "output" | "requests">("tokens");
   const [loading, setLoading] = useState(true);
+  const [dailyUsage, setDailyUsage] = useState<{ date: string; totalTokens: number; promptTokens: number; completionTokens: number; requestCount: number }[]>([]);
+  const [stats, setStats] = useState<{ totalTokens: number; promptTokens: number; completionTokens: number; requestCount: number; successRate: number; avgTokensPerRequest: number } | null>(null);
+  const [providerUsage, setProviderUsage] = useState<{ providerId: number; providerName: string; totalTokens: number; requestCount: number }[]>([]);
+  const [modelUsage, setModelUsage] = useState<{ modelId: number; modelName: string; totalTokens: number; requestCount: number }[]>([]);
+  const [agentUsage, setAgentUsage] = useState<{ agentType: string; totalTokens: number; requestCount: number }[]>([]);
+  const [retentionDays, setRetentionDays] = useState<number>(180);
+  const [cleaning, setCleaning] = useState(false);
 
-  const generateMockData = () => {
-    const days = period === "1week" ? 7 : period === "2weeks" ? 14 : 30;
-    const data: { date: string; promptTokens: number; completionTokens: number; totalTokens: number; requests: number }[] = [];
-    const today = new Date();
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const prompt = Math.floor(Math.random() * 500) + 100;
-      const completion = Math.floor(Math.random() * 800) + 200;
-      data.push({
-        date: date.toLocaleDateString("zh-CN", { month: "short", day: "numeric" }),
-        promptTokens: prompt,
-        completionTokens: completion,
-        totalTokens: prompt + completion,
-        requests: Math.floor(Math.random() * 10) + 1,
-      });
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [daily, statsData, providers, models, agents] = await Promise.all([
+        getLlmDailyUsage(days, agentType),
+        getLlmUsageStats(days, agentType),
+        getLlmProviderUsage(days),
+        getLlmModelUsage(days),
+        getLlmAgentUsage(days),
+      ]);
+      setDailyUsage(daily);
+      setStats(statsData);
+      setProviderUsage(providers);
+      setModelUsage(models);
+      setAgentUsage(agents);
+    } catch (e: any) {
+      console.error("Failed to load LLM usage data", e);
+    } finally {
+      setLoading(false);
     }
-    return data;
   };
-
-  const mockData = generateMockData();
 
   useEffect(() => {
-    setLoading(true);
-    setTimeout(() => setLoading(false), 500);
-  }, [period]);
+    loadData();
+  }, [days, agentType]);
 
-  const stats = {
-    total: mockData.reduce((sum, d) => sum + d.totalTokens, 0),
-    prompt: mockData.reduce((sum, d) => sum + d.promptTokens, 0),
-    completion: mockData.reduce((sum, d) => sum + d.completionTokens, 0),
-    requests: mockData.reduce((sum, d) => sum + d.requests, 0),
-    successRate: 97.6,
-    avgPerRequest: Math.round(mockData.reduce((sum, d) => sum + d.totalTokens, 0) / mockData.reduce((sum, d) => sum + d.requests, 0)),
+  useEffect(() => {
+    const loadRetention = async () => {
+      try {
+        const saved = await getSetting("llm_usage_retention_days");
+        if (saved) {
+          setRetentionDays(Number(saved));
+        }
+      } catch {
+        setRetentionDays(180);
+      }
+    };
+    loadRetention();
+  }, []);
+
+  const handleCleanupOld = async () => {
+    setCleaning(true);
+    try {
+      await cleanupOldLlmEvents(retentionDays);
+      await setSetting("llm_usage_retention_days", String(retentionDays));
+      toast(t("已清除过期数据"), "success");
+      await loadData();
+    } catch (e: any) {
+      toast(t("清除失败: ") + String(e), "error");
+    } finally {
+      setCleaning(false);
+    }
   };
 
-  const comparisonData = [
-    { name: "GPT-4", tokens: 8500, input: 4200, output: 4300, requests: 28, color: "#3b82f6" },
-    { name: "GPT-3.5", tokens: 3200, input: 1800, output: 1400, requests: 12, color: "#10b981" },
-    { name: "DeepSeek", tokens: 600, input: 350, output: 250, requests: 3, color: "#f59e0b" },
-  ];
+  const handleCleanupAll = async () => {
+    if (!confirm(t("确定要清除所有用量数据吗？此操作不可撤销。"))) return;
+    setCleaning(true);
+    try {
+      await cleanupOldLlmEvents(0);
+      toast(t("已清除所有数据"), "success");
+      await loadData();
+    } catch (e: any) {
+      toast(t("清除失败: ") + String(e), "error");
+    } finally {
+      setCleaning(false);
+    }
+  };
+
+  const getBarValue = (item: any) => {
+    switch (activeMetric) {
+      case "tokens": return item.totalTokens;
+      case "input": return item.promptTokens;
+      case "output": return item.completionTokens;
+      case "requests": return item.requestCount;
+      default: return item.totalTokens;
+    }
+  };
+
+  const maxDailyValue = dailyUsage.length > 0 ? Math.max(...dailyUsage.map(getBarValue)) : 1;
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -1716,28 +1765,27 @@ function TokenUsage() {
 
       <div className="flex items-center gap-4">
         <div className="flex gap-2">
-          <Button
-            variant={period === "1week" ? "primary" : "ghost"}
-            size="sm"
-            onClick={() => setPeriod("1week")}
-          >
-            {t("1周")}
-          </Button>
-          <Button
-            variant={period === "2weeks" ? "primary" : "ghost"}
-            size="sm"
-            onClick={() => setPeriod("2weeks")}
-          >
-            {t("2周")}
-          </Button>
-          <Button
-            variant={period === "1month" ? "primary" : "ghost"}
-            size="sm"
-            onClick={() => setPeriod("1month")}
-          >
-            {t("1月")}
-          </Button>
+          {[7, 14, 30, 90].map((d) => (
+            <Button
+              key={d}
+              variant={days === d ? "primary" : "ghost"}
+              size="sm"
+              onClick={() => setDays(d)}
+            >
+              {d === 7 ? t("7天") : d === 14 ? t("14天") : d === 30 ? t("30天") : t("90天")}
+            </Button>
+          ))}
         </div>
+        <Dropdown
+          items={[
+            { label: t("全部"), value: "" },
+            { label: t("摘要"), value: "summary" },
+            { label: t("翻译"), value: "translation" },
+          ]}
+          value={agentType || ""}
+          onChange={(v) => setAgentType(v || undefined)}
+          placeholder={t("任务过滤")}
+        />
         <div className="flex gap-2 ml-auto">
           <Button
             variant={activeMetric === "tokens" ? "primary" : "ghost"}
@@ -1777,16 +1825,9 @@ function TokenUsage() {
           <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-6">
             <h3 className="font-medium text-sm mb-4">{t("每日 Token 用量")}</h3>
             <div className="h-32 flex items-end gap-2">
-              {mockData.map((d, i) => {
-                const value = activeMetric === "tokens" ? d.totalTokens :
-                             activeMetric === "input" ? d.promptTokens :
-                             activeMetric === "output" ? d.completionTokens : d.requests;
-                const maxValue = Math.max(...mockData.map(d2 =>
-                  activeMetric === "tokens" ? d2.totalTokens :
-                  activeMetric === "input" ? d2.promptTokens :
-                  activeMetric === "output" ? d2.completionTokens : d2.requests
-                ));
-                const height = (value / maxValue) * 100;
+              {dailyUsage.map((d, i) => {
+                const value = getBarValue(d);
+                const height = (value / maxDailyValue) * 100;
                 return (
                   <div key={i} className="flex-1 flex flex-col items-center gap-1">
                     <div className="w-full rounded-t bg-[var(--accent-color)] transition-all" style={{ height: `${height}%`, minHeight: "4px" }} />
@@ -1797,61 +1838,137 @@ function TokenUsage() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-6">
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <p className="text-2xl font-semibold text-[var(--text-primary)]">{stats.total.toLocaleString()}</p>
-                <p className="text-xs text-[var(--text-tertiary)]">{t("总计")}</p>
-              </div>
-              <div>
-                <p className="text-lg font-semibold text-blue-600">{stats.prompt.toLocaleString()}</p>
-                <p className="text-xs text-[var(--text-tertiary)]">{t("提示 token")}</p>
-              </div>
-              <div>
-                <p className="text-lg font-semibold text-green-600">{stats.completion.toLocaleString()}</p>
-                <p className="text-xs text-[var(--text-tertiary)]">{t("补全 token")}</p>
-              </div>
-              <div>
-                <p className="text-lg font-semibold text-[var(--text-primary)]">{stats.requests}</p>
-                <p className="text-xs text-[var(--text-tertiary)]">{t("请求数")}</p>
-              </div>
-              <div>
-                <p className="text-lg font-semibold text-green-600">{stats.successRate}%</p>
-                <p className="text-xs text-[var(--text-tertiary)]">{t("成功率")}</p>
-              </div>
-              <div>
-                <p className="text-lg font-semibold text-[var(--text-primary)]">{stats.avgPerRequest}</p>
-                <p className="text-xs text-[var(--text-tertiary)]">{t("平均/请求")}</p>
+          {stats && (
+            <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-6">
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <p className="text-2xl font-semibold text-[var(--text-primary)]">{stats.totalTokens.toLocaleString()}</p>
+                  <p className="text-xs text-[var(--text-tertiary)]">{t("总计 token")}</p>
+                </div>
+                <div>
+                  <p className="text-lg font-semibold text-blue-600">{stats.promptTokens.toLocaleString()}</p>
+                  <p className="text-xs text-[var(--text-tertiary)]">{t("输入 token")}</p>
+                </div>
+                <div>
+                  <p className="text-lg font-semibold text-green-600">{stats.completionTokens.toLocaleString()}</p>
+                  <p className="text-xs text-[var(--text-tertiary)]">{t("输出 token")}</p>
+                </div>
+                <div>
+                  <p className="text-lg font-semibold text-[var(--text-primary)]">{stats.requestCount}</p>
+                  <p className="text-xs text-[var(--text-tertiary)]">{t("请求数")}</p>
+                </div>
+                <div>
+                  <p className="text-lg font-semibold text-green-600">{stats.successRate.toFixed(1)}%</p>
+                  <p className="text-xs text-[var(--text-tertiary)]">{t("成功率")}</p>
+                </div>
+                <div>
+                  <p className="text-lg font-semibold text-[var(--text-primary)]">{stats.avgTokensPerRequest.toFixed(0)}</p>
+                  <p className="text-xs text-[var(--text-tertiary)]">{t("平均/请求")}</p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
+
+          {providerUsage.length > 0 && (
+            <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-6">
+              <h3 className="font-medium text-sm mb-4">{t("Provider 用量对比")}</h3>
+              <div className="space-y-3">
+                {providerUsage.sort((a, b) => b.totalTokens - a.totalTokens).map((item) => {
+                  const value = activeMetric === "tokens" ? item.totalTokens : item.requestCount;
+                  const maxValue = Math.max(...providerUsage.map(i => activeMetric === "tokens" ? i.totalTokens : i.requestCount));
+                  const width = maxValue > 0 ? (value / maxValue) * 100 : 0;
+                  return (
+                    <div key={item.providerId} className="flex items-center gap-3">
+                      <div className="w-24 text-sm truncate">{item.providerName}</div>
+                      <div className="flex-1 h-6 bg-[var(--bg-tertiary)] rounded-full overflow-hidden">
+                        <div
+                          className="h-full transition-all rounded-full bg-blue-500"
+                          style={{ width: `${width}%` }}
+                        />
+                      </div>
+                      <div className="w-20 text-sm text-right">{value.toLocaleString()}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {modelUsage.length > 0 && (
+            <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-6">
+              <h3 className="font-medium text-sm mb-4">{t("模型用量对比")}</h3>
+              <div className="space-y-3">
+                {modelUsage.sort((a, b) => b.totalTokens - a.totalTokens).map((item) => {
+                  const value = activeMetric === "tokens" ? item.totalTokens : item.requestCount;
+                  const maxValue = Math.max(...modelUsage.map(i => activeMetric === "tokens" ? i.totalTokens : i.requestCount));
+                  const width = maxValue > 0 ? (value / maxValue) * 100 : 0;
+                  return (
+                    <div key={item.modelId} className="flex items-center gap-3">
+                      <div className="w-24 text-sm truncate">{item.modelName}</div>
+                      <div className="flex-1 h-6 bg-[var(--bg-tertiary)] rounded-full overflow-hidden">
+                        <div
+                          className="h-full transition-all rounded-full bg-green-500"
+                          style={{ width: `${width}%` }}
+                        />
+                      </div>
+                      <div className="w-20 text-sm text-right">{value.toLocaleString()}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {agentUsage.length > 0 && (
+            <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-6">
+              <h3 className="font-medium text-sm mb-4">{t("Agent 用量对比")}</h3>
+              <div className="space-y-3">
+                {agentUsage.sort((a, b) => b.totalTokens - a.totalTokens).map((item) => {
+                  const value = activeMetric === "tokens" ? item.totalTokens : item.requestCount;
+                  const maxValue = Math.max(...agentUsage.map(i => activeMetric === "tokens" ? i.totalTokens : i.requestCount));
+                  const width = maxValue > 0 ? (value / maxValue) * 100 : 0;
+                  return (
+                    <div key={item.agentType} className="flex items-center gap-3">
+                      <div className="w-24 text-sm">
+                        {item.agentType === "summary" ? t("摘要") : item.agentType === "translation" ? t("翻译") : item.agentType}
+                      </div>
+                      <div className="flex-1 h-6 bg-[var(--bg-tertiary)] rounded-full overflow-hidden">
+                        <div
+                          className="h-full transition-all rounded-full bg-purple-500"
+                          style={{ width: `${width}%` }}
+                        />
+                      </div>
+                      <div className="w-20 text-sm text-right">{value.toLocaleString()}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-6">
-            <h3 className="font-medium text-sm mb-4">{t("模型对比")}</h3>
-            <div className="space-y-3">
-              {comparisonData.map((item) => {
-                const value = activeMetric === "tokens" ? item.tokens :
-                             activeMetric === "input" ? item.input :
-                             activeMetric === "output" ? item.output : item.requests;
-                const maxValue = Math.max(...comparisonData.map(i =>
-                  activeMetric === "tokens" ? i.tokens :
-                  activeMetric === "input" ? i.input :
-                  activeMetric === "output" ? i.output : i.requests
-                ));
-                const width = (value / maxValue) * 100;
-                return (
-                  <div key={item.name} className="flex items-center gap-3">
-                    <div className="w-20 text-sm">{item.name}</div>
-                    <div className="flex-1 h-6 bg-[var(--bg-tertiary)] rounded-full overflow-hidden">
-                      <div
-                        className="h-full transition-all rounded-full"
-                        style={{ width: `${width}%`, backgroundColor: item.color }}
-                      />
-                    </div>
-                    <div className="w-20 text-sm text-right">{value.toLocaleString()}</div>
-                  </div>
-                );
-              })}
+            <h3 className="font-medium text-sm mb-4">{t("数据管理")}</h3>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-[var(--text-tertiary)]">{t("数据保留")}</span>
+                <Dropdown
+                  items={[
+                    { label: t("30天"), value: "30" },
+                    { label: t("90天"), value: "90" },
+                    { label: t("180天"), value: "180" },
+                    { label: t("365天"), value: "365" },
+                    { label: t("永久"), value: "0" },
+                  ]}
+                  value={String(retentionDays)}
+                  onChange={(v) => v && setRetentionDays(Number(v))}
+                />
+              </div>
+              <Button variant="secondary" size="sm" onClick={handleCleanupOld} disabled={cleaning}>
+                {cleaning ? t("处理中...") : t("清除过期")}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleCleanupAll} disabled={cleaning}>
+                {cleaning ? t("处理中...") : t("清除全部")}
+              </Button>
             </div>
           </div>
         </>
