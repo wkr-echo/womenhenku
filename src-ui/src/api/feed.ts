@@ -97,11 +97,11 @@ export async function getSummary(entryId: number): Promise<string | null> {
 // ============ Note API ============
 
 export async function saveNote(entryId: number, content: string): Promise<void> {
-  return invoke("save_note", { entry_id: entryId, content });
+  return invoke("save_note", { entryId, content });
 }
 
 export async function getNote(entryId: number): Promise<Note | null> {
-  return invoke<Note | null>("get_note", { entry_id: entryId });
+  return invoke<Note | null>("get_note", { entryId });
 }
 
 export async function deleteNote(id: number): Promise<void> {
@@ -184,21 +184,21 @@ export async function deleteTag(id: number): Promise<void> {
 
 export async function tagEntry(entryId: number, tagId: number): Promise<void> {
   if (isTauri()) {
-    return invoke("tag_entry", { entry_id: entryId, tag_id: tagId });
+    return invoke("tag_entry", { entryId, tagId });
   }
   return mockTagEntry(entryId, tagId);
 }
 
 export async function untagEntry(entryId: number, tagId: number): Promise<void> {
   if (isTauri()) {
-    return invoke("untag_entry", { entry_id: entryId, tag_id: tagId });
+    return invoke("untag_entry", { entryId, tagId });
   }
   return mockUntagEntry(entryId, tagId);
 }
 
 export async function getEntryTags(entryId: number): Promise<Tag[]> {
   if (isTauri()) {
-    return invoke<Tag[]>("get_entry_tags", { entry_id: entryId });
+    return invoke<Tag[]>("get_entry_tags", { entryId });
   }
   return mockGetEntryTags(entryId);
 }
@@ -246,15 +246,15 @@ export async function getTagAliases(tagId: number): Promise<TagAlias[]> {
 }
 
 export async function saveTagRecommendations(entryId: number, recommendations: [string, string, number][]): Promise<void> {
-  return invoke("save_tag_recommendations", { entry_id: entryId, recommendations });
+  return invoke("save_tag_recommendations", { entryId, recommendations });
 }
 
 export async function getTagRecommendations(entryId: number): Promise<{ id: number; entryId: number; tagName: string; sourceType: string; confidence: number; createdAt: string }[]> {
-  return invoke("get_tag_recommendations", { entry_id: entryId });
+  return invoke("get_tag_recommendations", { entryId });
 }
 
 export async function tagEntriesBatch(entryIds: number[], tagId: number): Promise<void> {
-  return invoke("tag_entries_batch", { entry_ids: entryIds, tag_id: tagId });
+  return invoke("tag_entries_batch", { entryIds, tagId });
 }
 
 export async function findPotentialDuplicates(): Promise<DuplicateTagPair[]> {
