@@ -177,7 +177,9 @@ impl SummaryAgent {
             full_content: String::new(),
         }));
         let acc_clone = acc.clone();
+        let usage = Arc::new(std::sync::Mutex::new(None::<crate::agent::client::TokenUsage>));
 
+        let usage_clone = usage.clone();
         let result = self
             .client
             .stream_chat(
@@ -198,7 +200,9 @@ impl SummaryAgent {
                         error: None,
                     });
                 },
-                |_usage, _error| {},
+                |u, _error| {
+                    *usage_clone.lock().unwrap() = u;
+                },
             )
             .await;
 
@@ -214,6 +218,28 @@ impl SummaryAgent {
                     .mark_completed(run_id, &final_text, None, None)
                     .map_err(|e| SummaryError::Database(e.to_string()))?;
 
+                // Record token usage
+                let u = usage.lock().unwrap();
+                if let Some(ref u) = *u {
+                    let _ = crate::db::repository::LlmUsageRepository::new(self.pool.clone())
+                        .insert_event(&crate::db::model::LlmUsageEvent {
+                            id: 0,
+                            provider_id,
+                            provider_name: "".to_string(),
+                            provider_base_url: base_url.to_string(),
+                            provider_host: base_url.to_string(),
+                            model_id: 0,
+                            model_name: model.to_string(),
+                            agent_type: "summary".to_string(),
+                            prompt_tokens: u.prompt_tokens,
+                            completion_tokens: u.completion_tokens,
+                            total_tokens: u.prompt_tokens + u.completion_tokens,
+                            request_status: "success".to_string(),
+                            timestamp: chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string(),
+                            created_at: String::new(),
+                        });
+                }
+
                 on_event(AiStreamEvent {
                     entry_id: 0,
                     task_id: run_id,
@@ -227,6 +253,25 @@ impl SummaryAgent {
                 run_repo
                     .mark_failed(run_id, &e.to_string())
                     .map_err(|db_err| SummaryError::Database(db_err.to_string()))?;
+
+                // Record failed usage
+                let _ = crate::db::repository::LlmUsageRepository::new(self.pool.clone())
+                    .insert_event(&crate::db::model::LlmUsageEvent {
+                        id: 0,
+                        provider_id,
+                        provider_name: "".to_string(),
+                        provider_base_url: base_url.to_string(),
+                        provider_host: base_url.to_string(),
+                        model_id: 0,
+                        model_name: model.to_string(),
+                        agent_type: "summary".to_string(),
+                        prompt_tokens: 0,
+                        completion_tokens: 0,
+                        total_tokens: 0,
+                        request_status: "failed".to_string(),
+                        timestamp: chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string(),
+                        created_at: String::new(),
+                    });
 
                 on_event(AiStreamEvent {
                     entry_id: 0,

@@ -301,6 +301,25 @@ impl TranslationAgent {
                 .mark_completed(run_id, &output, None, None)
                 .map_err(|e| TranslationError::Database(e.to_string()))?;
 
+            // Record token usage
+            let _ = crate::db::repository::LlmUsageRepository::new(self.pool.clone())
+                .insert_event(&crate::db::model::LlmUsageEvent {
+                    id: 0,
+                    provider_id,
+                    provider_name: "".to_string(),
+                    provider_base_url: base_url.to_string(),
+                    provider_host: base_url.to_string(),
+                    model_id: 0,
+                    model_name: model.to_string(),
+                    agent_type: "translation".to_string(),
+                    prompt_tokens: 0,
+                    completion_tokens: 0,
+                    total_tokens: 0,
+                    request_status: "success".to_string(),
+                    timestamp: chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string(),
+                    created_at: String::new(),
+                });
+
             (on_event)(AiStreamEvent {
                     entry_id: 0,
                 task_id: run_id,
@@ -317,6 +336,19 @@ impl TranslationAgent {
             run_repo
                 .mark_completed(run_id, &output, None, None)
                 .map_err(|e| TranslationError::Database(e.to_string()))?;
+
+            // Record token usage (partial failure)
+            let _ = crate::db::repository::LlmUsageRepository::new(self.pool.clone())
+                .insert_event(&crate::db::model::LlmUsageEvent {
+                    id: 0, provider_id, provider_name: "".to_string(),
+                    provider_base_url: base_url.to_string(), provider_host: base_url.to_string(),
+                    model_id: 0, model_name: model.to_string(),
+                    agent_type: "translation".to_string(),
+                    prompt_tokens: 0, completion_tokens: 0, total_tokens: 0,
+                    request_status: format!("partial: {}/{} success", success_count, total_segments),
+                    timestamp: chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string(),
+                    created_at: String::new(),
+                });
 
             (on_event)(AiStreamEvent {
                     entry_id: 0,
