@@ -97,11 +97,11 @@ export async function getSummary(entryId: number): Promise<string | null> {
 // ============ Note API ============
 
 export async function saveNote(entryId: number, content: string): Promise<void> {
-  return invoke("save_note", { entryId, content });
+  return invoke("save_note", { entry_id: entryId, content });
 }
 
 export async function getNote(entryId: number): Promise<Note | null> {
-  return invoke<Note | null>("get_note", { entryId });
+  return invoke<Note | null>("get_note", { entry_id: entryId });
 }
 
 export async function deleteNote(id: number): Promise<void> {
@@ -184,21 +184,21 @@ export async function deleteTag(id: number): Promise<void> {
 
 export async function tagEntry(entryId: number, tagId: number): Promise<void> {
   if (isTauri()) {
-    return invoke("tag_entry", { entryId, tagId });
+    return invoke("tag_entry", { entry_id: entryId, tag_id: tagId });
   }
   return mockTagEntry(entryId, tagId);
 }
 
 export async function untagEntry(entryId: number, tagId: number): Promise<void> {
   if (isTauri()) {
-    return invoke("untag_entry", { entryId, tagId });
+    return invoke("untag_entry", { entry_id: entryId, tag_id: tagId });
   }
   return mockUntagEntry(entryId, tagId);
 }
 
 export async function getEntryTags(entryId: number): Promise<Tag[]> {
   if (isTauri()) {
-    return invoke<Tag[]>("get_entry_tags", { entryId });
+    return invoke<Tag[]>("get_entry_tags", { entry_id: entryId });
   }
   return mockGetEntryTags(entryId);
 }
@@ -219,42 +219,42 @@ export async function updateTagStatus(id: number, isProvisional: boolean): Promi
 
 export async function mergeTags(sourceId: number, targetId: number): Promise<void> {
   if (isTauri()) {
-    return invoke("merge_tags", { sourceId, targetId });
+    return invoke("merge_tags", { source_id: sourceId, target_id: targetId });
   }
   return mockMergeTags(targetId, [sourceId]);
 }
 
 export async function addTagAlias(tagId: number, alias: string): Promise<TagAlias> {
   if (isTauri()) {
-    return invoke<TagAlias>("add_tag_alias", { tagId, alias });
+    return invoke<TagAlias>("add_tag_alias", { tag_id: tagId, alias });
   }
   return mockAddTagAlias(tagId, alias);
 }
 
 export async function removeTagAlias(tagId: number, alias: string): Promise<void> {
   if (isTauri()) {
-    return invoke("remove_tag_alias", { tagId, alias });
+    return invoke("remove_tag_alias", { tag_id: tagId, alias });
   }
   return mockRemoveTagAlias(tagId, alias);
 }
 
 export async function getTagAliases(tagId: number): Promise<TagAlias[]> {
   if (isTauri()) {
-    return invoke<TagAlias[]>("get_tag_aliases", { tagId });
+    return invoke<TagAlias[]>("get_tag_aliases", { tag_id: tagId });
   }
   return mockGetTagAliases(tagId);
 }
 
 export async function saveTagRecommendations(entryId: number, recommendations: [string, string, number][]): Promise<void> {
-  return invoke("save_tag_recommendations", { entryId, recommendations });
+  return invoke("save_tag_recommendations", { entry_id: entryId, recommendations });
 }
 
 export async function getTagRecommendations(entryId: number): Promise<{ id: number; entryId: number; tagName: string; sourceType: string; confidence: number; createdAt: string }[]> {
-  return invoke("get_tag_recommendations", { entryId });
+  return invoke("get_tag_recommendations", { entry_id: entryId });
 }
 
 export async function tagEntriesBatch(entryIds: number[], tagId: number): Promise<void> {
-  return invoke("tag_entries_batch", { entryIds, tagId });
+  return invoke("tag_entries_batch", { entry_ids: entryIds, tag_id: tagId });
 }
 
 export async function findPotentialDuplicates(): Promise<DuplicateTagPair[]> {
