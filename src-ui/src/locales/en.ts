@@ -318,6 +318,7 @@ const translations: Record<string, string> = {
   "暂无": "None",
   "暂无文章": "No articles",
   "加载失败": "Load failed",
-  "作者": "Author"
+  "作者": "Author",
+  "输入标签": "Enter tag"
 }
 export default translations;

@@ -318,6 +318,7 @@ const translations: Record<string, string> = {
   "暂无": "暂无",
   "暂无文章": "暂无文章",
   "加载失败": "加载失败",
-  "作者": "作者"
+  "作者": "作者",
+  "输入标签": "输入标签"
 }
 export default translations;

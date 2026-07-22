@@ -181,13 +181,13 @@ export function TagPanelView({ entryId, selectedEntryTitle, contentMarkdown }: T
       <div style={{ marginBottom: 16 }}>
         <input type="text" value={newTagName} onChange={(e) => setNewTagName(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddNewTag(); } }}
-          placeholder="输入标签"
+          placeholder={t("输入标签")}
           style={{ width: "100%", padding: "8px 12px", fontSize: 14,
             backgroundColor: "#f9fafb", border: "1px solid #d1d5db", borderRadius: 6, boxSizing: "border-box" }} />
         <button onClick={handleAddNewTag} disabled={!newTagName.trim()}
           style={{ marginTop: 8, width: "100%", padding: "8px", fontSize: 12,
             backgroundColor: "#2563eb", color: "white", border: "none", borderRadius: 6, cursor: "pointer" }}>
-          添加
+          {t("添加")}
         </button>
       </div>
 
