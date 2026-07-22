@@ -174,6 +174,7 @@ pub fn run() {
             get_tags_with_count,
             get_tag_stats,
             list_entries_by_tag,
+            list_entries_by_tags,
             // Tags Enhancements (Stage 5)
             update_tag_status,
             merge_tags,
@@ -506,6 +507,12 @@ fn get_tag_stats(state: State<'_, DbPool>, tag_id: i64) -> Result<serde_json::Va
 #[tauri::command]
 fn list_entries_by_tag(state: State<'_, DbPool>, tag_id: i64, page: i32, page_size: i32) -> Result<crate::db::model::EntryPage, String> {
     commands::list_entries_by_tag(&state, tag_id, page, page_size)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn list_entries_by_tags(state: State<'_, DbPool>, tag_ids: Vec<i64>, match_mode: String, page: i32, page_size: i32) -> Result<crate::db::model::EntryPage, String> {
+    commands::list_entries_by_tags(&state, tag_ids, &match_mode, page, page_size)
 }
 
 // -- Tags Enhancements (Stage 5) --

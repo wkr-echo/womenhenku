@@ -249,6 +249,11 @@ pub fn list_entries_by_tag(pool: &DbPool, tag_id: i64, page: i32, page_size: i32
     repo.list_by_tag(tag_id, page, page_size).map_err(|e| e.to_string())
 }
 
+pub fn list_entries_by_tags(pool: &DbPool, tag_ids: Vec<i64>, match_mode: &str, page: i32, page_size: i32) -> Result<EntryPage, String> {
+    let repo = crate::db::repository::EntryRepository::new(pool.clone());
+    repo.list_by_tags(&tag_ids, match_mode, page, page_size).map_err(|e| e.to_string())
+}
+
 // ============================================================
 // Tags Enhancements (Stage 5)
 // ============================================================

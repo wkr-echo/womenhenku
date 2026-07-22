@@ -275,6 +275,56 @@ impl EntryRepository {
 
         Ok(EntryPage { entries, total, page, page_size })
     }
+
+    pub fn list_by_tags(
+        &self, tag_ids: &[i64], match_mode: &str, page: i32, page_size: i32,
+    ) -> Result<EntryPage, RepositoryError> {
+        let conn = self.pool.get()?;
+        let offset = (page - 1) * page_size;
+
+        if tag_ids.is_empty() {
+            return self.list_all(page, page_size, None);
+        }
+
+        let placeholders: Vec<String> = tag_ids.iter().enumerate().map(|(i, _)| format!("?{}", i + 1)).collect();
+        let placeholders_str = placeholders.join(", ");
+
+        let (count_sql, list_sql) = if match_mode == "and" {
+            let tag_count = tag_ids.len() as i64;
+            (
+                format!("SELECT COUNT(*) FROM entries e JOIN entry_tags et ON e.id = et.entry_id WHERE et.tag_id IN ({}) GROUP BY e.id HAVING COUNT(DISTINCT et.tag_id) = {}", placeholders_str, tag_count),
+                format!("SELECT e.id, e.feed_id, e.title, e.author, e.summary, e.published_at, e.is_read FROM entries e JOIN entry_tags et ON e.id = et.entry_id WHERE et.tag_id IN ({}) GROUP BY e.id HAVING COUNT(DISTINCT et.tag_id) = {} ORDER BY COALESCE(e.published_at, e.created_at) DESC LIMIT ?{} OFFSET ?{}", placeholders_str, tag_count, tag_ids.len() + 1, tag_ids.len() + 2),
+            )
+        } else {
+            (
+                format!("SELECT COUNT(DISTINCT e.id) FROM entries e JOIN entry_tags et ON e.id = et.entry_id WHERE et.tag_id IN ({})", placeholders_str),
+                format!("SELECT DISTINCT e.id, e.feed_id, e.title, e.author, e.summary, e.published_at, e.is_read FROM entries e JOIN entry_tags et ON e.id = et.entry_id WHERE et.tag_id IN ({}) ORDER BY COALESCE(e.published_at, e.created_at) DESC LIMIT ?{} OFFSET ?{}", placeholders_str, tag_ids.len() + 1, tag_ids.len() + 2),
+            )
+        };
+
+        let mut params: Vec<rusqlite::types::ToSqlOutput<'_>> = tag_ids.iter().map(|&id| id.into()).collect();
+        let total: i64 = conn.query_row(&count_sql, rusqlite::params_from_iter(&params), |row| row.get(0))?;
+
+        params.push(page_size.into());
+        params.push(offset.into());
+
+        let mut stmt = conn.prepare(&list_sql)?;
+        let entries: Vec<EntryListItem> = stmt
+            .query_map(rusqlite::params_from_iter(&params), |row| {
+                Ok(EntryListItem {
+                    id: row.get(0)?,
+                    feed_id: row.get(1)?,
+                    title: row.get(2)?,
+                    author: row.get(3)?,
+                    summary: row.get::<_, String>(4).unwrap_or_default(),
+                    published_at: row.get(5)?,
+                    is_read: row.get::<_, i32>(6)? != 0,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(EntryPage { entries, total, page, page_size })
+    }
 }
 
 fn map_entry(row: &rusqlite::Row<'_>) -> rusqlite::Result<Entry> {
