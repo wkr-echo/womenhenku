@@ -526,7 +526,7 @@ export function ReaderView() {
               <div className="text-sm text-[var(--text-secondary)] leading-relaxed whitespace-pre-wrap">
                 {contentError ? (
                   <div className="text-[var(--text-tertiary)]">
-                    <p className="text-red-500 mb-2">加载失败: {contentError}</p>
+                    <p className="text-red-500 mb-2">{t("加载失败")}: {contentError}</p>
                     <p>{selectedEntry.summary || t("暂无内容")}</p>
                   </div>
                 ) : (
@@ -583,7 +583,7 @@ function mockDigestExport(entry: { title: string; author: string; link: string }
     case "markdown":
       return `# ${title}\n\n**作者**: ${author}\n\n**原文链接**: ${link}\n\n---\n\n> 这是 mock 内容。在 Tauri 环境中将显示真实文章内容。\n`;
     case "html":
-      return `<!DOCTYPE html>\n<html>\n<head><meta charset="utf-8"><title>${title}</title></head>\n<body>\n<h1>${title}</h1>\n<p><strong>作者:</strong> ${author}</p>\n<p><a href="${link}">原文链接</a></p>\n<hr>\n<blockquote>这是 mock 内容。在 Tauri 环境中将显示真实文章内容。</blockquote>\n</body>\n</html>\n`;
+      return `<!DOCTYPE html>\n<html>\n<head><meta charset="utf-8"><title>${title}</title></head>\n<body>\n<h1>${title}</h1>\n<p><strong>{t("作者")}:</strong> ${author}</p>\n<p><a href="${link}">原文链接</a></p>\n<hr>\n<blockquote>这是 mock 内容。在 Tauri 环境中将显示真实文章内容。</blockquote>\n</body>\n</html>\n`;
     case "plaintext":
       return `${title}\n${"=".repeat(title.length)}\n\n作者: ${author}\n原文链接: ${link}\n\n这是 mock 内容。在 Tauri 环境中将显示真实文章内容。\n`;
   }

@@ -195,7 +195,7 @@ export function TagPanelView({ entryId, selectedEntryTitle, contentMarkdown }: T
         <div style={{ marginBottom: 16 }}>
           <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>
             {t("建议标签")}
-            {isAiLoading && <span style={{ color: "#9ca3af", marginLeft: 4 }}>AI 生成中...</span>}
+            {isAiLoading && <span style={{ color: "#9ca3af", marginLeft: 4 }}>{t("AI 生成中...")}</span>}
           </p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {aiSuggestions.map((s, i) => (
@@ -217,7 +217,7 @@ export function TagPanelView({ entryId, selectedEntryTitle, contentMarkdown }: T
       )}
 
       <div style={{ marginBottom: 16 }}>
-        <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>已有标签 ({allTags.length})</p>
+        <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>{t("已有标签")} ({allTags.length})</p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           {allTags.map(tag => (
             <span key={tag.id} onClick={() => handleToggleTag(tag.id)}
@@ -231,7 +231,7 @@ export function TagPanelView({ entryId, selectedEntryTitle, contentMarkdown }: T
       </div>
 
       <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12 }}>
-        <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>已应用 ({entryTags.length})</p>
+        <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>{t("已应用")} ({entryTags.length})</p>
         {entryTags.length > 0 ? (
           <div>
             {entryTags.map(tag => (
@@ -245,7 +245,7 @@ export function TagPanelView({ entryId, selectedEntryTitle, contentMarkdown }: T
             ))}
           </div>
         ) : (
-          <p style={{ fontSize: 12, color: "#9ca3af" }}>暂无</p>
+          <p style={{ fontSize: 12, color: "#9ca3af" }}>{t("暂无")}</p>
         )}
       </div>
     </div>

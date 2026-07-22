@@ -312,5 +312,11 @@
   "刚刚": "just now",
   "分钟前": "min ago",
   "小时前": "hr ago",
-  "天前": "d ago"
+  "天前": "d ago",
+  "AI 生成中...": "AI generating...",
+  "已有标签": "All Tags",
+  "暂无": "None",
+  "暂无文章": "No articles",
+  "加载失败": "Load failed",
+  "作者": "Author"
 }
