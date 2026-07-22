@@ -66,3 +66,14 @@ tauri-build = { version = "2", features = [], optional = true }
 [lib]
 name = "womenhenku_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
+
+[profile.dev]
+strip = "debuginfo"
+lto = true
+codegen-units = 1
+incremental = false
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
