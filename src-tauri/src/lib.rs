@@ -185,6 +185,9 @@ pub fn run() {
             save_tag_recommendations,
             get_tag_recommendations,
             generate_tag_recommendations,
+            analyze_entries_for_tags,
+            count_batch_tag_candidates,
+            apply_batch_tags,
             tag_entries_batch,
             find_potential_duplicates,
             find_unused_tags,
@@ -571,6 +574,42 @@ fn get_tag_recommendations(state: State<'_, DbPool>, entry_id: i64) -> Result<Ve
 #[tauri::command]
 async fn generate_tag_recommendations(state: State<'_, DbPool>, entry_id: i64, existing_tags: Vec<String>) -> Result<Vec<crate::db::model::TagRecommendation>, String> {
     commands::generate_tag_recommendations(&state, entry_id, existing_tags).await
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn analyze_entries_for_tags(
+    state: State<'_, DbPool>,
+    range: String,
+    skip_batch_tagged: bool,
+    skip_tagged: bool,
+    concurrency: i32,
+) -> Result<Vec<crate::commands::TagProposal>, String> {
+    commands::analyze_entries_for_tags(&state, &range, skip_batch_tagged, skip_tagged, concurrency).await
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn count_batch_tag_candidates(
+    state: State<'_, DbPool>,
+    range: String,
+    skip_batch_tagged: bool,
+    skip_tagged: bool,
+) -> Result<i64, String> {
+    commands::count_batch_tag_candidates(&state, &range, skip_batch_tagged, skip_tagged)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn apply_batch_tags(
+    state: State<'_, DbPool>,
+    range: String,
+    skip_batch_tagged: bool,
+    skip_tagged: bool,
+    kept_tags: Vec<String>,
+    total_proposals: i32,
+) -> Result<crate::commands::BatchTagApplyResult, String> {
+    commands::apply_batch_tags(&state, &range, skip_batch_tagged, skip_tagged, kept_tags, total_proposals as usize).await
 }
 
 #[cfg(feature = "tauri-runtime")]

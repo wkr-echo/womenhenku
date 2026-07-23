@@ -13,7 +13,7 @@ import type { Provider, AgentConfig, ImportResult, Tag, TagAlias, DuplicateTagPa
 import { useTheme } from "@/contexts/ThemeContext";
 import { useApp } from "@/contexts/AppContext";
 import { t, currentLang, setLang } from "@/lib/utils";
-import { isTauri, exportOpml, importOpml, listTags, addTag, updateTag, deleteTag, getTagStats, mergeTags, addTagAlias, removeTagAlias, getTagAliases, findPotentialDuplicates, findUnusedTags, deleteUnusedTags, getLlmDailyUsage, getLlmUsageStats, getLlmProviderUsage, getLlmModelUsage, getLlmAgentUsage, cleanupOldLlmEvents, getSetting, setSetting, countEntriesByDateRange } from "@/api/feed";
+import { isTauri, exportOpml, importOpml, listTags, addTag, updateTag, deleteTag, getTagStats, mergeTags, addTagAlias, removeTagAlias, getTagAliases, findPotentialDuplicates, findUnusedTags, deleteUnusedTags, countBatchTagCandidates, analyzeEntriesForTags, applyBatchTags, getLlmDailyUsage, getLlmUsageStats, getLlmProviderUsage, getLlmModelUsage, getLlmAgentUsage, cleanupOldLlmEvents, getSetting, setSetting } from "@/api/feed";
 import { toast } from "@/components/ui/Toast";
 
 const TAG_COLORS = [
@@ -1284,14 +1284,16 @@ function BatchTagging() {
   const estimateCandidates = async () => {
     setLoading(true);
     try {
-      const rangeDays: Record<string, number> = {
-        "1week": 7, "1month": 30, "3months": 90, "6months": 180, "1year": 365, "all": 3650, "unread": 3650,
-      };
-      const days = rangeDays[state.config.range] || 30;
-      const count = await countEntriesByDateRange(days);
+      const count = await countBatchTagCandidates(
+        state.config.range,
+        state.config.skipAlreadyTagged,
+        state.config.skipTaggedEntries,
+      );
       setState(prev => ({ ...prev, candidateCount: count }));
-    } catch {
+    } catch (error) {
+      console.error("估算候选文章失败", error);
       setState(prev => ({ ...prev, candidateCount: 0 }));
+      toast(t("无法获取候选文章数，请检查数据库或 AI 配置。"), "error");
     } finally {
       setLoading(false);
     }
@@ -1299,56 +1301,80 @@ function BatchTagging() {
 
   const startBatch = async () => {
     setState(prev => ({ ...prev, phase: "running", progress: { processed: 0, success: 0, failed: 0 } }));
+    try {
+        const proposals = await analyzeEntriesForTags(
+        state.config.range,
+        state.config.skipAlreadyTagged,
+        state.config.skipTaggedEntries,
+        state.config.concurrency,
+      );
 
-    const total = state.candidateCount;
-    for (let i = 0; i < total; i += 5) {
-      await new Promise(resolve => setTimeout(resolve, 200));
-      setState(prev => {
-        const processed = Math.min(i + 5, total);
-        const success = processed - Math.floor(Math.random() * 2);
-        const failed = processed - success;
-        if (processed >= total) {
-          const suggestedTags = [
-            { name: "AI", hitCount: 15, entryCount: 12 },
-            { name: "机器学习", hitCount: 8, entryCount: 8 },
-            { name: "深度学习", hitCount: 3, entryCount: 3 },
-          ];
-          const tagDecisions: Record<string, "keep" | "discard" | "pending"> = {};
-          suggestedTags.forEach(t => tagDecisions[t.name] = "pending");
-          return {
-            ...prev,
-            phase: suggestedTags.length > 0 ? "readyNext" : "applying",
-            progress: { processed, success, failed },
-            suggestedTags,
-            tagDecisions,
-          };
-        }
-        return { ...prev, progress: { processed, success, failed } };
+      const suggestedTags = proposals.map((p) => ({
+        name: p.tagName,
+        hitCount: p.hitCount,
+        entryCount: p.entryCount,
+      }));
+
+      const tagDecisions: Record<string, "keep" | "discard" | "pending"> = {};
+      suggestedTags.forEach((t) => {
+        tagDecisions[t.name] = "pending";
       });
+
+      setState(prev => ({
+        ...prev,
+        phase: suggestedTags.length > 0 ? "review" : "done",
+        suggestedTags,
+        tagDecisions,
+        progress: {
+          processed: suggestedTags.length > 0 ? prev.candidateCount : 0,
+          success: suggestedTags.length > 0 ? prev.candidateCount : 0,
+          failed: 0,
+        },
+      }));
+
+      if (proposals.length === 0) {
+        toast(t("AI 未生成任何标签建议。"), "info");
+      }
+    } catch (error) {
+      console.error("批量标签分析失败", error);
+      toast(t("批量标签分析失败，请检查 AI 配置。"), "error");
+      setState(prev => ({ ...prev, phase: "cancelled" }));
     }
   };
 
   const applyTags = async () => {
     setState(prev => ({ ...prev, phase: "applying" }));
 
-    await new Promise(resolve => setTimeout(resolve, 800));
-
     const kept = state.suggestedTags.filter(t => state.tagDecisions[t.name] === "keep");
     const discarded = state.suggestedTags.filter(t => state.tagDecisions[t.name] === "discard");
 
-    setState(prev => ({
-      ...prev,
-      phase: "done",
-      finalStats: {
-        processed: prev.progress.processed,
-        success: prev.progress.success,
-        failed: prev.progress.failed,
-        tagAssociations: 320,
-        newTags: kept.length,
-        keptProposals: kept.length,
-        discardedProposals: discarded.length,
-      },
-    }));
+    try {
+      const result = await applyBatchTags(
+        state.config.range,
+        state.config.skipAlreadyTagged,
+        state.config.skipTaggedEntries,
+        kept.map((tag) => tag.name),
+        state.suggestedTags.length,
+      );
+
+      setState(prev => ({
+        ...prev,
+        phase: "done",
+        finalStats: {
+          processed: result.processed,
+          success: result.success,
+          failed: result.failed,
+          tagAssociations: result.tagAssociations,
+          newTags: result.newTags,
+          keptProposals: result.keptProposals,
+          discardedProposals: result.discardedProposals,
+        },
+      }));
+    } catch (error) {
+      console.error("应用批量标签失败", error);
+      toast(t("应用批量标签失败，请重试。"), "error");
+      setState(prev => ({ ...prev, phase: "cancelled" }));
+    }
   };
 
   const reset = () => {

@@ -257,6 +257,49 @@ export async function generateTagRecommendations(entryId: number, existingTagNam
   return invoke("generate_tag_recommendations", { entryId, existingTags: existingTagNames });
 }
 
+export interface TagProposal {
+  tagName: string;
+  hitCount: number;
+  entryCount: number;
+}
+
+export interface BatchTagApplyResult {
+  processed: number;
+  success: number;
+  failed: number;
+  tagAssociations: number;
+  newTags: number;
+  keptProposals: number;
+  discardedProposals: number;
+}
+
+export async function analyzeEntriesForTags(
+  range: string,
+  skipBatchTagged: boolean,
+  skipTagged: boolean,
+  concurrency: number
+): Promise<TagProposal[]> {
+  return invoke<TagProposal[]>("analyze_entries_for_tags", { range, skipBatchTagged, skipTagged, concurrency });
+}
+
+export async function countBatchTagCandidates(
+  range: string,
+  skipBatchTagged: boolean,
+  skipTagged: boolean
+): Promise<number> {
+  return invoke<number>("count_batch_tag_candidates", { range, skipBatchTagged, skipTagged });
+}
+
+export async function applyBatchTags(
+  range: string,
+  skipBatchTagged: boolean,
+  skipTagged: boolean,
+  keptTags: string[],
+  totalProposals: number
+): Promise<BatchTagApplyResult> {
+  return invoke<BatchTagApplyResult>("apply_batch_tags", { range, skipBatchTagged, skipTagged, keptTags, totalProposals });
+}
+
 export async function tagEntriesBatch(entryIds: number[], tagId: number): Promise<void> {
   return invoke("tag_entries_batch", { entryIds, tagId });
 }
