@@ -153,7 +153,7 @@ function reducer(state: State, action: Action): State {
       };
     case "SET_SIDEBAR_MODE":
       if (action.mode === "feed") {
-        return { ...state, sidebarMode: "feed", selectedTagIds: [], selectedTagId: null, viewMode: "list" };
+        return { ...state, sidebarMode: "feed", selectedTagIds: [], selectedTagId: null, selectedEntry: null, viewMode: "list" };
       }
       return { ...state, sidebarMode: action.mode };
     case "TOGGLE_TAG_SELECTION": {
