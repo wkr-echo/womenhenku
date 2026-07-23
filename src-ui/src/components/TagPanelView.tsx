@@ -14,6 +14,7 @@ interface TagPanelViewProps {
   entryId: number;
   selectedEntryTitle: string;
   contentMarkdown?: string;
+  onClose: () => void;
 }
 
 interface TagSuggestion {
@@ -39,9 +40,21 @@ function extractNlpEntities(title: string, summary?: string): string[] {
   return Array.from(results).slice(0, 10);
 }
 
-export function TagPanelView({ entryId, selectedEntryTitle, contentMarkdown }: TagPanelViewProps) {
+export function TagPanelView({ entryId, selectedEntryTitle, contentMarkdown, onClose }: TagPanelViewProps) {
   const { reloadTags, tags: appTags } = useApp();
+  const panelRef = useRef<HTMLDivElement>(null);
   const [entryTags, setEntryTags] = useState<Tag[]>([]);
+
+  // Click outside to close
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [onClose]);
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [newTagName, setNewTagName] = useState("");
   const [aiSuggestions, setAiSuggestions] = useState<TagSuggestion[]>([]);
@@ -172,7 +185,7 @@ export function TagPanelView({ entryId, selectedEntryTitle, contentMarkdown }: T
   }, [allTags, entryId, reloadTags]);
 
   return (
-    <div style={{
+    <div ref={panelRef} style={{
       position: "absolute", right: 0, top: 8, width: 280,
       backgroundColor: "white", border: "1px solid #e5e7eb",
       borderRadius: 8, boxShadow: "0 10px 25px rgba(0,0,0,0.1)",

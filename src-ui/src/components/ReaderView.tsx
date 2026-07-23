@@ -478,6 +478,7 @@ export function ReaderView() {
                   entryId={selectedEntry.id}
                   selectedEntryTitle={selectedEntry.title}
                   contentMarkdown={content?.cleanedMarkdown || undefined}
+                  onClose={() => setShowTagPanel(false)}
                 />
               )}
             </div>
