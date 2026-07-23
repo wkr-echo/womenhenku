@@ -1,0 +1,41 @@
+{
+  "data": [
+    {
+      "id": "page-main-reading",
+      "title": "主阅读视图",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1753286400000,
+      "canvasData": {
+        "x": 0,
+        "y": 0,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/main-reading.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-settings",
+      "title": "设置页面",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1753286400000,
+      "canvasData": {
+        "x": 620,
+        "y": 0,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/settings.html",
+        "interactions": []
+      }
+    }
+  ],
+  "config": {
+    "autoLayout": true,
+    "deviceType": "desktop",
+    "projectName": "Mercury UI 风格预览"
+  }
+}

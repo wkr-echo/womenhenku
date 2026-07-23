@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>主阅读视图</title>
+    <style id="theme-vars">
+/*
+ * Mercury RSS Reader -- UI Style Preview
+ * Brand prefix: mercury
+ */
+
+:root {
+  /* === Brand Palette === */
+  --mercury-primary: #6366f1;
+  --mercury-primary-hover: #4f46e5;
+  --mercury-primary-foreground: #ffffff;
+  --mercury-primary-muted: rgba(99, 102, 241, 0.1);
+  --mercury-primary-muted-hover: rgba(99, 102, 241, 0.15);
+
+  /* === Semantic Backgrounds === */
+  --mercury-background: #fafafc;
+  --mercury-sidebar: #f1f1f5;
+  --mercury-card: #ffffff;
+  --mercury-card-foreground: #1a1a2e;
+  --mercury-popover: #ffffff;
+  --mercury-popover-foreground: #1a1a2e;
+
+  /* === Foreground / Text === */
+  --mercury-foreground: #0f0f1a;
+  --mercury-muted: #6b7280;
+  --mercury-muted-foreground: #9ca3af;
+
+  /* === Border & Surface === */
+  --mercury-border: #e5e5eb;
+  --mercury-border-light: #f0f0f4;
+  --mercury-input: #e5e5eb;
+  --mercury-ring: #6366f1;
+
+  /* === Semantic States === */
+  --mercury-success: #10b981;
+  --mercury-warning: #f59e0b;
+  --mercury-danger: #ef4444;
+  --mercury-info: #3b82f6;
+
+  /* === Reader Surface === */
+  --mercury-reader-bg: #ffffff;
+  --mercury-reader-text: #1a1a2e;
+  --mercury-reader-secondary: #64748b;
+  --mercury-reader-link: #6366f1;
+  --mercury-reader-code-bg: #f3f4f6;
+
+  /* === Radius Scale === */
+  --mercury-radius-sm: 6px;
+  --mercury-radius-md: 10px;
+  --mercury-radius-lg: 14px;
+  --mercury-radius-xl: 18px;
+
+  /* === Shadows === */
+  --mercury-shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --mercury-shadow-md: 0 2px 8px rgba(0,0,0,0.06);
+  --mercury-shadow-lg: 0 4px 16px rgba(0,0,0,0.08);
+  --mercury-shadow-xl: 0 8px 32px rgba(0,0,0,0.1);
+
+  /* === Typography === */
+  --mercury-font-sans: "Inter", "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", system-ui, -apple-system, sans-serif;
+  --mercury-font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+  --mercury-font-reader: "Literata", "Noto Serif SC", "Source Serif 4", Georgia, serif;
+
+  --mercury-font-size-xs: 11px;
+  --mercury-font-size-sm: 13px;
+  --mercury-font-size-base: 15px;
+  --mercury-font-size-lg: 17px;
+  --mercury-font-size-xl: 20px;
+  --mercury-font-size-2xl: 24px;
+  --mercury-font-size-3xl: 30px;
+
+  --mercury-line-height-tight: 1.25;
+  --mercury-line-height-normal: 1.5;
+  --mercury-line-height-relaxed: 1.7;
+
+  --mercury-letter-spacing-tight: -0.02em;
+  --mercury-letter-spacing-normal: 0;
+
+  /* === Spacing Scale === */
+  --mercury-space-1: 4px;
+  --mercury-space-2: 8px;
+  --mercury-space-3: 12px;
+  --mercury-space-4: 16px;
+  --mercury-space-5: 20px;
+  --mercury-space-6: 24px;
+  --mercury-space-8: 32px;
+  --mercury-space-10: 40px;
+  --mercury-space-12: 48px;
+
+  /* === Semantic Token Mappings === */
+  --background: var(--mercury-background);
+  --foreground: var(--mercury-foreground);
+  --card: var(--mercury-card);
+  --card-foreground: var(--mercury-card-foreground);
+  --popover: var(--mercury-popover);
+  --popover-foreground: var(--mercury-popover-foreground);
+  --primary: var(--mercury-primary);
+  --primary-foreground: var(--mercury-primary-foreground);
+  --muted: var(--mercury-muted);
+  --muted-foreground: var(--mercury-muted-foreground);
+  --border: var(--mercury-border);
+  --input: var(--mercury-input);
+  --ring: var(--mercury-ring);
+  --radius-sm: var(--mercury-radius-sm);
+  --radius-md: var(--mercury-radius-md);
+  --radius-lg: var(--mercury-radius-lg);
+}
+
+/* Dark theme overrides */
+.dark {
+  --mercury-primary: #818cf8;
+  --mercury-primary-hover: #6366f1;
+  --mercury-primary-foreground: #ffffff;
+  --mercury-primary-muted: rgba(129, 140, 248, 0.12);
+  --mercury-primary-muted-hover: rgba(129, 140, 248, 0.18);
+
+  --mercury-background: #0c0c14;
+  --mercury-sidebar: #12121c;
+  --mercury-card: #181824;
+  --mercury-card-foreground: #e4e4ec;
+  --mercury-popover: #181824;
+  --mercury-popover-foreground: #e4e4ec;
+
+  --mercury-foreground: #f0f0f8;
+  --mercury-muted: #94a3b8;
+  --mercury-muted-foreground: #64748b;
+
+  --mercury-border: #262636;
+  --mercury-border-light: #1e1e2e;
+  --mercury-input: #2a2a3a;
+  --mercury-ring: #818cf8;
+
+  --mercury-success: #34d399;
+  --mercury-warning: #fbbf24;
+  --mercury-danger: #f87171;
+  --mercury-info: #60a5fa;
+
+  --mercury-reader-bg: #0c0c14;
+  --mercury-reader-text: #e4e4ec;
+  --mercury-reader-secondary: #94a3b8;
+  --mercury-reader-link: #818cf8;
+  --mercury-reader-code-bg: #1e1e2e;
+
+  --mercury-shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
+  --mercury-shadow-md: 0 2px 8px rgba(0,0,0,0.3);
+  --mercury-shadow-lg: 0 4px 16px rgba(0,0,0,0.35);
+  --mercury-shadow-xl: 0 8px 32px rgba(0,0,0,0.4);
+
+  --background: var(--mercury-background);
+  --foreground: var(--mercury-foreground);
+  --card: var(--mercury-card);
+  --card-foreground: var(--mercury-card-foreground);
+  --popover: var(--mercury-popover);
+  --popover-foreground: var(--mercury-popover-foreground);
+  --primary: var(--mercury-primary);
+  --primary-foreground: var(--mercury-primary-foreground);
+  --muted: var(--mercury-muted);
+  --muted-foreground: var(--mercury-muted-foreground);
+  --border: var(--mercury-border);
+  --input: var(--mercury-input);
+  --ring: var(--mercury-ring);
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-background: var(--mercury-background);
+    --color-foreground: var(--mercury-foreground);
+    --color-card: var(--mercury-card);
+    --color-card-foreground: var(--mercury-card-foreground);
+    --color-popover: var(--mercury-popover);
+    --color-popover-foreground: var(--mercury-popover-foreground);
+    --color-primary: var(--mercury-primary);
+    --color-primary-foreground: var(--mercury-primary-foreground);
+    --color-muted: var(--mercury-muted);
+    --color-muted-foreground: var(--mercury-muted-foreground);
+    --color-border: var(--mercury-border);
+    --color-input: var(--mercury-input);
+    --color-ring: var(--mercury-ring);
+    --color-sidebar: var(--mercury-sidebar);
+    --radius-sm: var(--mercury-radius-sm);
+    --radius-md: var(--mercury-radius-md);
+    --radius-lg: var(--mercury-radius-lg);
+    --radius-xl: var(--mercury-radius-xl);
+  }
+  @layer base {
+    body { background: var(--mercury-background); color: var(--mercury-foreground); }
+  }
+    </style>
+    <style id="semantic-token-fallback">
+      .bg-background { background-color: var(--mercury-background); }
+      .text-background { color: var(--mercury-background); }
+      .border-background { border-color: var(--mercury-background); }
+      .ring-background { --tw-ring-color: var(--mercury-background); }
+      .bg-foreground { background-color: var(--mercury-foreground); }
+      .text-foreground { color: var(--mercury-foreground); }
+      .border-foreground { border-color: var(--mercury-foreground); }
+      .ring-foreground { --tw-ring-color: var(--mercury-foreground); }
+      .bg-card { background-color: var(--mercury-card); }
+      .text-card { color: var(--mercury-card); }
+      .border-card { border-color: var(--mercury-card); }
+      .ring-card { --tw-ring-color: var(--mercury-card); }
+      .bg-card-foreground { background-color: var(--mercury-card-foreground); }
+      .text-card-foreground { color: var(--mercury-card-foreground); }
+      .border-card-foreground { border-color: var(--mercury-card-foreground); }
+      .ring-card-foreground { --tw-ring-color: var(--mercury-card-foreground); }
+      .bg-popover { background-color: var(--mercury-popover); }
+      .text-popover { color: var(--mercury-popover); }
+      .border-popover { border-color: var(--mercury-popover); }
+      .ring-popover { --tw-ring-color: var(--mercury-popover); }
+      .bg-popover-foreground { background-color: var(--mercury-popover-foreground); }
+      .text-popover-foreground { color: var(--mercury-popover-foreground); }
+      .border-popover-foreground { border-color: var(--mercury-popover-foreground); }
+      .ring-popover-foreground { --tw-ring-color: var(--mercury-popover-foreground); }
+      .bg-primary { background-color: var(--mercury-primary); }
+      .text-primary { color: var(--mercury-primary); }
+      .border-primary { border-color: var(--mercury-primary); }
+      .ring-primary { --tw-ring-color: var(--mercury-primary); }
+      .bg-primary-foreground { background-color: var(--mercury-primary-foreground); }
+      .text-primary-foreground { color: var(--mercury-primary-foreground); }
+      .border-primary-foreground { border-color: var(--mercury-primary-foreground); }
+      .ring-primary-foreground { --tw-ring-color: var(--mercury-primary-foreground); }
+      .bg-muted { background-color: var(--mercury-muted); }
+      .text-muted { color: var(--mercury-muted); }
+      .border-muted { border-color: var(--mercury-muted); }
+      .ring-muted { --tw-ring-color: var(--mercury-muted); }
+      .bg-muted-foreground { background-color: var(--mercury-muted-foreground); }
+      .text-muted-foreground { color: var(--mercury-muted-foreground); }
+      .border-muted-foreground { border-color: var(--mercury-muted-foreground); }
+      .ring-muted-foreground { --tw-ring-color: var(--mercury-muted-foreground); }
+      .bg-border { background-color: var(--mercury-border); }
+      .text-border { color: var(--mercury-border); }
+      .border-border { border-color: var(--mercury-border); }
+      .ring-border { --tw-ring-color: var(--mercury-border); }
+      .bg-input { background-color: var(--mercury-input); }
+      .text-input { color: var(--mercury-input); }
+      .border-input { border-color: var(--mercury-input); }
+      .ring-input { --tw-ring-color: var(--mercury-input); }
+      .bg-ring { background-color: var(--mercury-ring); }
+      .text-ring { color: var(--mercury-ring); }
+      .border-ring { border-color: var(--mercury-ring); }
+      .ring-ring { --tw-ring-color: var(--mercury-ring); }
+      .bg-sidebar { background-color: var(--mercury-sidebar); }
+      .text-sidebar { color: var(--mercury-sidebar); }
+      .border-sidebar { border-color: var(--mercury-sidebar); }
+      .ring-sidebar { --tw-ring-color: var(--mercury-sidebar); }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      .reader-body { font-family: var(--mercury-font-reader); color: var(--mercury-reader-text); }
+      .reader-body p { margin-bottom: 1.2em; }
+      .reader-body blockquote { border-left: 3px solid var(--mercury-primary); padding: 12px 20px; margin: 1.5em 0; background: var(--mercury-primary-muted); border-radius: 0 var(--mercury-radius-sm) var(--mercury-radius-sm) 0; color: var(--mercury-reader-secondary); }
+      .reader-body pre { background: var(--mercury-reader-code-bg); border-radius: var(--mercury-radius-sm); padding: 16px 20px; overflow-x: auto; margin: 1.5em 0; font-family: var(--mercury-font-mono); font-size: 13px; line-height: 1.6; }
+      .reader-body code { font-family: var(--mercury-font-mono); font-size: 0.9em; }
+    </style>
+</head>
+<body class="h-screen overflow-hidden font-sans antialiased">
+    <main class="h-full flex" style="font-family:var(--mercury-font-sans)">
+
+      <!-- ===== Column 1: Left Sidebar ===== -->
+      <aside class="w-[260px] min-w-[260px] h-full flex flex-col border-r" style="background:var(--mercury-sidebar);border-color:var(--mercury-border)">
+
+        <!-- Logo -->
+        <div class="flex items-center gap-2.5 px-5 pt-5 pb-4">
+          <svg class="w-7 h-7" style="color:var(--mercury-primary)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/>
+          </svg>
+          <span style="font-size:var(--mercury-font-size-xl)" class="font-semibold tracking-tight" style="color:var(--mercury-foreground)">Mercury</span>
+        </div>
+
+        <!-- Search -->
+        <div class="px-4 pb-3">
+          <div class="relative">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style="color:var(--mercury-muted-foreground)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="text" placeholder="搜索文章或订阅源..." class="w-full pl-9 pr-3 py-2 outline-none transition-shadow" style="font-size:var(--mercury-font-size-sm);border-radius:var(--mercury-radius-md);border:1px solid var(--mercury-border);background:var(--mercury-card);color:var(--mercury-foreground)"/>
+          </div>
+        </div>
+
+        <!-- Feed/Tag Toggle -->
+        <div class="px-4 pb-3">
+          <div class="flex p-0.5" style="border-radius:var(--mercury-radius-md);background:var(--mercury-border-light)">
+            <button class="flex-1 py-1.5 font-medium" style="font-size:var(--mercury-font-size-sm);border-radius:calc(var(--mercury-radius-md) - 2px);background:var(--mercury-card);color:var(--mercury-foreground);box-shadow:var(--mercury-shadow-sm)">订阅源</button>
+            <button class="flex-1 py-1.5 font-medium transition-colors" style="font-size:var(--mercury-font-size-sm);border-radius:calc(var(--mercury-radius-md) - 2px);color:var(--mercury-muted)">标签</button>
+          </div>
+        </div>
+
+        <!-- Feed List -->
+        <nav class="flex-1 overflow-y-auto px-2 no-scrollbar">
+          <button class="w-full flex items-center gap-2.5 px-3 py-2.5 text-left border-l-2" style="border-radius:var(--mercury-radius-sm);background:var(--mercury-primary-muted);border-left-color:var(--mercury-primary)">
+            <span class="flex-1 truncate font-medium" style="font-size:var(--mercury-font-size-sm);color:var(--mercury-foreground)">少数派</span>
+            <span class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full font-semibold" style="font-size:var(--mercury-font-size-xs);background:var(--mercury-primary);color:var(--mercury-primary-foreground)">3</span>
+          </button>
+          <button class="w-full flex items-center gap-2.5 px-3 py-2.5 text-left border-l-2 border-transparent transition-colors" style="border-radius:var(--mercury-radius-sm)">
+            <span class="flex-1 truncate" style="font-size:var(--mercury-font-size-sm);color:var(--mercury-foreground)">阮一峰的网络日志</span>
+            <span class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full font-semibold" style="font-size:var(--mercury-font-size-xs);background:var(--mercury-primary);color:var(--mercury-primary-foreground)">2</span>
+          </button>
+          <button class="w-full flex items-center gap-2.5 px-3 py-2.5 text-left border-l-2 border-transparent transition-colors" style="border-radius:var(--mercury-radius-sm)">
+            <span class="flex-1 truncate" style="font-size:var(--mercury-font-size-sm);color:var(--mercury-foreground)">Hacker News</span>
+            <span class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full font-semibold" style="font-size:var(--mercury-font-size-xs);background:var(--mercury-primary);color:var(--mercury-primary-foreground)">1</span>
+          </button>
+          <button class="w-full flex items-center gap-2.5 px-3 py-2.5 text-left border-l-2 border-transparent transition-colors" style="border-radius:var(--mercury-radius-sm)">
+            <span class="flex-1 truncate" style="font-size:var(--mercury-font-size-sm);color:var(--mercury-muted)">V2EX</span>
+            <span class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full font-semibold" style="font-size:var(--mercury-font-size-xs);background:var(--mercury-primary);color:var(--mercury-primary-foreground)">1</span>
+          </button>
+          <button class="w-full flex items-center gap-2.5 px-3 py-2.5 text-left border-l-2 border-transparent transition-colors" style="border-radius:var(--mercury-radius-sm)">
+            <span class="flex-1 truncate" style="font-size:var(--mercury-font-size-sm);color:var(--mercury-muted)">The Verge</span>
+            <span class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full font-semibold" style="font-size:var(--mercury-font-size-xs);background:var(--mercury-primary);color:var(--mercury-primary-foreground)">1</span>
+          </button>
+        </nav>
+
+        <!-- Bottom Actions -->
+        <div class="px-4 py-4 flex items-center gap-2" style="border-top:1px solid var(--mercury-border-light)">
+          <button class="flex-1 flex items-center justify-center gap-1.5 py-2 font-medium transition-colors" style="border-radius:var(--mercury-radius-sm);font-size:var(--mercury-font-size-sm);background:var(--mercury-primary);color:var(--mercury-primary-foreground)">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+            添加订阅
+          </button>
+          <button class="flex items-center justify-center w-9 h-9 transition-colors" style="border-radius:var(--mercury-radius-sm);color:var(--mercury-muted)">
+            <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </aside>
+
+      <!-- ===== Column 2: Entry List ===== -->
+      <section class="w-[320px] min-w-[320px] h-full flex flex-col" style="background:var(--mercury-card);border-right:1px solid var(--mercury-border)">
+
+        <!-- Header -->
+        <div class="flex items-center justify-between px-4 py-3" style="border-bottom:1px solid var(--mercury-border-light)">
+          <h2 class="font-semibold" style="font-size:var(--mercury-font-size-base);color:var(--mercury-foreground)">文章 <span class="font-normal" style="color:var(--mercury-muted)">(12)</span></h2>
+          <div class="flex items-center gap-3">
+            <span style="font-size:var(--mercury-font-size-xs);color:var(--mercury-muted)">未读 8/12</span>
+            <button class="font-medium" style="font-size:var(--mercury-font-size-xs);color:var(--mercury-primary)">全部已读</button>
+          </div>
+        </div>
+
+        <!-- Entries -->
+        <div class="flex-1 overflow-y-auto no-scrollbar">
+          <!-- Entry 1: selected + unread -->
+          <div class="flex items-start gap-2.5 px-4 py-3 border-l-2" style="background:var(--mercury-primary-muted);border-left-color:var(--mercury-primary)">
+            <label class="flex items-center pt-0.5 cursor-pointer">
+              <input type="checkbox" checked class="w-3.5 h-3.5 rounded" style="accent-color:var(--mercury-primary)"/>
+            </label>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full shrink-0" style="background:var(--mercury-primary)"></span>
+                <h3 class="truncate font-semibold" style="font-size:var(--mercury-font-size-sm);color:var(--mercury-foreground)">如何构建一个高性能的 RSS 阅读器</h3>
+              </div>
+              <p class="mt-1" style="font-size:var(--mercury-font-size-xs);color:var(--mercury-muted)">张三 \u00b7 2026年7月20日</p>
+            </div>
+          </div>
+          <div class="mx-4" style="border-top:1px solid var(--mercury-border-light)"></div>
+
+          <!-- Entry 2: unread + checked -->
+          <div class="flex items-start gap-2.5 px-4 py-3 border-l-2 border-transparent">
+            <label class="flex items-center pt-0.5 cursor-pointer">
+              <input type="checkbox" checked class="w-3.5 h-3.5 rounded" style="accent-color:var(--mercury-primary)"/>
+            </label>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full shrink-0" style="background:var(--mercury-primary)"></span>
+                <h3 class="truncate font-semibold" style="font-size:var(--mercury-font-size-sm);color:var(--mercury-foreground)">SwiftUI 状态管理的最佳实践</h3>
+              </div>
+              <p class="mt-1" style="font-size:var(--mercury-font-size-xs);color:var(--mercury-muted)">李四 \u00b7 2026年7月19日</p>
+            </div>
+          </div>
+          <div class="mx-4" style="border-top:1px solid var(--mercury-border-light)"></div>
+
+          <!-- Entry 3: unread -->
+          <div class="flex items-start gap-2.5 px-4 py-3 border-l-2 border-transparent">
+            <label class="flex items-center pt-0.5 cursor-pointer">
+              <input type="checkbox" class="w-3.5 h-3.5 rounded" style="accent-color:var(--mercury-primary)"/>
+            </label>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full shrink-0" style="background:var(--mercury-primary)"></span>
+                <h3 class="truncate font-semibold" style="font-size:var(--mercury-font-size-sm);color:var(--mercury-foreground)">Tauri 2.0 正式发布：下一代跨平台框架</h3>
+              </div>
+              <p class="mt-1" style="font-size:var(--mercury-font-size-xs);color:var(--mercury-muted)">王五 \u00b7 2026年7月18日</p>
+            </div>
+          </div>
+          <div class="mx-4" style="border-top:1px solid var(--mercury-border-light)"></div>
+
+          <!-- Entry 4: read -->
+          <div class="flex items-start gap-2.5 px-4 py-3 border-l-2 border-transparent">
+            <label class="flex items-center pt-0.5 cursor-pointer">
+              <input type="checkbox" class="w-3.5 h-3.5 rounded" style="accent-color:var(--mercury-primary)"/>
+            </label>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full shrink-0 bg-transparent"></span>
+                <h3 class="truncate" style="font-size:var(--mercury-font-size-sm);color:var(--mercury-muted)">为什么我从 Notion 迁移到了 Obsidian</h3>
+              </div>
+              <p class="mt-1" style="font-size:var(--mercury-font-size-xs);color:var(--mercury-muted-foreground)">赵六 \u00b7 2026年7月17日</p>
+            </div>
+          </div>
+          <div class="mx-4" style="border-top:1px solid var(--mercury-border-light)"></div>
+
+          <!-- Entry 5: unread -->
+          <div class="flex items-start gap-2.5 px-4 py-3 border-l-2 border-transparent">
+            <label class="flex items-center pt-0.5 cursor-pointer">
+              <input type="checkbox" class="w-3.5 h-3.5 rounded" style="accent-color:var(--mercury-primary)"/>
+            </label>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full shrink-0" style="background:var(--mercury-primary)"></span>
+                <h3 class="truncate font-semibold" style="font-size:var(--mercury-font-size-sm);color:var(--mercury-foreground)">Rust 异步编程入门指南</h3>
+              </div>
+              <p class="mt-1" style="font-size:var(--mercury-font-size-xs);color:var(--mercury-muted)">孙七 \u00b7 2026年7月16日</p>
+            </div>
+          </div>
+          <div class="mx-4" style="border-top:1px solid var(--mercury-border-light)"></div>
+
+          <!-- Entry 6: read -->
+          <div class="flex items-start gap-2.5 px-4 py-3 border-l-2 border-transparent">
+            <label class="flex items-center pt-0.5 cursor-pointer">
+              <input type="checkbox" class="w-3.5 h-3.5 rounded" style="accent-color:var(--mercury-primary)"/>
+            </label>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full shrink-0 bg-transparent"></span>
+                <h3 class="truncate" style="font-size:var(--mercury-font-size-sm);color:var(--mercury-muted)">2026 年最值得关注的开发工具</h3>
+              </div>
+              <p class="mt-1" style="font-size:var(--mercury-font-size-xs);color:var(--mercury-muted-foreground)">周八 \u00b7 2026年7月15日</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Batch Action Bar -->
+        <div class="flex items-center justify-between px-4 py-2.5" style="border-top:1px solid var(--mercury-border);background:var(--mercury-card)">
+          <span class="font-medium" style="font-size:var(--mercury-font-size-sm);color:var(--mercury-foreground)">已选 2 篇</span>
+          <div class="flex items-center gap-2">
+            <button class="px-3 py-1.5 font-medium" style="font-size:var(--mercury-font-size-sm);border-radius:var(--mercury-radius-sm);background:var(--mercury-primary);color:var(--mercury-primary-foreground)">导出 Markdown</button>
+            <button class="px-3 py-1.5 font-medium transition-colors" style="font-size:var(--mercury-font-size-sm);border-radius:var(--mercury-radius-sm);color:var(--mercury-muted);border:1px solid var(--mercury-border)">导出 HTML</button>
+            <button class="px-2 py-1.5" style="font-size:var(--mercury-font-size-sm);color:var(--mercury-muted)">取消</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Column 3: Reader Pane ===== -->
+      <div class="flex-1 h-full flex overflow-hidden">
+
+        <!-- Reader Content -->
+        <div class="flex-1 h-full flex flex-col overflow-hidden">
+
+          <!-- Reader Header -->
+          <div class="px-8 pt-6 pb-0">
+            <h1 class="font-semibold" style="font-size:var(--mercury-font-size-2xl);color:var(--mercury-foreground);line-height:var(--mercury-line-height-tight);letter-spacing:var(--mercury-letter-spacing-tight)">如何构建一个高性能的 RSS 阅读器</h1>
+            <div class="flex items-center gap-2 mt-2" style="font-size:var(--mercury-font-size-sm);color:var(--mercury-muted)">
+              <span>张三</span>
+              <span style="color:var(--mercury-border)">|</span>
+              <span>2026年7月20日</span>
+              <span style="color:var(--mercury-border)">|</span>
+              <a href="#" style="color:var(--mercury-primary)" class="hover:underline">原文</a>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="flex items-center gap-1 mt-4 pb-4" style="border-bottom:1px solid var(--mercury-border-light)">
+              <!-- Translate button -->
+              <button class="flex items-center gap-1.5 px-3 py-1.5 font-medium transition-colors" style="font-size:var(--mercury-font-size-sm);border-radius:var(--mercury-radius-sm);color:var(--mercury-muted);border:1px solid var(--mercury-border)">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>
+                翻译
+              </button>
+              <!-- Summary button (active) -->
+              <button class="flex items-center gap-1.5 px-3 py-1.5 font-medium" style="font-size:var(--mercury-font-size-sm);border-radius:var(--mercury-radius-sm);background:var(--mercury-primary);color:var(--mercury-primary-foreground)">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
+                摘要
+              </button>
+              <!-- Notes button -->
+              <button class="flex items-center gap-1.5 px-3 py-1.5 font-medium transition-colors" style="font-size:var(--mercury-font-size-sm);border-radius:var(--mercury-radius-sm);color:var(--mercury-muted);border:1px solid var(--mercury-border)">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                笔记
+              </button>
+              <!-- Separator -->
+              <div class="mx-1.5 w-px h-5" style="background:var(--mercury-border)"></div>
+              <!-- Export icons -->
+              <button class="flex items-center justify-center w-8 h-8 transition-colors" style="border-radius:var(--mercury-radius-sm);color:var(--mercury-muted)" title="导出原文 Markdown">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              </button>
+              <button class="flex items-center justify-center w-8 h-8 transition-colors" style="border-radius:var(--mercury-radius-sm);color:var(--mercury-muted)" title="导出摘要">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+              </button>
+              <button class="flex items-center justify-center w-8 h-8 transition-colors" style="border-radius:var(--mercury-radius-sm);color:var(--mercury-muted)" title="导出笔记">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+              <!-- Tag icon -->
+              <button class="flex items-center justify-center w-8 h-8 transition-colors" style="border-radius:var(--mercury-radius-sm);color:var(--mercury-muted)" title="标签">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Article Body -->
+          <div class="flex-1 overflow-y-auto no-scrollbar">
+            <div class="max-w-3xl mx-auto px-8 py-6">
+              <div class="reader-body" style="font-family:var(--mercury-font-reader);font-size:var(--mercury-font-size-base);line-height:var(--mercury-line-height-relaxed);color:var(--mercury-reader-text)">
+                <p>在信息爆炸的时代，RSS 阅读器成为了许多人获取高质量内容的必备工具。一个好的 RSS 阅读器不仅需要高效地抓取和解析各种格式的 Feed，还需要提供舒适的阅读体验和智能的内容处理能力。</p>
+
+                <p>本文将探讨如何使用现代技术栈构建一个高性能的 RSS 阅读器。我们将从架构设计开始，讨论前后端分离的优势、数据库选型、内容提取管线，以及如何集成大语言模型来实现智能摘要和翻译功能。</p>
+
+                <blockquote>核心设计理念：本地优先、隐私安全、跨平台兼容。所有数据存储在本地 SQLite 数据库中，不依赖任何云服务，用户完全掌控自己的阅读数据。</blockquote>
+
+                <h2 style="font-size:var(--mercury-font-size-xl);font-weight:600;margin-top:2em;margin-bottom:0.75em">技术架构概览</h2>
+
+                <p>我们选择了 Rust + Tauri 作为核心架构，搭配 React + TypeScript 前端。这种组合在保证性能的同时，提供了优秀的开发体验。Rust 的内存安全和零成本抽象，使得即使在处理大量文章时也能保持流畅的用户体验。</p>
+
+                <pre><code>// Content pipeline: fetch → parse → extract → render
+pub async fn process_entry(entry: &Entry) -> Result&lt;Content&gt; {
+    let raw_html = fetch_url(&entry.link).await?;
+    let cleaned = readability::extract(&raw_html)?;
+    let markdown = comrak::markdown_to_html(&cleaned)?;
+    Ok(Content { rendered_html: markdown })
+}</code></pre>
+
+                <p>内容处理管线是整个阅读器的核心。我们使用 Mozilla 的 Readability 算法来提取文章正文，然后通过 HTML 清洗和 Markdown 转换，最终生成适合阅读的渲染内容。整个过程都在 Rust 侧完成，确保了性能和安全性。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Side Panel: Summary -->
+        <div class="w-[400px] min-w-[400px] h-full flex flex-col" style="border-left:1px solid var(--mercury-border);background:var(--mercury-card)">
+          <div class="flex items-center justify-between px-5 py-3" style="border-bottom:1px solid var(--mercury-border-light)">
+            <h2 class="font-semibold" style="font-size:var(--mercury-font-size-base);color:var(--mercury-foreground)">AI 摘要</h2>
+            <button class="flex items-center justify-center w-7 h-7 transition-colors" style="border-radius:var(--mercury-radius-sm);color:var(--mercury-muted-foreground)">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div class="flex-1 overflow-y-auto no-scrollbar px-5 py-4">
+            <div class="p-4" style="border-radius:var(--mercury-radius-md);background:var(--mercury-background)">
+              <p style="font-size:var(--mercury-font-size-sm);line-height:var(--mercury-line-height-relaxed);color:var(--mercury-reader-text)">本文介绍了构建高性能 RSS 阅读器的完整技术方案。作者选择了 Rust + Tauri 作为后端架构，React + TypeScript 作为前端框架，实现了本地优先、隐私安全的阅读体验。</p>
+            </div>
+            <button class="mt-4 w-full flex items-center justify-center gap-1.5 px-3 py-2 font-medium transition-colors" style="font-size:var(--mercury-font-size-sm);border-radius:var(--mercury-radius-sm);border:1px solid var(--mercury-border);color:var(--mercury-foreground)">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+              重新生成
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </main>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

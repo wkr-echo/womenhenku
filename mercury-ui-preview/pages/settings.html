@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>设置</title>
+    <style id="theme-vars">
+/*
+ * Mercury RSS Reader — UI Style Preview
+ * Brand prefix: mercury
+ */
+
+:root {
+  /* === Brand Palette === */
+  --mercury-primary: #6366f1;
+  --mercury-primary-hover: #4f46e5;
+  --mercury-primary-foreground: #ffffff;
+  --mercury-primary-muted: rgba(99, 102, 241, 0.1);
+  --mercury-primary-muted-hover: rgba(99, 102, 241, 0.15);
+
+  /* === Semantic Backgrounds === */
+  --mercury-background: #fafafc;
+  --mercury-sidebar: #f1f1f5;
+  --mercury-card: #ffffff;
+  --mercury-card-foreground: #1a1a2e;
+  --mercury-popover: #ffffff;
+  --mercury-popover-foreground: #1a1a2e;
+
+  /* === Foreground / Text === */
+  --mercury-foreground: #0f0f1a;
+  --mercury-muted: #6b7280;
+  --mercury-muted-foreground: #9ca3af;
+
+  /* === Border & Surface === */
+  --mercury-border: #e5e5eb;
+  --mercury-border-light: #f0f0f4;
+  --mercury-input: #e5e5eb;
+  --mercury-ring: #6366f1;
+
+  /* === Semantic States === */
+  --mercury-success: #10b981;
+  --mercury-warning: #f59e0b;
+  --mercury-danger: #ef4444;
+  --mercury-info: #3b82f6;
+
+  /* === Reader Surface === */
+  --mercury-reader-bg: #ffffff;
+  --mercury-reader-text: #1a1a2e;
+  --mercury-reader-secondary: #64748b;
+  --mercury-reader-link: #6366f1;
+  --mercury-reader-code-bg: #f3f4f6;
+
+  /* === Radius Scale === */
+  --mercury-radius-sm: 6px;
+  --mercury-radius-md: 10px;
+  --mercury-radius-lg: 14px;
+  --mercury-radius-xl: 18px;
+
+  /* === Shadows === */
+  --mercury-shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --mercury-shadow-md: 0 2px 8px rgba(0,0,0,0.06);
+  --mercury-shadow-lg: 0 4px 16px rgba(0,0,0,0.08);
+  --mercury-shadow-xl: 0 8px 32px rgba(0,0,0,0.1);
+
+  /* === Typography === */
+  --mercury-font-sans: "Inter", "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", system-ui, -apple-system, sans-serif;
+  --mercury-font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+  --mercury-font-reader: "Literata", "Noto Serif SC", "Source Serif 4", Georgia, serif;
+
+  --mercury-font-size-xs: 11px;
+  --mercury-font-size-sm: 13px;
+  --mercury-font-size-base: 15px;
+  --mercury-font-size-lg: 17px;
+  --mercury-font-size-xl: 20px;
+  --mercury-font-size-2xl: 24px;
+  --mercury-font-size-3xl: 30px;
+
+  --mercury-line-height-tight: 1.25;
+  --mercury-line-height-normal: 1.5;
+  --mercury-line-height-relaxed: 1.7;
+
+  --mercury-letter-spacing-tight: -0.02em;
+  --mercury-letter-spacing-normal: 0;
+
+  /* === Spacing Scale === */
+  --mercury-space-1: 4px;
+  --mercury-space-2: 8px;
+  --mercury-space-3: 12px;
+  --mercury-space-4: 16px;
+  --mercury-space-5: 20px;
+  --mercury-space-6: 24px;
+  --mercury-space-8: 32px;
+  --mercury-space-10: 40px;
+  --mercury-space-12: 48px;
+
+  /* === Semantic Token Mappings (for fill-html-head.mjs) === */
+  --background: var(--mercury-background);
+  --foreground: var(--mercury-foreground);
+  --card: var(--mercury-card);
+  --card-foreground: var(--mercury-card-foreground);
+  --popover: var(--mercury-popover);
+  --popover-foreground: var(--mercury-popover-foreground);
+  --primary: var(--mercury-primary);
+  --primary-foreground: var(--mercury-primary-foreground);
+  --muted: var(--mercury-muted);
+  --muted-foreground: var(--mercury-muted-foreground);
+  --border: var(--mercury-border);
+  --input: var(--mercury-input);
+  --ring: var(--mercury-ring);
+  --radius-sm: var(--mercury-radius-sm);
+  --radius-md: var(--mercury-radius-md);
+  --radius-lg: var(--mercury-radius-lg);
+}
+
+/* Dark theme overrides */
+.dark {
+  --mercury-primary: #818cf8;
+  --mercury-primary-hover: #6366f1;
+  --mercury-primary-foreground: #ffffff;
+  --mercury-primary-muted: rgba(129, 140, 248, 0.12);
+  --mercury-primary-muted-hover: rgba(129, 140, 248, 0.18);
+
+  --mercury-background: #0c0c14;
+  --mercury-sidebar: #12121c;
+  --mercury-card: #181824;
+  --mercury-card-foreground: #e4e4ec;
+  --mercury-popover: #181824;
+  --mercury-popover-foreground: #e4e4ec;
+
+  --mercury-foreground: #f0f0f8;
+  --mercury-muted: #94a3b8;
+  --mercury-muted-foreground: #64748b;
+
+  --mercury-border: #262636;
+  --mercury-border-light: #1e1e2e;
+  --mercury-input: #2a2a3a;
+  --mercury-ring: #818cf8;
+
+  --mercury-success: #34d399;
+  --mercury-warning: #fbbf24;
+  --mercury-danger: #f87171;
+  --mercury-info: #60a5fa;
+
+  --mercury-reader-bg: #0c0c14;
+  --mercury-reader-text: #e4e4ec;
+  --mercury-reader-secondary: #94a3b8;
+  --mercury-reader-link: #818cf8;
+  --mercury-reader-code-bg: #1e1e2e;
+
+  --mercury-shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
+  --mercury-shadow-md: 0 2px 8px rgba(0,0,0,0.3);
+  --mercury-shadow-lg: 0 4px 16px rgba(0,0,0,0.35);
+  --mercury-shadow-xl: 0 8px 32px rgba(0,0,0,0.4);
+
+  --background: var(--mercury-background);
+  --foreground: var(--mercury-foreground);
+  --card: var(--mercury-card);
+  --card-foreground: var(--mercury-card-foreground);
+  --popover: var(--mercury-popover);
+  --popover-foreground: var(--mercury-popover-foreground);
+  --primary: var(--mercury-primary);
+  --primary-foreground: var(--mercury-primary-foreground);
+  --muted: var(--mercury-muted);
+  --muted-foreground: var(--mercury-muted-foreground);
+  --border: var(--mercury-border);
+  --input: var(--mercury-input);
+  --ring: var(--mercury-ring);
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-background: var(--mercury-background);
+    --color-foreground: var(--mercury-foreground);
+    --color-card: var(--mercury-card);
+    --color-card-foreground: var(--mercury-card-foreground);
+    --color-popover: var(--mercury-popover);
+    --color-popover-foreground: var(--mercury-popover-foreground);
+    --color-primary: var(--mercury-primary);
+    --color-primary-foreground: var(--mercury-primary-foreground);
+    --color-muted: var(--mercury-muted);
+    --color-muted-foreground: var(--mercury-muted-foreground);
+    --color-border: var(--mercury-border);
+    --color-input: var(--mercury-input);
+    --color-ring: var(--mercury-ring);
+    --color-sidebar: var(--mercury-sidebar);
+    --radius-sm: var(--mercury-radius-sm);
+    --radius-md: var(--mercury-radius-md);
+    --radius-lg: var(--mercury-radius-lg);
+    --radius-xl: var(--mercury-radius-xl);
+  }
+  @layer base {
+    body { background: var(--mercury-background); color: var(--mercury-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style id="semantic-token-fallback">
+      .bg-background { background-color: var(--mercury-background); }
+      .text-background { color: var(--mercury-background); }
+      .border-background { border-color: var(--mercury-background); }
+      .ring-background { --tw-ring-color: var(--mercury-background); }
+      .bg-foreground { background-color: var(--mercury-foreground); }
+      .text-foreground { color: var(--mercury-foreground); }
+      .border-foreground { border-color: var(--mercury-foreground); }
+      .ring-foreground { --tw-ring-color: var(--mercury-foreground); }
+      .bg-card { background-color: var(--mercury-card); }
+      .text-card { color: var(--mercury-card); }
+      .border-card { border-color: var(--mercury-card); }
+      .ring-card { --tw-ring-color: var(--mercury-card); }
+      .bg-card-foreground { background-color: var(--mercury-card-foreground); }
+      .text-card-foreground { color: var(--mercury-card-foreground); }
+      .border-card-foreground { border-color: var(--mercury-card-foreground); }
+      .ring-card-foreground { --tw-ring-color: var(--mercury-card-foreground); }
+      .bg-popover { background-color: var(--mercury-popover); }
+      .text-popover { color: var(--mercury-popover); }
+      .border-popover { border-color: var(--mercury-popover); }
+      .ring-popover { --tw-ring-color: var(--mercury-popover); }
+      .bg-popover-foreground { background-color: var(--mercury-popover-foreground); }
+      .text-popover-foreground { color: var(--mercury-popover-foreground); }
+      .border-popover-foreground { border-color: var(--mercury-popover-foreground); }
+      .ring-popover-foreground { --tw-ring-color: var(--mercury-popover-foreground); }
+      .bg-primary { background-color: var(--mercury-primary); }
+      .text-primary { color: var(--mercury-primary); }
+      .border-primary { border-color: var(--mercury-primary); }
+      .ring-primary { --tw-ring-color: var(--mercury-primary); }
+      .bg-primary-foreground { background-color: var(--mercury-primary-foreground); }
+      .text-primary-foreground { color: var(--mercury-primary-foreground); }
+      .border-primary-foreground { border-color: var(--mercury-primary-foreground); }
+      .ring-primary-foreground { --tw-ring-color: var(--mercury-primary-foreground); }
+      .bg-muted { background-color: var(--mercury-muted); }
+      .text-muted { color: var(--mercury-muted); }
+      .border-muted { border-color: var(--mercury-muted); }
+      .ring-muted { --tw-ring-color: var(--mercury-muted); }
+      .bg-muted-foreground { background-color: var(--mercury-muted-foreground); }
+      .text-muted-foreground { color: var(--mercury-muted-foreground); }
+      .border-muted-foreground { border-color: var(--mercury-muted-foreground); }
+      .ring-muted-foreground { --tw-ring-color: var(--mercury-muted-foreground); }
+      .bg-border { background-color: var(--mercury-border); }
+      .text-border { color: var(--mercury-border); }
+      .border-border { border-color: var(--mercury-border); }
+      .ring-border { --tw-ring-color: var(--mercury-border); }
+      .bg-input { background-color: var(--mercury-input); }
+      .text-input { color: var(--mercury-input); }
+      .border-input { border-color: var(--mercury-input); }
+      .ring-input { --tw-ring-color: var(--mercury-input); }
+      .bg-ring { background-color: var(--mercury-ring); }
+      .text-ring { color: var(--mercury-ring); }
+      .border-ring { border-color: var(--mercury-ring); }
+      .ring-ring { --tw-ring-color: var(--mercury-ring); }
+      .bg-sidebar { background-color: var(--mercury-sidebar); }
+      .text-sidebar { color: var(--mercury-sidebar); }
+      .border-sidebar { border-color: var(--mercury-sidebar); }
+      .ring-sidebar { --tw-ring-color: var(--mercury-sidebar); }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+</head>
+<body class="h-screen overflow-hidden font-sans antialiased" style="font-family: var(--mercury-font-sans)">
+    <div class="flex h-full">
+
+      <!-- ===== SIDEBAR ===== -->
+      <aside class="flex flex-col w-[260px] h-full shrink-0 border-r border-[var(--mercury-border)]" style="background: var(--mercury-sidebar)">
+        <!-- Logo -->
+        <div class="flex items-center gap-2.5 px-5 pt-5 pb-4">
+          <svg width="26" height="26" viewBox="0 0 26 26" fill="none">
+            <circle cx="13" cy="13" r="12" fill="var(--mercury-primary)" opacity="0.12"/>
+            <path d="M8 7h10a1 1 0 0 1 1 1v1.5a1 1 0 0 1-.46.84L14.5 13l4.04 2.66A1 1 0 0 1 19 16.5V18a1 1 0 0 1-1 1H8" stroke="var(--mercury-primary)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </svg>
+          <span class="text-base font-semibold tracking-tight" style="color: var(--mercury-foreground)">Mercury</span>
+        </div>
+
+        <!-- Nav items -->
+        <nav class="flex-1 px-3 mt-1">
+          <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-[var(--mercury-radius-md)] text-sm" style="color: var(--mercury-muted)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8z"/></svg>
+            全部文章
+          </a>
+          <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-[var(--mercury-radius-md)] text-sm" style="color: var(--mercury-muted)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            收藏
+          </a>
+          <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-[var(--mercury-radius-md)] text-sm" style="color: var(--mercury-muted)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            已读
+          </a>
+
+          <!-- Settings (active) -->
+          <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-[var(--mercury-radius-md)] text-sm font-medium" style="background: var(--mercury-primary-muted); color: var(--mercury-primary)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+            设置
+          </a>
+        </nav>
+
+        <!-- Back button -->
+        <div class="px-3 pb-4">
+          <a href="#" class="flex items-center gap-2.5 px-3 py-2.5 rounded-[var(--mercury-radius-md)] text-sm transition-colors hover:opacity-70" style="color: var(--mercury-muted)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            返回
+          </a>
+        </div>
+      </aside>
+
+      <!-- ===== MAIN CONTENT ===== -->
+      <div class="flex-1 h-full overflow-y-auto" style="background: var(--mercury-background)">
+        <div class="max-w-[720px] mx-auto px-8 py-8">
+
+          <!-- Page title -->
+          <h1 class="text-[28px] font-semibold tracking-tight mb-8" style="color: var(--mercury-foreground)">设置</h1>
+
+          <!-- ===== CARD 1: AI 提供商管理 ===== -->
+          <div class="rounded-[var(--mercury-radius-lg)] p-6 mb-6" style="background: var(--mercury-card); box-shadow: var(--mercury-shadow-sm); border: 1px solid var(--mercury-border-light)">
+            <div class="flex items-center justify-between mb-5">
+              <h2 class="text-[17px] font-semibold" style="color: var(--mercury-foreground)">AI 提供商管理</h2>
+              <button class="flex items-center gap-1.5 px-3.5 py-2 rounded-[var(--mercury-radius-md)] text-[13px] font-medium transition-colors" style="background: var(--mercury-primary); color: var(--mercury-primary-foreground)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                添加提供商
+              </button>
+            </div>
+
+            <!-- Provider 1: DeepSeek (default) -->
+            <div class="rounded-[var(--mercury-radius-md)] p-4 mb-3" style="border: 1px solid var(--mercury-border-light); background: var(--mercury-background)">
+              <div class="flex items-start justify-between">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1.5">
+                    <span class="inline-flex items-center justify-center w-2 h-2 rounded-full" style="background: var(--mercury-success)"></span>
+                    <span class="text-[15px] font-medium" style="color: var(--mercury-foreground)">DeepSeek</span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium" style="background: var(--mercury-primary-muted); color: var(--mercury-primary)">默认</span>
+                  </div>
+                  <div class="text-[13px] ml-4" style="color: var(--mercury-muted)">
+                    <div class="mb-0.5">Base URL: https://api.deepseek.com/v1</div>
+                    <div>模型: deepseek-chat</div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-1 ml-3 shrink-0">
+                  <button class="p-1.5 rounded-[var(--mercury-radius-sm)] transition-colors hover:opacity-70" style="color: var(--mercury-muted)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                  </button>
+                  <button class="p-1.5 rounded-[var(--mercury-radius-sm)] transition-colors hover:opacity-70" style="color: var(--mercury-muted)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Provider 2: Ollama local -->
+            <div class="rounded-[var(--mercury-radius-md)] p-4 mb-3" style="border: 1px solid var(--mercury-border-light); background: var(--mercury-background)">
+              <div class="flex items-start justify-between">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1.5">
+                    <span class="inline-flex items-center justify-center w-2 h-2 rounded-full" style="background: var(--mercury-warning)"></span>
+                    <span class="text-[15px] font-medium" style="color: var(--mercury-foreground)">Ollama 本地</span>
+                  </div>
+                  <div class="text-[13px] ml-4" style="color: var(--mercury-muted)">
+                    <div class="mb-0.5">Base URL: http://localhost:11434/v1</div>
+                    <div>模型: qwen2.5:14b</div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-1 ml-3 shrink-0">
+                  <button class="p-1.5 rounded-[var(--mercury-radius-sm)] transition-colors hover:opacity-70" style="color: var(--mercury-muted)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                  </button>
+                  <button class="p-1.5 rounded-[var(--mercury-radius-sm)] transition-colors hover:opacity-70" style="color: var(--mercury-muted)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Provider 3: GLM -->
+            <div class="rounded-[var(--mercury-radius-md)] p-4" style="border: 1px solid var(--mercury-border-light); background: var(--mercury-background)">
+              <div class="flex items-start justify-between">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1.5">
+                    <span class="inline-flex items-center justify-center w-2 h-2 rounded-full" style="background: var(--mercury-success)"></span>
+                    <span class="text-[15px] font-medium" style="color: var(--mercury-foreground)">智谱 GLM</span>
+                  </div>
+                  <div class="text-[13px] ml-4" style="color: var(--mercury-muted)">
+                    <div class="mb-0.5">Base URL: https://open.bigmodel.cn/api/paas/v4</div>
+                    <div>模型: glm-4-flash</div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-1 ml-3 shrink-0">
+                  <button class="p-1.5 rounded-[var(--mercury-radius-sm)] transition-colors hover:opacity-70" style="color: var(--mercury-muted)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                  </button>
+                  <button class="p-1.5 rounded-[var(--mercury-radius-sm)] transition-colors hover:opacity-70" style="color: var(--mercury-muted)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== CARD 2: AI 功能配置 ===== -->
+          <div class="rounded-[var(--mercury-radius-lg)] p-6 mb-6" style="background: var(--mercury-card); box-shadow: var(--mercury-shadow-sm); border: 1px solid var(--mercury-border-light)">
+            <h2 class="text-[17px] font-semibold mb-5" style="color: var(--mercury-foreground)">AI 功能配置</h2>
+
+            <div class="space-y-5">
+              <!-- 摘要目标语言 -->
+              <div class="flex items-center justify-between">
+                <label class="text-[14px]" style="color: var(--mercury-muted)">摘要目标语言</label>
+                <div class="relative">
+                  <select class="appearance-none pl-3 pr-8 py-2 rounded-[var(--mercury-radius-md)] text-[14px] outline-none transition-shadow focus:ring-2 cursor-pointer" style="background: var(--mercury-background); border: 1px solid var(--mercury-border); color: var(--mercury-foreground); --tw-ring-color: var(--mercury-ring)">
+                    <option>中文</option>
+                    <option>English</option>
+                    <option>日本語</option>
+                  </select>
+                  <svg class="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--mercury-muted-foreground)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                </div>
+              </div>
+
+              <!-- 摘要详细程度 (segmented control) -->
+              <div class="flex items-center justify-between">
+                <label class="text-[14px]" style="color: var(--mercury-muted)">摘要详细程度</label>
+                <div class="inline-flex rounded-[var(--mercury-radius-md)] p-[3px]" style="background: var(--mercury-background); border: 1px solid var(--mercury-border)">
+                  <button class="px-3.5 py-1.5 rounded-[var(--mercury-radius-sm)] text-[13px] font-medium transition-colors" style="color: var(--mercury-muted)">简洁</button>
+                  <button class="px-3.5 py-1.5 rounded-[var(--mercury-radius-sm)] text-[13px] font-medium transition-colors" style="background: var(--mercury-card); color: var(--mercury-foreground); box-shadow: var(--mercury-shadow-sm)">标准</button>
+                  <button class="px-3.5 py-1.5 rounded-[var(--mercury-radius-sm)] text-[13px] font-medium transition-colors" style="color: var(--mercury-muted)">详细</button>
+                </div>
+              </div>
+
+              <!-- 翻译目标语言 -->
+              <div class="flex items-center justify-between">
+                <label class="text-[14px]" style="color: var(--mercury-muted)">翻译目标语言</label>
+                <div class="relative">
+                  <select class="appearance-none pl-3 pr-8 py-2 rounded-[var(--mercury-radius-md)] text-[14px] outline-none transition-shadow focus:ring-2 cursor-pointer" style="background: var(--mercury-background); border: 1px solid var(--mercury-border); color: var(--mercury-foreground); --tw-ring-color: var(--mercury-ring)">
+                    <option>中文</option>
+                    <option>English</option>
+                    <option>日本語</option>
+                  </select>
+                  <svg class="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--mercury-muted-foreground)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                </div>
+              </div>
+
+              <!-- 翻译并发度 -->
+              <div class="flex items-center justify-between">
+                <label class="text-[14px]" style="color: var(--mercury-muted)">翻译并发度</label>
+                <div class="flex items-center gap-3">
+                  <input type="range" min="1" max="5" value="3" class="w-28 h-1.5 rounded-full appearance-none cursor-pointer" style="background: var(--mercury-border); accent-color: var(--mercury-primary)" />
+                  <span class="text-[14px] font-medium w-5 text-center" style="color: var(--mercury-foreground)">3</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== CARD 3: 阅读设置 ===== -->
+          <div class="rounded-[var(--mercury-radius-lg)] p-6 mb-6" style="background: var(--mercury-card); box-shadow: var(--mercury-shadow-sm); border: 1px solid var(--mercury-border-light)">
+            <h2 class="text-[17px] font-semibold mb-5" style="color: var(--mercury-foreground)">阅读设置</h2>
+
+            <div class="space-y-5">
+              <!-- 默认字体 -->
+              <div class="flex items-center justify-between">
+                <label class="text-[14px]" style="color: var(--mercury-muted)">默认字体</label>
+                <div class="relative">
+                  <select class="appearance-none pl-3 pr-8 py-2 rounded-[var(--mercury-radius-md)] text-[14px] outline-none transition-shadow focus:ring-2 cursor-pointer" style="background: var(--mercury-background); border: 1px solid var(--mercury-border); color: var(--mercury-foreground); --tw-ring-color: var(--mercury-ring)">
+                    <option>Literata (衬线)</option>
+                    <option>Inter (无衬线)</option>
+                    <option>Noto Serif SC (宋体)</option>
+                  </select>
+                  <svg class="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--mercury-muted-foreground)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                </div>
+              </div>
+
+              <!-- 字号 -->
+              <div class="flex items-center justify-between">
+                <label class="text-[14px]" style="color: var(--mercury-muted)">字号</label>
+                <div class="flex items-center gap-3">
+                  <input type="range" min="12" max="24" value="16" class="w-28 h-1.5 rounded-full appearance-none cursor-pointer" style="background: var(--mercury-border); accent-color: var(--mercury-primary)" />
+                  <span class="text-[14px] font-medium w-10 text-center" style="color: var(--mercury-foreground)">16px</span>
+                </div>
+              </div>
+
+              <!-- 行间距 -->
+              <div class="flex items-center justify-between">
+                <label class="text-[14px]" style="color: var(--mercury-muted)">行间距</label>
+                <div class="flex items-center gap-3">
+                  <input type="range" min="1.0" max="2.5" step="0.1" value="1.7" class="w-28 h-1.5 rounded-full appearance-none cursor-pointer" style="background: var(--mercury-border); accent-color: var(--mercury-primary)" />
+                  <span class="text-[14px] font-medium w-7 text-center" style="color: var(--mercury-foreground)">1.7</span>
+                </div>
+              </div>
+
+              <!-- 主题切换 -->
+              <div class="flex items-center justify-between">
+                <label class="text-[14px]" style="color: var(--mercury-muted)">主题</label>
+                <div class="flex items-center gap-2.5">
+                  <!-- Light theme option (active) -->
+                  <button class="flex items-center gap-2 px-4 py-2.5 rounded-[var(--mercury-radius-md)] text-[13px] font-medium transition-colors" style="border: 2px solid var(--mercury-primary); background: var(--mercury-primary-muted); color: var(--mercury-primary)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+                    浅色
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  </button>
+                  <!-- Dark theme option -->
+                  <button class="flex items-center gap-2 px-4 py-2.5 rounded-[var(--mercury-radius-md)] text-[13px] font-medium transition-colors" style="border: 2px solid var(--mercury-border); background: var(--mercury-card); color: var(--mercury-muted)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                    深色
+                  </button>
+                </div>
+              </div>
+
+              <!-- 自动标记已读 (toggle) -->
+              <div class="flex items-center justify-between">
+                <label class="text-[14px]" style="color: var(--mercury-muted)">自动标记已读</label>
+                <button class="relative w-11 h-[26px] rounded-full transition-colors shrink-0" style="background: var(--mercury-primary)" aria-pressed="true">
+                  <span class="absolute top-[3px] left-[22px] w-5 h-5 bg-white rounded-full shadow transition-all" style="box-shadow: 0 1px 3px rgba(0,0,0,0.15)"></span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== CARD 4: 数据管理 ===== -->
+          <div class="rounded-[var(--mercury-radius-lg)] p-6 mb-6" style="background: var(--mercury-card); box-shadow: var(--mercury-shadow-sm); border: 1px solid var(--mercury-border-light)">
+            <h2 class="text-[17px] font-semibold mb-5" style="color: var(--mercury-foreground)">数据管理</h2>
+
+            <div class="flex items-center gap-3 mb-4">
+              <button class="flex items-center gap-1.5 px-4 py-2 rounded-[var(--mercury-radius-md)] text-[13px] font-medium transition-colors" style="border: 1px solid var(--mercury-border); background: var(--mercury-card); color: var(--mercury-foreground)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                导入 OPML
+              </button>
+              <button class="flex items-center gap-1.5 px-4 py-2 rounded-[var(--mercury-radius-md)] text-[13px] font-medium transition-colors" style="border: 1px solid var(--mercury-border); background: var(--mercury-card); color: var(--mercury-foreground)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                导出 OPML
+              </button>
+            </div>
+
+            <div class="pt-4 mt-1" style="border-top: 1px solid var(--mercury-border-light)">
+              <button class="flex items-center gap-1.5 px-4 py-2 rounded-[var(--mercury-radius-md)] text-[13px] font-medium transition-colors" style="color: var(--mercury-danger)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                清除所有数据
+              </button>
+              <p class="mt-2.5 text-[12px] leading-relaxed" style="color: var(--mercury-muted-foreground)">数据存储在本地 SQLite 数据库中，清除后无法恢复</p>
+            </div>
+          </div>
+
+          <!-- Bottom spacer -->
+          <div class="h-8"></div>
+
+        </div>
+      </div>
+    </div>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

@@ -1,0 +1,161 @@
+/*
+ * Mercury RSS Reader — UI Style Preview
+ * Brand prefix: mercury
+ */
+
+:root {
+  /* === Brand Palette === */
+  --mercury-primary: #6366f1;
+  --mercury-primary-hover: #4f46e5;
+  --mercury-primary-foreground: #ffffff;
+  --mercury-primary-muted: rgba(99, 102, 241, 0.1);
+  --mercury-primary-muted-hover: rgba(99, 102, 241, 0.15);
+
+  /* === Semantic Backgrounds === */
+  --mercury-background: #fafafc;
+  --mercury-sidebar: #f1f1f5;
+  --mercury-card: #ffffff;
+  --mercury-card-foreground: #1a1a2e;
+  --mercury-popover: #ffffff;
+  --mercury-popover-foreground: #1a1a2e;
+
+  /* === Foreground / Text === */
+  --mercury-foreground: #0f0f1a;
+  --mercury-muted: #6b7280;
+  --mercury-muted-foreground: #9ca3af;
+
+  /* === Border & Surface === */
+  --mercury-border: #e5e5eb;
+  --mercury-border-light: #f0f0f4;
+  --mercury-input: #e5e5eb;
+  --mercury-ring: #6366f1;
+
+  /* === Semantic States === */
+  --mercury-success: #10b981;
+  --mercury-warning: #f59e0b;
+  --mercury-danger: #ef4444;
+  --mercury-info: #3b82f6;
+
+  /* === Reader Surface === */
+  --mercury-reader-bg: #ffffff;
+  --mercury-reader-text: #1a1a2e;
+  --mercury-reader-secondary: #64748b;
+  --mercury-reader-link: #6366f1;
+  --mercury-reader-code-bg: #f3f4f6;
+
+  /* === Radius Scale === */
+  --mercury-radius-sm: 6px;
+  --mercury-radius-md: 10px;
+  --mercury-radius-lg: 14px;
+  --mercury-radius-xl: 16px;
+
+  /* === Shadows === */
+  --mercury-shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --mercury-shadow-md: 0 2px 8px rgba(0,0,0,0.05);
+  --mercury-shadow-lg: 0 4px 16px rgba(0,0,0,0.05);
+  --mercury-shadow-xl: 0 8px 32px rgba(0,0,0,0.05);
+
+  /* === Typography === */
+  --mercury-font-sans: "Inter", "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", system-ui, -apple-system, sans-serif;
+  --mercury-font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+  --mercury-font-reader: "Literata", "Noto Serif SC", "Source Serif 4", Georgia, serif;
+
+  --mercury-font-size-xs: 11px;
+  --mercury-font-size-sm: 13px;
+  --mercury-font-size-base: 15px;
+  --mercury-font-size-lg: 17px;
+  --mercury-font-size-xl: 20px;
+  --mercury-font-size-2xl: 24px;
+  --mercury-font-size-3xl: 30px;
+
+  --mercury-line-height-tight: 1.25;
+  --mercury-line-height-normal: 1.5;
+  --mercury-line-height-relaxed: 1.7;
+
+  --mercury-letter-spacing-tight: -0.02em;
+  --mercury-letter-spacing-normal: 0;
+
+  /* === Spacing Scale === */
+  --mercury-space-1: 4px;
+  --mercury-space-2: 8px;
+  --mercury-space-3: 12px;
+  --mercury-space-4: 16px;
+  --mercury-space-5: 20px;
+  --mercury-space-6: 24px;
+  --mercury-space-8: 32px;
+  --mercury-space-10: 40px;
+  --mercury-space-12: 48px;
+
+  /* === Semantic Token Mappings (for fill-html-head.mjs) === */
+  --background: var(--mercury-background);
+  --foreground: var(--mercury-foreground);
+  --card: var(--mercury-card);
+  --card-foreground: var(--mercury-card-foreground);
+  --popover: var(--mercury-popover);
+  --popover-foreground: var(--mercury-popover-foreground);
+  --primary: var(--mercury-primary);
+  --primary-foreground: var(--mercury-primary-foreground);
+  --muted: var(--mercury-muted);
+  --muted-foreground: var(--mercury-muted-foreground);
+  --border: var(--mercury-border);
+  --input: var(--mercury-input);
+  --ring: var(--mercury-ring);
+  --radius-sm: var(--mercury-radius-sm);
+  --radius-md: var(--mercury-radius-md);
+  --radius-lg: var(--mercury-radius-lg);
+}
+
+/* Dark theme overrides */
+.dark {
+  --mercury-primary: #818cf8;
+  --mercury-primary-hover: #6366f1;
+  --mercury-primary-foreground: #ffffff;
+  --mercury-primary-muted: rgba(129, 140, 248, 0.12);
+  --mercury-primary-muted-hover: rgba(129, 140, 248, 0.18);
+
+  --mercury-background: #0c0c14;
+  --mercury-sidebar: #12121c;
+  --mercury-card: #181824;
+  --mercury-card-foreground: #e4e4ec;
+  --mercury-popover: #181824;
+  --mercury-popover-foreground: #e4e4ec;
+
+  --mercury-foreground: #f0f0f8;
+  --mercury-muted: #94a3b8;
+  --mercury-muted-foreground: #64748b;
+
+  --mercury-border: #262636;
+  --mercury-border-light: #1e1e2e;
+  --mercury-input: #2a2a3a;
+  --mercury-ring: #818cf8;
+
+  --mercury-success: #34d399;
+  --mercury-warning: #fbbf24;
+  --mercury-danger: #f87171;
+  --mercury-info: #60a5fa;
+
+  --mercury-reader-bg: #0c0c14;
+  --mercury-reader-text: #e4e4ec;
+  --mercury-reader-secondary: #94a3b8;
+  --mercury-reader-link: #818cf8;
+  --mercury-reader-code-bg: #1e1e2e;
+
+  --mercury-shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
+  --mercury-shadow-md: 0 2px 8px rgba(0,0,0,0.3);
+  --mercury-shadow-lg: 0 4px 16px rgba(0,0,0,0.35);
+  --mercury-shadow-xl: 0 8px 32px rgba(0,0,0,0.4);
+
+  --background: var(--mercury-background);
+  --foreground: var(--mercury-foreground);
+  --card: var(--mercury-card);
+  --card-foreground: var(--mercury-card-foreground);
+  --popover: var(--mercury-popover);
+  --popover-foreground: var(--mercury-popover-foreground);
+  --primary: var(--mercury-primary);
+  --primary-foreground: var(--mercury-primary-foreground);
+  --muted: var(--mercury-muted);
+  --muted-foreground: var(--mercury-muted-foreground);
+  --border: var(--mercury-border);
+  --input: var(--mercury-input);
+  --ring: var(--mercury-ring);
+}
