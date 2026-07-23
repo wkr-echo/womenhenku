@@ -69,11 +69,13 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [profile.dev]
 strip = "debuginfo"
-lto = true
+lto = "thin"
 codegen-units = 1
 incremental = false
+panic = "abort"
 
 [profile.release]
 strip = true
-lto = true
+lto = "thin"
 codegen-units = 1
+panic = "abort"
