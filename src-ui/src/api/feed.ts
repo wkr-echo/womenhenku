@@ -261,6 +261,13 @@ export async function tagEntriesBatch(entryIds: number[], tagId: number): Promis
   return invoke("tag_entries_batch", { entryIds, tagId });
 }
 
+export async function countEntriesByDateRange(days: number): Promise<number> {
+  if (isTauri()) {
+    return invoke<number>("count_entries_by_date_range", { days });
+  }
+  return 42; // mock
+}
+
 export async function findPotentialDuplicates(): Promise<DuplicateTagPair[]> {
   if (isTauri()) {
     const result: [Tag, Tag, string][] = await invoke("find_potential_duplicates");

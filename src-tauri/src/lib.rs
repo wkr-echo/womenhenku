@@ -114,6 +114,7 @@ pub fn run() {
             refresh_all_feeds,
             // Entry queries
             list_entries,
+            count_entries_by_date_range,
             list_all_entries,
             get_entry,
             mark_read,
@@ -286,6 +287,12 @@ fn list_entries(
     filter: Option<String>,
 ) -> Result<crate::db::model::EntryPage, String> {
     commands::list_entries(&state, feed_id, page, page_size, filter.as_deref())
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn count_entries_by_date_range(state: State<'_, DbPool>, days: i64) -> Result<i64, String> {
+    commands::count_entries_by_date_range(&state, days)
 }
 
 #[cfg(feature = "tauri-runtime")]

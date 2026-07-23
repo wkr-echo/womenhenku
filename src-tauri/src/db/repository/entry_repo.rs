@@ -99,6 +99,14 @@ impl EntryRepository {
         Ok(EntryPage { entries, total, page, page_size })
     }
 
+    /// Count entries created within the last N days.
+    pub fn count_by_date_range(&self, days: i64) -> Result<i64, RepositoryError> {
+        let conn = self.pool.get()?;
+        let sql = "SELECT COUNT(*) FROM entries WHERE created_at >= datetime('now', ?1 || ' days')";
+        conn.query_row(sql, params![format!("-{}", days)], |row| row.get(0))
+            .map_err(Into::into)
+    }
+
     pub fn list_all(
         &self, page: i32, page_size: i32, filter: Option<&str>,
     ) -> Result<EntryPage, RepositoryError> {

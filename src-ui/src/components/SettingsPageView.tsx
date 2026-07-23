@@ -13,7 +13,7 @@ import type { Provider, AgentConfig, ImportResult, Tag, TagAlias, DuplicateTagPa
 import { useTheme } from "@/contexts/ThemeContext";
 import { useApp } from "@/contexts/AppContext";
 import { t, currentLang, setLang } from "@/lib/utils";
-import { isTauri, exportOpml, importOpml, listTags, addTag, updateTag, deleteTag, getTagStats, mergeTags, addTagAlias, removeTagAlias, getTagAliases, findPotentialDuplicates, findUnusedTags, deleteUnusedTags, getLlmDailyUsage, getLlmUsageStats, getLlmProviderUsage, getLlmModelUsage, getLlmAgentUsage, cleanupOldLlmEvents, getSetting, setSetting } from "@/api/feed";
+import { isTauri, exportOpml, importOpml, listTags, addTag, updateTag, deleteTag, getTagStats, mergeTags, addTagAlias, removeTagAlias, getTagAliases, findPotentialDuplicates, findUnusedTags, deleteUnusedTags, getLlmDailyUsage, getLlmUsageStats, getLlmProviderUsage, getLlmModelUsage, getLlmAgentUsage, cleanupOldLlmEvents, getSetting, setSetting, countEntriesByDateRange } from "@/api/feed";
 import { toast } from "@/components/ui/Toast";
 
 const TAG_COLORS = [
@@ -1284,17 +1284,12 @@ function BatchTagging() {
   const estimateCandidates = async () => {
     setLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const mockCounts: Record<string, number> = {
-        "1week": 42,
-        "1month": 156,
-        "3months": 420,
-        "6months": 890,
-        "1year": 1800,
-        "all": 2400,
-        "unread": 86,
+      const rangeDays: Record<string, number> = {
+        "1week": 7, "1month": 30, "3months": 90, "6months": 180, "1year": 365, "all": 3650, "unread": 3650,
       };
-      setState(prev => ({ ...prev, candidateCount: mockCounts[prev.config.range] || 100 }));
+      const days = rangeDays[state.config.range] || 30;
+      const count = await countEntriesByDateRange(days);
+      setState(prev => ({ ...prev, candidateCount: count }));
     } catch {
       setState(prev => ({ ...prev, candidateCount: 0 }));
     } finally {

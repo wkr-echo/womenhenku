@@ -78,6 +78,12 @@ pub fn list_entries(
         .map_err(|e| e.to_string())
 }
 
+/// Count entries within a date range (for batch tagging candidate estimation).
+pub fn count_entries_by_date_range(pool: &DbPool, days: i64) -> Result<i64, String> {
+    let repo = EntryRepository::new(pool.clone());
+    repo.count_by_date_range(days).map_err(|e| e.to_string())
+}
+
 /// List entries across all feeds.
 pub fn list_all_entries(
     pool: &DbPool,
