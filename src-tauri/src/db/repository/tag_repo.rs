@@ -510,6 +510,7 @@ fn to_singular(word: &str) -> String {
     }
 }
 
+#[allow(clippy::needless_range_loop)]
 fn levenshtein_distance(a: &str, b: &str) -> usize {
     let a_len = a.chars().count();
     let b_len = b.chars().count();
@@ -517,6 +518,7 @@ fn levenshtein_distance(a: &str, b: &str) -> usize {
     if a_len == 0 {
         return b_len;
     }
+
     if b_len == 0 {
         return a_len;
     }
