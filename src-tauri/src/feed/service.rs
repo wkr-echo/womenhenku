@@ -155,53 +155,47 @@ impl FeedService {
             return Ok(0);
         }
 
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("Failed to create tokio runtime");
-
         let sem = std::sync::Arc::new(tokio::sync::Semaphore::new(5));
         let client = self.client.clone();
         let pool = self.pool.clone();
+        let mut handles = Vec::new();
 
-        rt.block_on(async {
-            let mut handles = Vec::new();
-            for feed in &feeds {
-                let permit = sem.clone().acquire_owned().await;
-                let url = feed.url.clone();
-                let id = feed.id;
-                let client = client.clone();
-                let pool = pool.clone();
-                handles.push(tokio::task::spawn(async move {
-                    let _permit = permit;
-                    let bytes = client.get(&url).send().await?.bytes().await?;
-                    let parsed = parser::parse_feed(&bytes, &url)?;
-                    let entry_repo = crate::db::repository::EntryRepository::new(pool.clone());
-                    let feed_repo = crate::db::repository::FeedRepository::new(pool);
-                    feed_repo.update_title(id, &parsed.title).ok();
-                    let mut count = 0;
-                    for mut entry in parsed.entries {
-                        entry.feed_id = id;
-                        if entry_repo.insert_or_ignore(&entry).unwrap_or(None).is_some() {
-                            count += 1;
-                        }
+        for feed in &feeds {
+            let permit = sem.clone().acquire_owned().await;
+            let url = feed.url.clone();
+            let id = feed.id;
+            let client = client.clone();
+            let pool = pool.clone();
+            handles.push(tokio::task::spawn(async move {
+                let _permit = permit;
+                let bytes = client.get(&url).send().await?.bytes().await?;
+                let parsed = parser::parse_feed(&bytes, &url)?;
+                let entry_repo = crate::db::repository::EntryRepository::new(pool.clone());
+                let feed_repo = crate::db::repository::FeedRepository::new(pool);
+                feed_repo.update_title(id, &parsed.title).ok();
+                let mut count = 0;
+                for mut entry in parsed.entries {
+                    entry.feed_id = id;
+                    if entry_repo.insert_or_ignore(&entry).unwrap_or(None).is_some() {
+                        count += 1;
                     }
-                    let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
-                    feed_repo.update_sync_time(id, &now).ok();
-                    tracing::info!("Feed refreshed: id={}, {} new entries", id, count);
-                    Ok::<_, ServiceError>(count)
-                }));
-            }
-            let mut total_new = 0;
-            for h in handles {
-                match h.await {
-                    Ok(Ok(count)) => total_new += count,
-                    Ok(Err(e)) => tracing::warn!("Feed refresh error: {}", e),
-                    Err(e) => tracing::warn!("Feed refresh join error: {}", e),
                 }
+                let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string();
+                feed_repo.update_sync_time(id, &now).ok();
+                tracing::info!("Feed refreshed: id={}, {} new entries", id, count);
+                Ok::<_, ServiceError>(count)
+            }));
+        }
+
+        let mut total_new = 0;
+        for h in handles {
+            match h.await {
+                Ok(Ok(count)) => total_new += count,
+                Ok(Err(e)) => tracing::warn!("Feed refresh error: {}", e),
+                Err(e) => tracing::warn!("Feed refresh join error: {}", e),
             }
-            Ok(total_new)
-        })
+        }
+        Ok(total_new)
     }
 
     // ---- Internal helpers ----
