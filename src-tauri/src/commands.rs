@@ -40,10 +40,9 @@ pub fn get_feed(pool: &DbPool, id: i64) -> Result<crate::db::model::Feed, String
 }
 
 /// Add a new feed subscription. Fetches URL, parses, stores entries.
-/// Note: requires FeedService (async HTTP), registered separately.
-pub fn add_feed(pool: &DbPool, url: &str) -> Result<crate::db::model::Feed, String> {
+pub async fn add_feed(pool: &DbPool, url: &str) -> Result<crate::db::model::Feed, String> {
     let service = crate::feed::service::FeedService::new(pool.clone());
-    service.add_feed(url).map_err(|e| e.to_string())
+    service.add_feed(url).await.map_err(|e| e.to_string())
 }
 
 /// Remove a feed and all its entries (cascade).
@@ -53,16 +52,16 @@ pub fn remove_feed(pool: &DbPool, id: i64) -> Result<(), String> {
 }
 
 /// Refresh a single feed: re-fetch, insert new entries.
-pub fn refresh_feed(pool: &DbPool, id: i64) -> Result<usize, String> {
+pub async fn refresh_feed(pool: &DbPool, id: i64) -> Result<usize, String> {
     let service = crate::feed::service::FeedService::new(pool.clone());
-    service.refresh_feed(id).map_err(|e| e.to_string())
+    service.refresh_feed(id).await.map_err(|e| e.to_string())
 }
 
 /// Refresh all feeds concurrently with max 5 concurrent fetches.
 /// Returns total number of new entries found.
-pub fn refresh_all_feeds(pool: &DbPool) -> Result<usize, String> {
+pub async fn refresh_all_feeds(pool: &DbPool) -> Result<usize, String> {
     let service = crate::feed::service::FeedService::new(pool.clone());
-    service.refresh_all_feeds().map_err(|e| e.to_string())
+    service.refresh_all_feeds().await.map_err(|e| e.to_string())
 }
 
 // ============================================================

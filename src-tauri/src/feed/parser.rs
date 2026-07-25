@@ -59,7 +59,24 @@ pub fn parse_feed(bytes: &[u8], feed_url: &str) -> Result<ParsedFeed, ParseError
             .links
             .first()
             .map(|l| l.href.clone())
+            .filter(|href| !href.is_empty())
             .unwrap_or_default();
+
+        // Fallback: resolve relative URLs against feed URL
+        let entry_link = if entry_link.is_empty() || entry_link.starts_with('/') {
+            // Relative or empty — try to construct from feed URL
+            if let Ok(base) = url::Url::parse(feed_url) {
+                if entry_link.starts_with('/') {
+                    base.join(&entry_link).map(|u| u.to_string()).unwrap_or(entry_link)
+                } else {
+                    feed_url.to_string()
+                }
+            } else {
+                entry_link
+            }
+        } else {
+            entry_link
+        };
 
         let author = entry
             .authors

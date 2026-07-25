@@ -59,7 +59,7 @@ pub fn run() {
                     interval.tick().await;
                     tracing::info!("Auto-sync: refreshing all feeds...");
                     let svc = crate::feed::service::FeedService::new(sync_pool.clone());
-                    if let Err(e) = svc.refresh_all_feeds() {
+                    if let Err(e) = svc.refresh_all_feeds().await {
                         tracing::warn!("Auto-sync failed: {}", e);
                     }
                 }
@@ -235,8 +235,8 @@ fn get_feed(state: State<'_, DbPool>, id: i64) -> Result<crate::db::model::Feed,
 
 #[cfg(feature = "tauri-runtime")]
 #[tauri::command]
-fn add_feed(state: State<'_, DbPool>, url: String) -> Result<crate::db::model::Feed, String> {
-    commands::add_feed(&state, &url)
+async fn add_feed(state: State<'_, DbPool>, url: String) -> Result<crate::db::model::Feed, String> {
+    commands::add_feed(&state, &url).await
 }
 
 #[cfg(feature = "tauri-runtime")]
@@ -247,8 +247,8 @@ fn remove_feed(state: State<'_, DbPool>, id: i64) -> Result<(), String> {
 
 #[cfg(feature = "tauri-runtime")]
 #[tauri::command]
-fn refresh_feed(app: tauri::AppHandle, state: State<'_, DbPool>, id: i64) -> Result<usize, String> {
-    let new_count = commands::refresh_feed(&state, id)?;
+async fn refresh_feed(app: tauri::AppHandle, state: State<'_, DbPool>, id: i64) -> Result<usize, String> {
+    let new_count = commands::refresh_feed(&state, id).await?;
     if new_count > 0 {
         use tauri_plugin_notification::NotificationExt;
         let feed_name = commands::get_feed(&state, id)
@@ -265,8 +265,8 @@ fn refresh_feed(app: tauri::AppHandle, state: State<'_, DbPool>, id: i64) -> Res
 
 #[cfg(feature = "tauri-runtime")]
 #[tauri::command]
-fn refresh_all_feeds(app: tauri::AppHandle, state: State<'_, DbPool>) -> Result<usize, String> {
-    let total_new = commands::refresh_all_feeds(&state)?;
+async fn refresh_all_feeds(app: tauri::AppHandle, state: State<'_, DbPool>) -> Result<usize, String> {
+    let total_new = commands::refresh_all_feeds(&state).await?;
     if total_new > 0 {
         use tauri_plugin_notification::NotificationExt;
         let _ = app.notification()

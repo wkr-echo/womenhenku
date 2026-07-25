@@ -47,11 +47,11 @@ impl FeedService {
 
     /// Add a new feed subscription: fetch URL, parse, store feed + entries.
     /// Returns the created Feed.
-    pub fn add_feed(&self, url: &str) -> ServiceResult<Feed> {
+    pub async fn add_feed(&self, url: &str) -> ServiceResult<Feed> {
         // Validate URL
         self.validate_url(url)?;
 
-        let parsed = self.fetch_and_parse(url)?;
+        let parsed = self.fetch_and_parse(url).await?;
 
         let feed_repo = FeedRepository::new(self.pool.clone());
         let entry_repo = EntryRepository::new(self.pool.clone());
@@ -106,7 +106,7 @@ impl FeedService {
 
     /// Refresh a single feed: re-fetch, parse, insert new entries only.
     /// Returns the number of new entries found.
-    pub fn refresh_feed(&self, id: i64) -> ServiceResult<usize> {
+    pub async fn refresh_feed(&self, id: i64) -> ServiceResult<usize> {
         let feed_repo = FeedRepository::new(self.pool.clone());
         let entry_repo = EntryRepository::new(self.pool.clone());
 
@@ -114,7 +114,7 @@ impl FeedService {
             .find_by_id(id)?
             .ok_or(ServiceError::NotFound(format!("Feed id={}", id)))?;
 
-        let parsed = self.fetch_and_parse(&feed.url)?;
+        let parsed = self.fetch_and_parse(&feed.url).await?;
 
         // Update feed metadata in case title/description changed
         feed_repo.update_title(id, &parsed.title)?;
@@ -148,7 +148,7 @@ impl FeedService {
 
     /// Refresh all feeds concurrently with max 5 concurrent fetches.
     /// Returns total number of new entries found.
-    pub fn refresh_all_feeds(&self) -> ServiceResult<usize> {
+    pub async fn refresh_all_feeds(&self) -> ServiceResult<usize> {
         let feed_repo = FeedRepository::new(self.pool.clone());
         let feeds = feed_repo.find_all()?;
         if feeds.is_empty() {
@@ -207,21 +207,14 @@ impl FeedService {
     // ---- Internal helpers ----
 
     /// Fetch a URL and parse the response body as a feed.
-    fn fetch_and_parse(&self, url: &str) -> ServiceResult<ParsedFeed> {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("Failed to create tokio runtime");
-
-        let bytes = rt.block_on(async {
-            self.client
-                .get(url)
-                .send()
-                .await?
-                .error_for_status()?
-                .bytes()
-                .await
-        })?;
+    async fn fetch_and_parse(&self, url: &str) -> ServiceResult<ParsedFeed> {
+        let bytes = self.client
+            .get(url)
+            .send()
+            .await?
+            .error_for_status()?
+            .bytes()
+            .await?;
 
         let parsed = parser::parse_feed(&bytes, url)?;
         Ok(parsed)
