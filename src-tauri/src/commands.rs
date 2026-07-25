@@ -141,8 +141,29 @@ pub fn get_entry_content(pool: &DbPool, entry_id: i64) -> Result<Content, String
 
 /// Run the reader pipeline on an entry and store the results. Stage 2.
 pub fn process_entry_content(pool: &DbPool, entry_id: i64, url: &str) -> Result<Content, String> {
+    // Resolve relative URLs using the feed's URL as base
+    let resolved_url = if url.starts_with('/') {
+        let entry_repo = crate::db::repository::EntryRepository::new(pool.clone());
+        if let Ok(Some(entry)) = entry_repo.find_by_id(entry_id) {
+            let feed_repo = crate::db::repository::FeedRepository::new(pool.clone());
+            if let Ok(Some(feed)) = feed_repo.find_by_id(entry.feed_id) {
+                if let Ok(base) = url::Url::parse(&feed.url) {
+                    base.join(url).map(|u| u.to_string()).unwrap_or_else(|_| url.to_string())
+                } else {
+                    url.to_string()
+                }
+            } else {
+                url.to_string()
+            }
+        } else {
+            url.to_string()
+        }
+    } else {
+        url.to_string()
+    };
+
     let service = crate::reader::service::ReaderService::new(pool.clone());
-    service.process_entry(entry_id, url).map_err(|e| e.to_string())
+    service.process_entry(entry_id, &resolved_url).map_err(|e| e.to_string())
 }
 
 // ============================================================
