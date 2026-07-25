@@ -59,8 +59,8 @@ impl FeedService {
         // Check if feed URL already exists
         if let Some(existing) = feed_repo.find_by_url(url)? {
             return Err(ServiceError::InvalidUrl(format!(
-                "Feed already subscribed: {} (id={})",
-                existing.title, existing.id
+                "该订阅源已存在：{}",
+                existing.title
             )));
         }
 
