@@ -5,11 +5,25 @@ import { ReaderView } from "./ReaderView";
 import { SettingsPageView } from "./SettingsPageView";
 
 export function ContentAreaView() {
-  const { viewMode, entries, selectedEntry, feedSelection, markAllRead, selectEntry } = useApp();
+  const { viewMode, entries, selectedEntry, feedSelection, feeds, sidebarCounts, markAllRead, selectEntry } = useApp();
 
   if (viewMode === "settings") {
     return <SettingsPageView />;
   }
+
+  // Get accurate unread count — sidebar data comes from DB COUNT, not limited by pagination
+  const currentUnread = (() => {
+    switch (feedSelection.type) {
+      case "feed":
+        return feeds.find(f => f.id === feedSelection.feedId)?.unreadCount ?? 0;
+      case "all":
+        return sidebarCounts.totalUnread;
+      case "starred":
+        return sidebarCounts.starredUnread;
+      default:
+        return entries.filter(e => !e.isRead).length;
+    }
+  })();
 
   const handleMarkAllRead = () => {
     if (feedSelection.type === "feed") {
@@ -31,7 +45,7 @@ export function ContentAreaView() {
           </h2>
           <div className="flex items-center gap-2">
             <span className="text-xs text-[var(--text-tertiary)]">
-              {t("未读")} {entries.filter((e) => !e.isRead).length}/{entries.length}
+              {t("未读")} {currentUnread}/{entries.length}
             </span>
             {entries.some((e) => !e.isRead) && (
               <button
