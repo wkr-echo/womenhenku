@@ -79,7 +79,7 @@ pub fn extract(raw_html: &str, url: &str) -> String {
     re_ph.replace_all(&extracted, |caps: &regex::Captures| {
         let idx: usize = caps[1].parse().unwrap_or(0);
         let inner = placeholders.get(idx).map(|s| s.as_str()).unwrap_or("");
-        format!("<pre><code>{}</code></pre>", inner)
+        format!("<pre>{}</pre>", inner)
     }).to_string()
 }
 
@@ -326,6 +326,24 @@ mod tests {
         let garbage = "<html><body><p>Minimal</p></body></html>";
         let result = extract(garbage, "https://example.com/min");
         assert!(!result.is_empty());
+    }
+
+    #[test]
+    fn test_extract_preserves_pre_blocks() {
+        let html = r#"<html><body>
+    <p>Before code:</p>
+    <pre><code>fn main() {
+    println!("hello");
+}</code></pre>
+    <p>After code.</p>
+</body></html>"#;
+        let result = extract(html, "https://example.com/code");
+        eprintln!("=== EXTRACT RESULT ===");
+        eprintln!("{}", result);
+        // Should contain the code block with preserved whitespace
+        assert!(result.contains("<pre>"), "pre tag should be preserved. Got: {}", &result[..result.len().min(500)]);
+        assert!(result.contains("fn main"), "code content should be preserved. Got: {}", &result[..result.len().min(500)]);
+        assert!(result.contains("println!"), "code content should be preserved. Got: {}", &result[..result.len().min(500)]);
     }
 
     // === Sanitization tests ===
