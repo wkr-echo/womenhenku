@@ -45,7 +45,17 @@ const ALLOWED_ATTRS: &[&str] = &["href", "src", "alt", "title"];
 /// Extract the main content from raw HTML using the Mozilla Readability algorithm.
 /// Falls back to the original HTML if extraction fails.
 pub fn extract(raw_html: &str, url: &str) -> String {
-    let mut cursor = Cursor::new(raw_html.as_bytes());
+    // Protect <pre> blocks from whitespace stripping by Readability
+    let re_pre = regex::Regex::new(r"(?s)<pre[^>]*>(.*?)</pre>").unwrap();
+    let mut placeholders: Vec<String> = Vec::new();
+    let protected = re_pre.replace_all(raw_html, |caps: &regex::Captures| {
+        let idx = placeholders.len();
+        let inner = caps.get(1).map(|m| m.as_str()).unwrap_or("");
+        placeholders.push(format!("<pre><code>{}</code></pre>", html_escape::encode_text(inner)));
+        format!("<!--PREBLOCK{}-->", idx)
+    }).to_string();
+
+    let mut cursor = Cursor::new(protected.as_bytes());
     let parsed_url = match url::Url::parse(url) {
         Ok(u) => u,
         Err(_) => {
@@ -53,7 +63,7 @@ pub fn extract(raw_html: &str, url: &str) -> String {
             return raw_html.to_string();
         }
     };
-    match readability::extractor::extract(&mut cursor, &parsed_url) {
+    let extracted = match readability::extractor::extract(&mut cursor, &parsed_url) {
         Ok(product) => {
             tracing::debug!("Readability extracted content ({} chars)", product.content.len());
             product.content
@@ -62,7 +72,14 @@ pub fn extract(raw_html: &str, url: &str) -> String {
             tracing::warn!("Readability extraction failed ({}), using raw HTML", e);
             raw_html.to_string()
         }
-    }
+    };
+
+    // Restore protected <pre> blocks
+    let re_ph = regex::Regex::new(r"<!--PREBLOCK(\d+)-->").unwrap();
+    re_ph.replace_all(&extracted, |caps: &regex::Captures| {
+        let idx: usize = caps[1].parse().unwrap_or(0);
+        placeholders.get(idx).cloned().unwrap_or_default()
+    }).to_string()
 }
 
 // ============================================================
