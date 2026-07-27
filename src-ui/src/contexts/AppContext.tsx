@@ -152,9 +152,9 @@ function reducer(state: State, action: Action): State {
       return { ...state, tags: action.tags };
     case "SET_SIDEBAR_MODE":
       if (action.mode === "feed") {
-        return { ...state, sidebarMode: "feed", selectedTagIds: [], selectedEntry: null, viewMode: "list" };
+        return { ...state, sidebarMode: "feed", selectedTagIds: [], selectedEntry: null, viewMode: "list", feedSelection: { type: "all" }, entries: [], entriesTotal: 0 };
       }
-      return { ...state, sidebarMode: action.mode };
+      return { ...state, sidebarMode: action.mode, selectedEntry: null, viewMode: "list", entries: [], entriesTotal: 0 };
     case "TOGGLE_TAG_SELECTION": {
       const current = state.selectedTagIds;
       if (current.includes(action.tagId)) {
