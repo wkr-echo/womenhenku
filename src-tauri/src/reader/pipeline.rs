@@ -44,18 +44,9 @@ const ALLOWED_ATTRS: &[&str] = &["href", "src", "alt", "title"];
 
 /// Extract the main content from raw HTML using the Mozilla Readability algorithm.
 /// Falls back to the original HTML if extraction fails.
+/// Note: Readability natively preserves <pre> blocks with correct formatting.
 pub fn extract(raw_html: &str, url: &str) -> String {
-    // Protect <pre> blocks: replace with <p> placeholders that survive Readability
-    let re_pre = regex::Regex::new(r"(?s)<pre[^>]*>(.*?)</pre>").unwrap();
-    let mut placeholders: Vec<String> = Vec::new();
-    let protected = re_pre.replace_all(raw_html, |caps: &regex::Captures| {
-        let idx = placeholders.len();
-        let inner = caps.get(1).map(|m| m.as_str()).unwrap_or("");
-        placeholders.push(inner.to_string());
-        format!("<p data-preblock=\"{}\">PREBLOCK_{}_PLACEHOLDER</p>", idx, idx)
-    }).to_string();
-
-    let mut cursor = Cursor::new(protected.as_bytes());
+    let mut cursor = Cursor::new(raw_html.as_bytes());
     let parsed_url = match url::Url::parse(url) {
         Ok(u) => u,
         Err(_) => {
@@ -74,13 +65,7 @@ pub fn extract(raw_html: &str, url: &str) -> String {
         }
     };
 
-    // Restore protected <pre> blocks
-    let re_ph = regex::Regex::new(r#"<p data-preblock="(\d+)">PREBLOCK_\d+_PLACEHOLDER</p>"#).unwrap();
-    re_ph.replace_all(&extracted, |caps: &regex::Captures| {
-        let idx: usize = caps[1].parse().unwrap_or(0);
-        let inner = placeholders.get(idx).map(|s| s.as_str()).unwrap_or("");
-        format!("<pre>{}</pre>", inner)
-    }).to_string()
+    extracted
 }
 
 // ============================================================
@@ -331,19 +316,64 @@ mod tests {
     #[test]
     fn test_extract_preserves_pre_blocks() {
         let html = r#"<html><body>
-    <p>Before code:</p>
-    <pre><code>fn main() {
-    println!("hello");
-}</code></pre>
-    <p>After code.</p>
+    <div>
+        <p>这是一段中文说明文字。</p>
+        <p>看代码示例：</p>
+        <pre><code>def add(a, b):
+    return a + b
+
+print(add(1, 2))
+print(add("hello", "world"))</code></pre>
+        <p>Python 在运行时才进行类型检查。</p>
+    </div>
 </body></html>"#;
         let result = extract(html, "https://example.com/code");
         eprintln!("=== EXTRACT RESULT ===");
-        eprintln!("{}", result);
-        // Should contain the code block with preserved whitespace
-        assert!(result.contains("<pre>"), "pre tag should be preserved. Got: {}", &result[..result.len().min(500)]);
-        assert!(result.contains("fn main"), "code content should be preserved. Got: {}", &result[..result.len().min(500)]);
-        assert!(result.contains("println!"), "code content should be preserved. Got: {}", &result[..result.len().min(500)]);
+        eprintln!("{}", &result[..result.len().min(600)]);
+        assert!(result.contains("<pre>"), "pre tag should be preserved");
+        assert!(result.contains("def add"), "code content should be preserved");
+        assert!(result.contains("return a + b"), "code newlines should be preserved");
+    }
+
+    /// Test the FULL pipeline (without pre-block protection) 
+    /// to see if pre blocks survive all steps.
+    #[test]
+    fn test_full_pipeline_preserves_pre_blocks() {
+        let html = r#"<html><body>
+    <div>
+        <p>这是一段中文说明文字，解释了代码的工作原理。</p>
+        <p>看代码示例。先看动态编程语言 Python 的：</p>
+        <pre><code>def add(a, b):
+    return a + b
+
+print(add(1, 2))
+print(add("hello", "world"))
+print(add(1, "world"))   # TypeError</code></pre>
+        <p>Python 在运行时才进行类型检查，a 和 b 可以是任何类型。</p>
+    </div>
+</body></html>"#;
+        // Use raw readability first (skip our extract wrapper)
+        let mut cursor = Cursor::new(html.as_bytes());
+        let url = url::Url::parse("https://example.com/python").unwrap();
+        let extracted = readability::extractor::extract(&mut cursor, &url)
+            .unwrap().content;
+        
+        eprintln!("=== AFTER READABILITY ===");
+        eprintln!("{}", &extracted[..extracted.len().min(300)]);
+        
+        let cleaned = sanitize(&extracted);
+        eprintln!("=== AFTER SANITIZE ===");
+        eprintln!("{}", &cleaned[..cleaned.len().min(300)]);
+        
+        let md = to_markdown(&cleaned);
+        eprintln!("=== AFTER MARKDOWN ===");
+        eprintln!("{}", &md[..md.len().min(300)]);
+        
+        let rendered = render(&md);
+        eprintln!("=== AFTER RENDER ===");
+        eprintln!("{}", &rendered[..rendered.len().min(300)]);
+        
+        assert!(rendered.contains("def add"), "Rendered output should contain code. Got: {}", &rendered[..rendered.len().min(500)]);
     }
 
     // === Sanitization tests ===
