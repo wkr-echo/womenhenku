@@ -45,14 +45,14 @@ const ALLOWED_ATTRS: &[&str] = &["href", "src", "alt", "title"];
 /// Extract the main content from raw HTML using the Mozilla Readability algorithm.
 /// Falls back to the original HTML if extraction fails.
 pub fn extract(raw_html: &str, url: &str) -> String {
-    // Protect <pre> blocks from whitespace stripping by Readability
+    // Protect <pre> blocks: replace with <p> placeholders that survive Readability
     let re_pre = regex::Regex::new(r"(?s)<pre[^>]*>(.*?)</pre>").unwrap();
     let mut placeholders: Vec<String> = Vec::new();
     let protected = re_pre.replace_all(raw_html, |caps: &regex::Captures| {
         let idx = placeholders.len();
         let inner = caps.get(1).map(|m| m.as_str()).unwrap_or("");
-        placeholders.push(format!("<pre><code>{}</code></pre>", html_escape::encode_text(inner)));
-        format!("<!--PREBLOCK{}-->", idx)
+        placeholders.push(inner.to_string());
+        format!("<p data-preblock=\"{}\">PREBLOCK_{}_PLACEHOLDER</p>", idx, idx)
     }).to_string();
 
     let mut cursor = Cursor::new(protected.as_bytes());
@@ -75,10 +75,11 @@ pub fn extract(raw_html: &str, url: &str) -> String {
     };
 
     // Restore protected <pre> blocks
-    let re_ph = regex::Regex::new(r"<!--PREBLOCK(\d+)-->").unwrap();
+    let re_ph = regex::Regex::new(r#"<p data-preblock="(\d+)">PREBLOCK_\d+_PLACEHOLDER</p>"#).unwrap();
     re_ph.replace_all(&extracted, |caps: &regex::Captures| {
         let idx: usize = caps[1].parse().unwrap_or(0);
-        placeholders.get(idx).cloned().unwrap_or_default()
+        let inner = placeholders.get(idx).map(|s| s.as_str()).unwrap_or("");
+        format!("<pre><code>{}</code></pre>", inner)
     }).to_string()
 }
 
