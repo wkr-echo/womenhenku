@@ -532,7 +532,7 @@ pub async fn generate_tag_recommendations(
 
     // Call AI with timeout
     let client = crate::agent::client::AiClient::new();
-    let response = tokio::time::timeout(
+    let (response, _usage) = tokio::time::timeout(
         std::time::Duration::from_secs(60),
         client.chat(&provider.base_url, &api_key, &model, system_prompt, &user_prompt),
     )
@@ -576,7 +576,8 @@ pub async fn generate_tag_recommendations(
         .save_recommendations(entry_id, &recommendations)
         .map_err(|e| format!("保存推荐失败: {}", e))?;
 
-    // Record usage (stored but not shown in stats UI)
+    // Record usage with real token data
+    let (pt, ct) = _usage.map(|u| (u.prompt_tokens, u.completion_tokens)).unwrap_or((0, 0));
     let _ = crate::db::repository::LlmUsageRepository::new(pool.clone())
         .insert_event(&crate::db::model::LlmUsageEvent {
             id: 0,
@@ -587,9 +588,9 @@ pub async fn generate_tag_recommendations(
             model_id: 0,
             model_name: model.clone(),
             agent_type: "tagging".to_string(),
-            prompt_tokens: 0,
-            completion_tokens: 0,
-            total_tokens: 0,
+            prompt_tokens: pt,
+            completion_tokens: ct,
+            total_tokens: pt + ct,
             request_status: "success".to_string(),
             timestamp: chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string(),
             created_at: String::new(),
@@ -810,7 +811,7 @@ pub async fn analyze_entries_for_tags(
                 .map_err(|e| format!("信号量获取失败: {}", e))?;
 
             let client = crate::agent::client::AiClient::new();
-            let response = tokio::time::timeout(
+            let (response, _usage) = tokio::time::timeout(
                 std::time::Duration::from_secs(60),
                 client.chat(&provider.base_url, &api_key, &model, system_prompt, &prompt),
             )

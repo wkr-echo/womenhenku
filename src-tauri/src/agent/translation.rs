@@ -193,10 +193,11 @@ impl TranslationAgent {
             return Err(TranslationError::EmptyContent);
         }
 
-        // 6. 有界并发翻译
+        // 5. 翻译（有界并发）
         let semaphore = Arc::new(Semaphore::new(config.concurrency_degree));
         let total_segments = segments.len();
         let results: Arc<Mutex<Vec<TranslationSegment>>> = Arc::new(Mutex::new(Vec::new()));
+        let total_usage: Arc<tokio::sync::Mutex<(i64, i64)>> = Arc::new(tokio::sync::Mutex::new((0, 0)));
         let mut handles = Vec::new();
         let agent = Arc::new(TranslationAgentInner {
             client: AiClient::new(),
@@ -218,6 +219,7 @@ impl TranslationAgent {
 
             let cancel = cancel_flag.clone();
             let results_inner = results.clone();
+            let usage_acc = total_usage.clone();
             let seg = seg_text.clone();
             let agent = agent.clone();
             let lang = config.target_language.clone();
@@ -236,11 +238,18 @@ impl TranslationAgent {
                     .await;
 
                 let result = match translated {
-                    Ok(text) => TranslationSegment {
-                        index: i,
-                        source: seg,
-                        translated: Some(text),
-                        status: SegmentStatus::Success,
+                    Ok((text, usage)) => {
+                        if let Some(u) = usage {
+                            let mut acc = usage_acc.lock().await;
+                            acc.0 += u.prompt_tokens;
+                            acc.1 += u.completion_tokens;
+                        }
+                        TranslationSegment {
+                            index: i,
+                            source: seg,
+                            translated: Some(text),
+                            status: SegmentStatus::Success,
+                        }
                     },
                     Err(e) => TranslationSegment {
                         index: i,
@@ -301,7 +310,11 @@ impl TranslationAgent {
                 .mark_completed(run_id, &output, None, None)
                 .map_err(|e| TranslationError::Database(e.to_string()))?;
 
-            // Record token usage
+            // Record token usage with real data
+            let (pt, ct) = {
+                let u = total_usage.lock().await;
+                (u.0, u.1)
+            };
             let _ = crate::db::repository::LlmUsageRepository::new(self.pool.clone())
                 .insert_event(&crate::db::model::LlmUsageEvent {
                     id: 0,
@@ -312,9 +325,9 @@ impl TranslationAgent {
                     model_id: 0,
                     model_name: model.to_string(),
                     agent_type: "translation".to_string(),
-                    prompt_tokens: 0,
-                    completion_tokens: 0,
-                    total_tokens: 0,
+                    prompt_tokens: pt,
+                    completion_tokens: ct,
+                    total_tokens: pt + ct,
                     request_status: "success".to_string(),
                     timestamp: chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string(),
                     created_at: String::new(),
@@ -337,14 +350,18 @@ impl TranslationAgent {
                 .mark_completed(run_id, &output, None, None)
                 .map_err(|e| TranslationError::Database(e.to_string()))?;
 
-            // Record token usage (partial failure)
+            // Record token usage (partial failure — still has real data)
+            let (pt, ct) = {
+                let u = total_usage.lock().await;
+                (u.0, u.1)
+            };
             let _ = crate::db::repository::LlmUsageRepository::new(self.pool.clone())
                 .insert_event(&crate::db::model::LlmUsageEvent {
                     id: 0, provider_id, provider_name: "".to_string(),
                     provider_base_url: base_url.to_string(), provider_host: base_url.to_string(),
                     model_id: 0, model_name: model.to_string(),
                     agent_type: "translation".to_string(),
-                    prompt_tokens: 0, completion_tokens: 0, total_tokens: 0,
+                    prompt_tokens: pt, completion_tokens: ct, total_tokens: pt + ct,
                     request_status: format!("partial: {}/{} success", success_count, total_segments),
                     timestamp: chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string(),
                     created_at: String::new(),
@@ -523,7 +540,7 @@ impl TranslationAgent {
                     )
                     .await;
 
-                if let Ok(text) = translated {
+                if let Ok((text, _)) = translated {
                     let mut r = retry_results_inner.lock().await;
                     r.insert(cur_seg_idx, text);
                 }
@@ -721,7 +738,7 @@ impl TranslationAgentInner {
         entry_id: i64,
         on_event: Arc<dyn Fn(AiStreamEvent) + Send + Sync>,
         _cancel: &AtomicBool,
-    ) -> Result<String, String> {
+    ) -> Result<(String, Option<crate::agent::client::TokenUsage>), String> {
         let mut vars = HashMap::new();
         vars.insert("target_language".to_string(), target_language.to_string());
         vars.insert("content".to_string(), segment.to_string());
@@ -739,6 +756,8 @@ impl TranslationAgentInner {
 
         let result_text = Arc::new(std::sync::Mutex::new(String::new()));
         let result_clone = result_text.clone();
+        let seg_usage = Arc::new(std::sync::Mutex::new(None::<crate::agent::client::TokenUsage>));
+        let usage_clone = seg_usage.clone();
 
         let result = self
             .client
@@ -765,14 +784,17 @@ impl TranslationAgentInner {
                         error: None,
                     });
                 },
-                |_usage, _error| {},
+                |u, _error| {
+                    *usage_clone.lock().unwrap() = u;
+                },
             )
             .await;
 
         match result {
             Ok(()) => {
                 let text = result_text.lock().unwrap();
-                Ok(text.clone())
+                let usage = seg_usage.lock().unwrap().clone();
+                Ok((text.clone(), usage))
             }
             Err(e) => Err(format!("段落 {} 翻译失败: {}", seg_index + 1, e)),
         }

@@ -104,7 +104,7 @@ impl AiClient {
         Self { http_client }
     }
 
-    /// 发送非流式请求，返回 LLM 回复文本
+    /// 发送非流式请求，返回 (LLM 回复文本, Token用量)
     pub async fn chat(
         &self,
         base_url: &str,
@@ -112,7 +112,7 @@ impl AiClient {
         model: &str,
         system_prompt: &str,
         user_prompt: &str,
-    ) -> Result<String, AiClientError> {
+    ) -> Result<(String, Option<TokenUsage>), AiClientError> {
         let url = format!("{}/chat/completions", base_url.trim_end_matches('/'));
 
         let body = json!({
@@ -145,7 +145,11 @@ impl AiClient {
                 .as_str()
                 .unwrap_or("")
                 .to_string();
-            Ok(content)
+            let usage = parsed.get("usage").map(|u| TokenUsage {
+                prompt_tokens: u.get("prompt_tokens").and_then(|v| v.as_i64()).unwrap_or(0),
+                completion_tokens: u.get("completion_tokens").and_then(|v| v.as_i64()).unwrap_or(0),
+            });
+            Ok((content, usage))
         } else {
             Err(AiClientError::Api(format!("HTTP {}: {}", status, text)))
         }
