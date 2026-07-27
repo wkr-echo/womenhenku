@@ -24,7 +24,7 @@ pub enum PipelineError {
 /// Allowed HTML tags for the sanitization step.
 /// All other tags are stripped (inner text preserved).
 const ALLOWED_TAGS: &[&str] = &[
-    "p", "h1", "h2", "h3", "h4", "h5", "h6",
+    "p", "div", "h1", "h2", "h3", "h4", "h5", "h6",
     "ul", "ol", "li",
     "a", "img",
     "table", "thead", "tbody", "tr", "th", "td",
@@ -59,9 +59,8 @@ pub fn extract(raw_html: &str, url: &str) -> String {
         let idx = pre_blocks.len();
         let inner = caps.get(1).map(|m| m.as_str().to_string()).unwrap_or_default();
         pre_blocks.push(inner);
-        // Placeholder with meaningful text — Readability is less likely to strip
-        // a paragraph that looks like natural language.
-        format!("<p>PRE_BLOCK_PLACEHOLDER_{}_RESTORE_PRE_CONTENT_HERE</p>", idx)
+        // Short placeholder — keeps Readability's text analysis intact
+        format!("<p>PREBLOCK_{}_RESTORE</p>", idx)
     }).to_string();
 
     // --- Phase 1: Run Readability on protected HTML ---
@@ -86,7 +85,7 @@ pub fn extract(raw_html: &str, url: &str) -> String {
 
     // --- Phase 2: Restore <pre> blocks ---
     let restore_re = regex::Regex::new(
-        r"PRE_BLOCK_PLACEHOLDER_(\d+)_RESTORE_PRE_CONTENT_HERE"
+        r"PREBLOCK_(\d+)_RESTORE"
     ).unwrap();
 
     let restored = restore_re.replace_all(&extracted, |caps: &regex::Captures| {
@@ -222,17 +221,19 @@ pub fn to_markdown(html: &str) -> String {
         md = re.replace_all(&md, format!("\n{} $1\n", prefix)).to_string();
     }
 
-    // <li> → - item (multiline content)
+    // <li> → - item (multiline, with newlines between items)
     let re = regex::Regex::new(r"<li>([\s\S]*?)</li>").unwrap();
-    md = re.replace_all(&md, "- $1").to_string();
+    md = re.replace_all(&md, "\n- $1\n").to_string();
 
     // <blockquote> → > text (multiline)
     let re = regex::Regex::new(r"<blockquote>([\s\S]*?)</blockquote>").unwrap();
     md = re.replace_all(&md, "\n> $1\n").to_string();
 
-    // Strip <p> tags: close → \n\n, open → nothing
+    // Strip <p> and <div> tags: treat both as paragraph breaks
     md = md.replace("</p>", "\n\n");
     md = md.replace("<p>", "");
+    md = md.replace("</div>", "\n");
+    md = md.replace("<div>", "");
 
     // Remove remaining block container tags (keep inner text)
     for tag in &["ul", "ol", "table", "thead", "tbody", "tr", "th", "td"] {
@@ -601,5 +602,56 @@ print(add("hello", "world"))</pre>
         assert!(result.rendered_html.contains("return a + b"), "Rendered should preserve multi-line code");
         // Should be wrapped in <pre> by comrak
         assert!(result.rendered_html.contains("<pre>") || result.rendered_html.contains("<code"), "Should have code markup");
+    }
+
+    /// List items should have newlines between them
+    #[test]
+    fn test_to_markdown_list_items_separated() {
+        let html = "<ul><li>Item 1</li><li>Item 2</li><li>Item 3</li></ul>";
+        let md = to_markdown(html);
+        eprintln!("=== LIST MARKDOWN ===\n{}", md);
+        assert!(md.contains("- Item 1"), "Item 1 missing");
+        assert!(md.contains("- Item 2"), "Item 2 missing");
+        assert!(md.contains("- Item 3"), "Item 3 missing");
+        // Each item on its own line
+        let items: Vec<&str> = md.lines().filter(|l| l.starts_with("- ")).collect();
+        assert_eq!(items.len(), 3, "Should have 3 list items, got: {:?}", items);
+    }
+
+    /// <div> blocks should produce paragraph breaks
+    #[test]
+    fn test_to_markdown_div_block_breaks() {
+        let html = "<div>Block 1</div><div>Block 2</div><div>Block 3</div>";
+        let md = to_markdown(html);
+        eprintln!("=== DIV MARKDOWN ===\n{}", md);
+        assert!(md.contains("Block 1"), "Block 1 missing");
+        assert!(md.contains("Block 2"), "Block 2 missing");
+        assert!(md.contains("Block 3"), "Block 3 missing");
+        let lines: Vec<&str> = md.lines().collect();
+        assert!(lines.len() >= 2, "Should have at least 2 lines, got: {}", md);
+    }
+
+    /// Full pipeline: multiple paragraphs + list should preserve structure
+    #[test]
+    fn test_full_pipeline_paragraphs_and_lists() {
+        let html = r#"<html><body><div>
+<p>First paragraph.</p>
+<p>Second paragraph.</p>
+<ul><li>Feature one</li><li>Feature two</li><li>Feature three</li></ul>
+<p>Third paragraph after list.</p>
+<p>Fourth paragraph.</p>
+</div></body></html>"#;
+        let result = run_full_pipeline(html, "https://example.com/para-list")
+            .expect("Pipeline failed");
+        eprintln!("=== MARKDOWN ===\n{}", &result.markdown[..result.markdown.len().min(800)]);
+        assert!(result.markdown.contains("First paragraph"), "First para missing");
+        assert!(result.markdown.contains("Second paragraph"), "Second para missing");
+        assert!(result.markdown.contains("Third paragraph"), "Third para missing");
+        assert!(result.markdown.contains("Fourth paragraph"), "Fourth para missing");
+        assert!(result.markdown.contains("Feature one"), "Feature one missing");
+        assert!(result.markdown.contains("Feature two"), "Feature two missing");
+        assert!(result.markdown.contains("Feature three"), "Feature three missing");
+        let para_count = result.markdown.matches("\n\n").count();
+        assert!(para_count >= 3, "Should have 3+ para breaks, got {}: \n{}", para_count, result.markdown);
     }
 }
