@@ -45,7 +45,7 @@ export function ContentAreaView() {
           </h2>
           <div className="flex items-center gap-2">
             <span className="text-xs text-[var(--text-tertiary)]">
-              {t("未读")} {currentUnread}/{entries.length}
+              {t("未读")} {currentUnread}/{entriesTotal}
             </span>
             {entries.some((e) => !e.isRead) && (
               <button
