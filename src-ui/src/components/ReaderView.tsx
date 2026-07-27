@@ -5,7 +5,7 @@ import { formatDate, t } from "@/lib/utils";
 import { SummaryPanelView } from "./SummaryPanelView";
 import { NoteEditorView } from "./NoteEditorView";
 import { TagPanelView } from "./TagPanelView";
-import { isTauri, getEntryContent as getEntryContentReal, processEntryContent, exportSingleDigest, writeTextFile, getNote, getPipelineVersion } from "@/api/feed";
+import { isTauri, getEntryContent as getEntryContentReal, processEntryContent, exportSingleDigest, writeTextFile, getNote } from "@/api/feed";
 import {
   translateEntry,
   getTranslationText,
@@ -88,8 +88,8 @@ export function ReaderView() {
         return;
       }
 
-      // Fetch current pipeline version from Rust side to avoid hardcoded drift
-      const PIPELINE_VERSION = await getPipelineVersion();
+      // Must match Rust reader::service::PIPELINE_VERSION (currently 9)
+      const PIPELINE_VERSION = 9;
       const hasContent = (c: Content) =>
         (!!c.renderedHtml || !!c.cleanedHtml || !!c.rawHtml)
         && c.readabilityVersion >= PIPELINE_VERSION;
