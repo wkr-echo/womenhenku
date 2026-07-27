@@ -424,6 +424,20 @@ pub fn cleanup_old_llm_events(pool: &DbPool, retention_days: i64) -> Result<usiz
 }
 
 // ============================================================
+// New usage_events table commands
+// ============================================================
+
+/// Clean up old usage_events (new schema)
+pub fn cleanup_old_usage_events(pool: &DbPool, retention_days: i64) -> Result<usize, String> {
+    crate::usage::recorder::cleanup_old_events(pool, retention_days)
+}
+
+/// Clear all usage_events
+pub fn clear_all_usage_events(pool: &DbPool) -> Result<usize, String> {
+    crate::usage::recorder::clear_all_events(pool)
+}
+
+// ============================================================
 // Settings (Stage 5)
 // ============================================================
 
@@ -578,23 +592,28 @@ pub async fn generate_tag_recommendations(
 
     // Record usage with real token data
     let (pt, ct) = _usage.map(|u| (u.prompt_tokens, u.completion_tokens)).unwrap_or((0, 0));
-    let _ = crate::db::repository::LlmUsageRepository::new(pool.clone())
-        .insert_event(&crate::db::model::LlmUsageEvent {
-            id: 0,
-            provider_id: provider.id,
-            provider_name: provider.name.clone(),
+    let host = url::Url::parse(&provider.base_url)
+        .ok()
+        .and_then(|u| u.host_str().map(|h| h.to_string()));
+    let _ = crate::usage::recorder::record_usage_event(
+        pool,
+        crate::usage::recorder::UsageEventContext {
+            task_type: "tagging".into(),
+            entry_id: Some(entry_id),
+            provider_id: Some(provider.id),
+            model_id: None,
             provider_base_url: provider.base_url.clone(),
-            provider_host: provider.base_url.clone(),
-            model_id: 0,
+            provider_host: host,
+            provider_name: Some(provider.name.clone()),
             model_name: model.clone(),
-            agent_type: "tagging".to_string(),
-            prompt_tokens: pt,
-            completion_tokens: ct,
-            total_tokens: pt + ct,
-            request_status: "success".to_string(),
-            timestamp: chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string(),
-            created_at: String::new(),
-        });
+            request_phase: "normal".into(),
+            request_status: "succeeded".into(),
+            prompt_tokens: Some(pt),
+            completion_tokens: Some(ct),
+            started_at: None,
+            finished_at: Some(chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string()),
+        },
+    );
 
     tag_repo
         .find_recommendations_by_entry_id(entry_id)

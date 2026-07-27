@@ -6,6 +6,7 @@ pub mod feed;
 pub mod notes;
 pub mod platform;
 pub mod reader;
+pub mod usage;
 
 #[cfg(feature = "tauri-runtime")]
 use std::str::FromStr;
@@ -70,6 +71,16 @@ pub fn run() {
                     if let Err(e) = svc.refresh_all_feeds().await {
                         tracing::warn!("Auto-sync failed: {}", e);
                     }
+                }
+            });
+
+            // Spawn background auto-cleanup for old usage events (6 months retention)
+            let cleanup_pool = pool.clone();
+            tauri::async_runtime::spawn(async move {
+                match crate::usage::recorder::cleanup_old_events(&cleanup_pool, 180) {
+                    Ok(n) if n > 0 => tracing::info!("Cleaned up {} old usage events", n),
+                    Err(e) => tracing::warn!("Usage cleanup failed: {}", e),
+                    _ => {}
                 }
             });
 
@@ -213,6 +224,9 @@ pub fn run() {
             get_llm_model_usage,
             get_llm_agent_usage,
             cleanup_old_llm_events,
+            // New usage_events table commands
+            cleanup_old_usage_events,
+            clear_all_usage_events,
             // Settings (Stage 5)
             delete_setting,
         ])
@@ -716,6 +730,18 @@ fn get_llm_agent_usage(state: State<'_, DbPool>, days: i64) -> Result<Vec<crate:
 #[tauri::command]
 fn cleanup_old_llm_events(state: State<'_, DbPool>, retention_days: i64) -> Result<usize, String> {
     commands::cleanup_old_llm_events(&state, retention_days)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn cleanup_old_usage_events(state: State<'_, DbPool>, retention_days: i64) -> Result<usize, String> {
+    commands::cleanup_old_usage_events(&state, retention_days)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn clear_all_usage_events(state: State<'_, DbPool>) -> Result<usize, String> {
+    commands::clear_all_usage_events(&state)
 }
 
 // -- Settings (Stage 5) --

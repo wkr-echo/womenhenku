@@ -220,25 +220,28 @@ impl SummaryAgent {
 
                 // Record token usage
                 let u = usage.lock().unwrap();
-                if let Some(ref u) = *u {
-                    let _ = crate::db::repository::LlmUsageRepository::new(self.pool.clone())
-                        .insert_event(&crate::db::model::LlmUsageEvent {
-                            id: 0,
-                            provider_id,
-                            provider_name: "".to_string(),
-                            provider_base_url: base_url.to_string(),
-                            provider_host: base_url.to_string(),
-                            model_id: 0,
-                            model_name: model.to_string(),
-                            agent_type: "summary".to_string(),
-                            prompt_tokens: u.prompt_tokens,
-                            completion_tokens: u.completion_tokens,
-                            total_tokens: u.prompt_tokens + u.completion_tokens,
-                            request_status: "success".to_string(),
-                            timestamp: chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string(),
-                            created_at: String::new(),
-                        });
-                }
+                let host = url::Url::parse(base_url)
+                    .ok()
+                    .and_then(|u| u.host_str().map(|h| h.to_string()));
+                let _ = crate::usage::recorder::record_usage_event(
+                    &self.pool,
+                    crate::usage::recorder::UsageEventContext {
+                        task_type: "summary".into(),
+                        entry_id: Some(entry_id),
+                        provider_id: Some(provider_id),
+                        model_id: None,
+                        provider_base_url: base_url.to_string(),
+                        provider_host: host,
+                        provider_name: None,
+                        model_name: model.to_string(),
+                        request_phase: "normal".into(),
+                        request_status: "succeeded".into(),
+                        prompt_tokens: u.as_ref().map(|u| u.prompt_tokens),
+                        completion_tokens: u.as_ref().map(|u| u.completion_tokens),
+                        started_at: None,
+                        finished_at: Some(chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string()),
+                    },
+                );
 
                 on_event(AiStreamEvent {
                     entry_id: 0,
@@ -255,23 +258,28 @@ impl SummaryAgent {
                     .map_err(|db_err| SummaryError::Database(db_err.to_string()))?;
 
                 // Record failed usage
-                let _ = crate::db::repository::LlmUsageRepository::new(self.pool.clone())
-                    .insert_event(&crate::db::model::LlmUsageEvent {
-                        id: 0,
-                        provider_id,
-                        provider_name: "".to_string(),
+                let host = url::Url::parse(base_url)
+                    .ok()
+                    .and_then(|u| u.host_str().map(|h| h.to_string()));
+                let _ = crate::usage::recorder::record_usage_event(
+                    &self.pool,
+                    crate::usage::recorder::UsageEventContext {
+                        task_type: "summary".into(),
+                        entry_id: Some(entry_id),
+                        provider_id: Some(provider_id),
+                        model_id: None,
                         provider_base_url: base_url.to_string(),
-                        provider_host: base_url.to_string(),
-                        model_id: 0,
+                        provider_host: host,
+                        provider_name: None,
                         model_name: model.to_string(),
-                        agent_type: "summary".to_string(),
-                        prompt_tokens: 0,
-                        completion_tokens: 0,
-                        total_tokens: 0,
-                        request_status: "failed".to_string(),
-                        timestamp: chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string(),
-                        created_at: String::new(),
-                    });
+                        request_phase: "normal".into(),
+                        request_status: "failed".into(),
+                        prompt_tokens: None,
+                        completion_tokens: None,
+                        started_at: None,
+                        finished_at: Some(chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string()),
+                    },
+                );
 
                 on_event(AiStreamEvent {
                     entry_id: 0,

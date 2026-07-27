@@ -305,33 +305,39 @@ impl TranslationAgent {
             }
         }
 
+        let host = url::Url::parse(base_url)
+            .ok()
+            .and_then(|u| u.host_str().map(|h| h.to_string()));
+        let (pt, ct) = {
+            let u = total_usage.lock().await;
+            (u.0, u.1)
+        };
+
         if fail_count == 0 {
             run_repo
                 .mark_completed(run_id, &output, None, None)
                 .map_err(|e| TranslationError::Database(e.to_string()))?;
 
-            // Record token usage with real data
-            let (pt, ct) = {
-                let u = total_usage.lock().await;
-                (u.0, u.1)
-            };
-            let _ = crate::db::repository::LlmUsageRepository::new(self.pool.clone())
-                .insert_event(&crate::db::model::LlmUsageEvent {
-                    id: 0,
-                    provider_id,
-                    provider_name: "".to_string(),
+            // Record token usage per-segment with real data
+            let _ = crate::usage::recorder::record_usage_event(
+                &self.pool,
+                crate::usage::recorder::UsageEventContext {
+                    task_type: "translation".into(),
+                    entry_id: Some(entry_id),
+                    provider_id: Some(provider_id),
+                    model_id: None,
                     provider_base_url: base_url.to_string(),
-                    provider_host: base_url.to_string(),
-                    model_id: 0,
+                    provider_host: host.clone(),
+                    provider_name: None,
                     model_name: model.to_string(),
-                    agent_type: "translation".to_string(),
-                    prompt_tokens: pt,
-                    completion_tokens: ct,
-                    total_tokens: pt + ct,
-                    request_status: "success".to_string(),
-                    timestamp: chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string(),
-                    created_at: String::new(),
-                });
+                    request_phase: "normal".into(),
+                    request_status: "succeeded".into(),
+                    prompt_tokens: Some(pt),
+                    completion_tokens: Some(ct),
+                    started_at: None,
+                    finished_at: Some(chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string()),
+                },
+            );
 
             (on_event)(AiStreamEvent {
                     entry_id: 0,
@@ -351,21 +357,25 @@ impl TranslationAgent {
                 .map_err(|e| TranslationError::Database(e.to_string()))?;
 
             // Record token usage (partial failure — still has real data)
-            let (pt, ct) = {
-                let u = total_usage.lock().await;
-                (u.0, u.1)
-            };
-            let _ = crate::db::repository::LlmUsageRepository::new(self.pool.clone())
-                .insert_event(&crate::db::model::LlmUsageEvent {
-                    id: 0, provider_id, provider_name: "".to_string(),
-                    provider_base_url: base_url.to_string(), provider_host: base_url.to_string(),
-                    model_id: 0, model_name: model.to_string(),
-                    agent_type: "translation".to_string(),
-                    prompt_tokens: pt, completion_tokens: ct, total_tokens: pt + ct,
+            let _ = crate::usage::recorder::record_usage_event(
+                &self.pool,
+                crate::usage::recorder::UsageEventContext {
+                    task_type: "translation".into(),
+                    entry_id: Some(entry_id),
+                    provider_id: Some(provider_id),
+                    model_id: None,
+                    provider_base_url: base_url.to_string(),
+                    provider_host: host.clone(),
+                    provider_name: None,
+                    model_name: model.to_string(),
+                    request_phase: "normal".into(),
                     request_status: format!("partial: {}/{} success", success_count, total_segments),
-                    timestamp: chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string(),
-                    created_at: String::new(),
-                });
+                    prompt_tokens: Some(pt),
+                    completion_tokens: Some(ct),
+                    started_at: None,
+                    finished_at: Some(chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string()),
+                },
+            );
 
             (on_event)(AiStreamEvent {
                     entry_id: 0,
