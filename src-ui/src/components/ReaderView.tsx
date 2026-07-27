@@ -291,7 +291,8 @@ export function ReaderView() {
     try {
       const digest = await exportSingleDigest(selectedEntry!.id, format);
       const ext = { markdown: ".md", html: ".html", plaintext: ".txt" }[format];
-      await saveFile(`${selectedEntry!.title}${ext}`, digest, format);
+      const ok = await saveFile(`${selectedEntry!.title}${ext}`, digest, format);
+      if (ok) toast(t("已导出"), "success");
     } catch (e: any) {
       toast(t("导出失败: ") + String(e), "error");
     } finally {
@@ -304,7 +305,8 @@ export function ReaderView() {
     try {
       const text = await getSummaryText(selectedEntry!.id);
       if (!text) { toast(t("暂无摘要"), "info"); setExporting(false); return; }
-      await saveFile(`${selectedEntry!.title}-摘要.md`, text, "markdown");
+      const ok = await saveFile(`${selectedEntry!.title}-摘要.md`, text, "markdown");
+      if (ok) toast(t("已导出"), "success");
     } catch (e: any) {
       toast(t("导出失败: ") + String(e), "error");
     } finally {
@@ -317,7 +319,8 @@ export function ReaderView() {
     try {
       const note = await getNote(selectedEntry!.id);
       if (!note || !note.content) { toast(t("暂无笔记"), "info"); setExporting(false); return; }
-      await saveFile(`${selectedEntry!.title}-笔记.md`, note.content, "markdown");
+      const ok = await saveFile(`${selectedEntry!.title}-笔记.md`, note.content, "markdown");
+      if (ok) toast(t("已导出"), "success");
     } catch (e: any) {
       toast(t("导出失败: ") + String(e), "error");
     } finally {
@@ -335,11 +338,10 @@ export function ReaderView() {
         defaultPath: `${dl}/${defaultName}`,
         filters: [{ name: EXPORT_LABELS[format], extensions: [ext] }],
       });
-      if (!filePath) return;
+      if (!filePath) return false;
       await writeTextFile(filePath, content);
-      toast(t("已导出"), "success");
+      return true;
     } else {
-      // Browser fallback
       const mimeMap: Record<string, string> = { markdown: "text/markdown", html: "text/html", plaintext: "text/plain" };
       const blob = new Blob([content], { type: mimeMap[format] || "text/plain" });
       const url = URL.createObjectURL(blob);
@@ -347,7 +349,7 @@ export function ReaderView() {
       a.href = url; a.download = defaultName;
       document.body.appendChild(a); a.click();
       document.body.removeChild(a); URL.revokeObjectURL(url);
-      toast(t("已导出"), "success");
+      return true;
     }
   };
 
