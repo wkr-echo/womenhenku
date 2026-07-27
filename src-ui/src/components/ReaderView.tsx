@@ -88,7 +88,7 @@ export function ReaderView() {
         return;
       }
 
-      const PIPELINE_VERSION = 3;
+      const PIPELINE_VERSION = 4;
       const hasContent = (c: Content) =>
         (!!c.renderedHtml || !!c.cleanedHtml || !!c.rawHtml)
         && c.readabilityVersion >= PIPELINE_VERSION;
