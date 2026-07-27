@@ -159,6 +159,8 @@ pub fn run() {
             export_multi_digest,
             // File utilities
             write_text_file,
+            // Pipeline
+            get_pipeline_version,
             // Fonts (Stage 2)
             list_system_fonts,
             // System
@@ -376,6 +378,14 @@ async fn export_opml(state: State<'_, DbPool>, file_path: String) -> Result<(), 
     tokio::task::spawn_blocking(move || commands::export_opml(&pool, &file_path))
         .await
         .map_err(|e| e.to_string())?
+}
+
+// -- Pipeline version --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_pipeline_version() -> i32 {
+    commands::get_pipeline_version()
 }
 
 // -- System fonts (Stage 2) --

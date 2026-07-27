@@ -72,6 +72,13 @@ export async function processEntryContent(entryId: number, url: string): Promise
   return invoke<Content>("process_entry_content", { entryId, url });
 }
 
+export async function getPipelineVersion(): Promise<number> {
+  if (isTauri()) {
+    return invoke<number>("get_pipeline_version");
+  }
+  return 7; // fallback for mock/dev mode
+}
+
 export async function markRead(id: number): Promise<void> {
   return invoke("mark_read", { id });
 }
