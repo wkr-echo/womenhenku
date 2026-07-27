@@ -276,6 +276,8 @@
   font-family: var(--reader-font, "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", "WenQuanYi Micro Hei", system-ui, sans-serif);
   @apply leading-relaxed text-[15px];
   color: var(--reader-text);
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .reader-content h1 { @apply text-2xl font-bold mt-8 mb-4; }
@@ -287,7 +289,7 @@
 
 .reader-content p { @apply my-3; }
 .reader-content a { color: var(--link-color); @apply underline decoration-1 underline-offset-2; }
-.reader-content img { @apply max-w-full rounded-lg my-4; }
+.reader-content img { @apply max-w-full h-auto rounded-lg my-4; }
 .reader-content ul { @apply list-disc pl-6 my-3; }
 .reader-content ol { @apply list-decimal pl-6 my-3; }
 .reader-content li { @apply my-1; }

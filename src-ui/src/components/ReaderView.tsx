@@ -491,8 +491,8 @@ export function ReaderView() {
 
       {/* Main content + side panel */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Content area */}
-        <div className="flex-1 overflow-y-auto">
+        {/* Content area — min-w-0 is CRITICAL: allows flex shrink below image width */}
+        <div className="flex-1 min-w-0 overflow-y-auto">
           <div className="max-w-3xl mx-auto px-6 py-6">
             {contentLoading ? (
               <p className="text-sm text-[var(--text-tertiary)]">{t("加载中...")}</p>
