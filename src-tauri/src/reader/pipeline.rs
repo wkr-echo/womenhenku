@@ -139,17 +139,14 @@ fn serialize_node(node: &scraper::ElementRef, output: &mut String) {
 pub fn to_markdown(html: &str) -> String {
     let mut md = html.to_string();
 
-    // Replace inline tags (order matters: nested tags handled from inside out)
-    // <strong> / <b> → **text**
-    let re = regex::Regex::new(r"<(?:strong|b)>(.*?)</(?:strong|b)>").unwrap();
+    // Replace inline tags (multiline-aware)
+    let re = regex::Regex::new(r"<(?:strong|b)>([\s\S]*?)</(?:strong|b)>").unwrap();
     md = re.replace_all(&md, "**$1**").to_string();
 
-    // <em> / <i> → *text*
-    let re = regex::Regex::new(r"<(?:em|i)>(.*?)</(?:em|i)>").unwrap();
+    let re = regex::Regex::new(r"<(?:em|i)>([\s\S]*?)</(?:em|i)>").unwrap();
     md = re.replace_all(&md, "*$1*").to_string();
 
-    // <del> / <s> → ~~text~~
-    let re = regex::Regex::new(r"<(?:del|s)>(.*?)</(?:del|s)>").unwrap();
+    let re = regex::Regex::new(r"<(?:del|s)>([\s\S]*?)</(?:del|s)>").unwrap();
     md = re.replace_all(&md, "~~$1~~").to_string();
 
     // <a href="url">text</a> → [text](url)
@@ -160,39 +157,40 @@ pub fn to_markdown(html: &str) -> String {
     let re = regex::Regex::new(r#"<img src="([^"]*)"(?: alt="([^"]*)")?>"#).unwrap();
     md = re.replace_all(&md, "![$2]($1)").to_string();
 
-    // <code>text</code> → `text` (inline code, not inside pre)
-    let re = regex::Regex::new(r"<code>(.*?)</code>").unwrap();
-    md = re.replace_all(&md, "`$1`").to_string();
-
     // <pre><code>...</code></pre> → ```\n...\n```
-    let re = regex::Regex::new(r"<pre>\s*<code>(.*?)</code>\s*</pre>").unwrap();
+    let re = regex::Regex::new(r"<pre>\s*<code>([\s\S]*?)</code>\s*</pre>").unwrap();
     md = re.replace_all(&md, "\n```\n$1\n```\n").to_string();
+
+    // <code>text</code> → `text` (inline code, only outside <pre>)
+    let re = regex::Regex::new(r"<code>([\s\S]*?)</code>").unwrap();
+    md = re.replace_all(&md, "`$1`").to_string();
 
     // Block-level tags
     // <h1> → # , <h2> → ## , etc.
     for level in (1..=6).rev() {
-        let pattern = format!(r"<h{}>(.*?)</h{}>", level, level);
+        let pattern = format!(r"<h{}>([\s\S]*?)</h{}>", level, level);
         let prefix = "#".repeat(level);
         let re = regex::Regex::new(&pattern).unwrap();
         md = re.replace_all(&md, format!("\n{} $1\n", prefix)).to_string();
     }
 
-    // <li> → - item
-    let re = regex::Regex::new(r"<li>(.*?)</li>").unwrap();
+    // <li> → - item (multiline content)
+    let re = regex::Regex::new(r"<li>([\s\S]*?)</li>").unwrap();
     md = re.replace_all(&md, "- $1").to_string();
 
-    // <blockquote> → > text
-    let re = regex::Regex::new(r"<blockquote>(.*?)</blockquote>").unwrap();
+    // <blockquote> → > text (multiline)
+    let re = regex::Regex::new(r"<blockquote>([\s\S]*?)</blockquote>").unwrap();
     md = re.replace_all(&md, "\n> $1\n").to_string();
 
-    // Remove remaining block tags (keep inner text)
-    for tag in &["p", "ul", "ol", "table", "thead", "tbody", "tr", "th", "td"] {
-        let open = format!("<{}>", tag);
-        let close = format!("</{}>", tag);
-        md = md.replace(&open, "");
-        md = md.replace(&close, "");
-    }
+    // Strip <p> tags: close → \n\n, open → nothing
     md = md.replace("</p>", "\n\n");
+    md = md.replace("<p>", "");
+
+    // Remove remaining block container tags (keep inner text)
+    for tag in &["ul", "ol", "table", "thead", "tbody", "tr", "th", "td"] {
+        md = md.replace(&format!("<{}>", tag), "");
+        md = md.replace(&format!("</{}>", tag), "");
+    }
 
     // <br> → \n, <hr> → ---
     md = md.replace("<br>", "\n");
