@@ -53,14 +53,17 @@ const ALLOWED_ATTRS: &[&str] = &["href", "src", "alt", "title"];
 /// of <pre>/<code>, which Readability handles correctly.
 pub fn extract(raw_html: &str, url: &str) -> String {
     // --- Phase 0: Clean <pre> blocks in-place ---
-    // Strip all HTML tags from inside <pre> blocks, keeping text + whitespace.
-    // This prevents Readability from dropping inter-element whitespace.
+    // Only strip <span> (syntax highlight spans that cause whitespace loss)
+    // and nested <code> (we add our own wrapper). Keep <br> and other tags.
     let pre_re = regex::Regex::new(r"(?s)<pre[^>]*>(.*?)</pre>").unwrap();
-    let tag_re = regex::Regex::new(r"<[^>]*>").unwrap();
+    // Strip span and nested code tags, keeping their text content
+    let span_re = regex::Regex::new(r"</?span[^>]*>").unwrap();
+    let code_re = regex::Regex::new(r"</?code[^>]*>").unwrap();
 
     let cleaned_html = pre_re.replace_all(raw_html, |caps: &regex::Captures| {
         let inner = caps.get(1).map(|m| m.as_str()).unwrap_or("");
-        let cleaned = tag_re.replace_all(inner, "");
+        let cleaned = span_re.replace_all(inner, "");
+        let cleaned = code_re.replace_all(&cleaned, "");
         format!("<pre><code>{}</code></pre>", cleaned)
     }).to_string();
 
