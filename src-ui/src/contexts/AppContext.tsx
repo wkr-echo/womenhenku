@@ -6,7 +6,7 @@ import {
   useEffect,
   type ReactNode,
 } from "react";
-import type { FeedSummary, EntryListItem, Entry, EntryPage, ViewMode, Tag } from "@/lib/types";
+import type { FeedSummary, EntryListItem, Entry, EntryPage, ViewMode, Tag, SidebarCounts, FeedSelection } from "@/lib/types";
 import { mockFeedSummaries, mockEntries, mockApi, mockListTags } from "@/api/mock";
 import {
   isTauri,
@@ -20,6 +20,9 @@ import {
   searchEntries as searchEntriesReal,
   markRead as markReadReal,
   listTags as listTagsReal,
+  toggleStar as toggleStarReal,
+  getSidebarCounts as getSidebarCountsReal,
+  listAllEntries as listAllEntriesReal,
 } from "@/api/feed";
 import { toast } from "@/components/ui/Toast";
 import { t } from "@/lib/utils";
@@ -28,23 +31,23 @@ import { t } from "@/lib/utils";
 
 interface State {
   feeds: FeedSummary[];
-  selectedFeedId: number | null;
+  feedSelection: FeedSelection;
   selectedEntry: Entry | null;
   viewMode: ViewMode;
   entries: EntryListItem[];
   searchQuery: string;
   sidebarCollapsed: boolean;
   tags: Tag[];
-  selectedTagId: number | null;
   sidebarMode: "feed" | "tag";
   selectedTagIds: number[];
   tagMatchMode: "or" | "and";
   isBatchTagging: boolean;
+  sidebarCounts: SidebarCounts;
 }
 
 type Action =
   | { type: "SET_FEEDS"; feeds: FeedSummary[] }
-  | { type: "SET_SELECTED_FEED_ID"; feedId: number | null }
+  | { type: "SET_FEED_SELECTION"; selection: FeedSelection }
   | { type: "SET_SELECTED_ENTRY"; entry: Entry | null }
   | { type: "SET_VIEW_MODE"; mode: ViewMode }
   | { type: "SET_ENTRIES"; entries: EntryListItem[] }
@@ -52,41 +55,38 @@ type Action =
   | { type: "TOGGLE_SIDEBAR" }
   | { type: "ADD_FEED"; feed: FeedSummary }
   | { type: "REMOVE_FEED"; id: number }
-  | { type: "SELECT_FEED"; feedId: number }
-  | { type: "SELECT_ENTRY"; entry: Entry | null }
   | { type: "MARK_READ"; entryId: number; feedId: number }
   | { type: "MARK_ALL_READ"; feedId: number }
+  | { type: "TOGGLE_STAR"; entryId: number }
   | { type: "SET_TAGS"; tags: Tag[] }
-  | { type: "SELECT_TAG"; tagId: number | null }
   | { type: "SET_SIDEBAR_MODE"; mode: "feed" | "tag" }
   | { type: "TOGGLE_TAG_SELECTION"; tagId: number }
   | { type: "SET_TAG_MATCH_MODE"; mode: "or" | "and" }
-  | { type: "SET_BATCH_TAGGING"; isRunning: boolean };
+  | { type: "SET_BATCH_TAGGING"; isRunning: boolean }
+  | { type: "SET_SIDEBAR_COUNTS"; counts: SidebarCounts };
 
 const initialState: State = {
   feeds: [],
-  selectedFeedId: null,
+  feedSelection: { type: "all" },
   selectedEntry: null,
   viewMode: "list",
   entries: [],
   searchQuery: "",
   sidebarCollapsed: false,
   tags: [],
-  selectedTagId: null,
   sidebarMode: "feed",
   selectedTagIds: [],
   tagMatchMode: "or",
   isBatchTagging: false,
+  sidebarCounts: { totalUnread: 0, totalStarred: 0, starredUnread: 0 },
 };
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case "SET_FEEDS":
       return { ...state, feeds: action.feeds };
-    case "SET_SELECTED_FEED_ID":
-      return { ...state, selectedFeedId: action.feedId };
-    case "SET_SELECTED_ENTRY":
-      return { ...state, selectedEntry: action.entry };
+    case "SET_FEED_SELECTION":
+      return { ...state, feedSelection: action.selection, selectedEntry: null, viewMode: "list", searchQuery: "", selectedTagIds: [] };
     case "SET_VIEW_MODE":
       return { ...state, viewMode: action.mode };
     case "SET_ENTRIES":
@@ -99,28 +99,20 @@ function reducer(state: State, action: Action): State {
       return { ...state, feeds: [...state.feeds, action.feed] };
     case "REMOVE_FEED": {
       const feeds = state.feeds.filter((f) => f.id !== action.id);
-      const isRemovingSelected = state.selectedFeedId === action.id;
+      const isRemovingSelected = state.feedSelection.type === "feed" && state.feedSelection.feedId === action.id;
       return {
         ...state,
         feeds,
-        selectedFeedId: isRemovingSelected ? null : state.selectedFeedId,
+        feedSelection: isRemovingSelected ? { type: "all" } : state.feedSelection,
         selectedEntry: isRemovingSelected ? null : state.selectedEntry,
-        viewMode: isRemovingSelected ? ("list" as ViewMode) : state.viewMode,
+        viewMode: isRemovingSelected ? "list" : state.viewMode,
       };
     }
-    case "SELECT_FEED":
-      return {
-        ...state,
-        selectedFeedId: action.feedId,
-        selectedEntry: null,
-        viewMode: "list",
-        searchQuery: "",
-      };
-    case "SELECT_ENTRY":
+    case "SET_SELECTED_ENTRY":
       return { ...state, selectedEntry: action.entry, viewMode: "reader" };
     case "MARK_READ": {
       const feeds = state.feeds.map((f) =>
-        f.id === action.feedId && f.unreadCount > 0
+        (state.feedSelection.type === "feed" && f.id === state.feedSelection.feedId) && f.unreadCount > 0
           ? { ...f, unreadCount: f.unreadCount - 1 }
           : f
       );
@@ -131,7 +123,8 @@ function reducer(state: State, action: Action): State {
         state.selectedEntry?.id === action.entryId
           ? { ...state.selectedEntry, isRead: true }
           : state.selectedEntry;
-      return { ...state, feeds, entries, selectedEntry };
+      const counts = { ...state.sidebarCounts, totalUnread: Math.max(0, state.sidebarCounts.totalUnread - 1) };
+      return { ...state, feeds, entries, selectedEntry, sidebarCounts: counts };
     }
     case "MARK_ALL_READ": {
       const feeds = state.feeds.map((f) =>
@@ -142,36 +135,33 @@ function reducer(state: State, action: Action): State {
       );
       return { ...state, feeds, entries };
     }
+    case "TOGGLE_STAR": {
+      const entries = state.entries.map((e) =>
+        e.id === action.entryId ? { ...e, isStarred: !e.isStarred } : e
+      );
+      return { ...state, entries };
+    }
     case "SET_TAGS":
       return { ...state, tags: action.tags };
-    case "SELECT_TAG":
-      return {
-        ...state,
-        selectedTagId: action.tagId,
-        selectedFeedId: action.tagId ? null : state.selectedFeedId,
-        viewMode: "list",
-      };
     case "SET_SIDEBAR_MODE":
       if (action.mode === "feed") {
-        return { ...state, sidebarMode: "feed", selectedTagIds: [], selectedTagId: null, selectedEntry: null, viewMode: "list" };
+        return { ...state, sidebarMode: "feed", selectedTagIds: [], selectedEntry: null, viewMode: "list" };
       }
       return { ...state, sidebarMode: action.mode };
     case "TOGGLE_TAG_SELECTION": {
       const current = state.selectedTagIds;
       if (current.includes(action.tagId)) {
         const next = current.filter(id => id !== action.tagId);
-        return { 
-          ...state, 
+        return {
+          ...state,
           selectedTagIds: next,
           viewMode: next.length > 0 ? "list" : state.viewMode,
-          selectedFeedId: null,
         };
       } else {
-        return { 
-          ...state, 
+        return {
+          ...state,
           selectedTagIds: [...current, action.tagId],
           viewMode: "list",
-          selectedFeedId: null,
         };
       }
     }
@@ -179,6 +169,8 @@ function reducer(state: State, action: Action): State {
       return { ...state, tagMatchMode: action.mode };
     case "SET_BATCH_TAGGING":
       return { ...state, isBatchTagging: action.isRunning };
+    case "SET_SIDEBAR_COUNTS":
+      return { ...state, sidebarCounts: action.counts };
     default:
       return state;
   }
@@ -188,20 +180,23 @@ function reducer(state: State, action: Action): State {
 
 interface AppContextType {
   feeds: FeedSummary[];
-  selectedFeedId: number | null;
+  feedSelection: FeedSelection;
   selectedEntry: Entry | null;
   viewMode: ViewMode;
   entries: EntryListItem[];
   searchQuery: string;
   sidebarCollapsed: boolean;
   tags: Tag[];
-  selectedTagId: number | null;
   sidebarMode: "feed" | "tag";
   selectedTagIds: number[];
   tagMatchMode: "or" | "and";
   isBatchTagging: boolean;
+  sidebarCounts: SidebarCounts;
 
+  selectAll: () => void;
+  selectStarred: () => void;
   selectFeed: (feedId: number) => void;
+  selectTag: (tagId: number | null) => void;
   selectEntry: (entry: EntryListItem) => void;
   setViewMode: (mode: ViewMode) => void;
   setSearchQuery: (query: string) => void;
@@ -213,7 +208,7 @@ interface AppContextType {
   reloadFeeds: () => void;
   markEntryRead: (id: number) => void;
   markAllRead: (feedId: number) => void;
-  selectTag: (tagId: number | null) => void;
+  toggleStar: (entryId: number) => Promise<void>;
   reloadTags: () => void;
   setSidebarMode: (mode: "feed" | "tag") => void;
   toggleTagSelection: (tagId: number) => void;
@@ -234,13 +229,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         .then((data) => {
           if (!cancelled && data.length > 0) {
             dispatch({ type: "SET_FEEDS", feeds: data });
-            dispatch({ type: "SET_SELECTED_FEED_ID", feedId: data[0].id });
+            dispatch({ type: "SET_FEED_SELECTION", selection: { type: "all" } });
           }
         })
         .catch(() => {
           if (!cancelled) {
             dispatch({ type: "SET_FEEDS", feeds: mockFeedSummaries });
-            dispatch({ type: "SET_SELECTED_FEED_ID", feedId: 1 });
+            dispatch({ type: "SET_FEED_SELECTION", selection: { type: "all" } });
           }
         });
       listTagsReal()
@@ -250,16 +245,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
         .catch(() => {});
     } else {
       dispatch({ type: "SET_FEEDS", feeds: mockFeedSummaries });
-      dispatch({ type: "SET_SELECTED_FEED_ID", feedId: 1 });
+      dispatch({ type: "SET_FEED_SELECTION", selection: { type: "all" } });
       mockListTags().then(tags => dispatch({ type: "SET_TAGS", tags }));
     }
     return () => { cancelled = true; };
   }, []);
 
-  // ---- 选中的 feed 或 tag 变化 → 加载 entries ----
+  // ---- 加载 sidebar counts ----
+  useEffect(() => {
+    if (isTauri()) {
+      getSidebarCountsReal().then(counts => {
+        dispatch({ type: "SET_SIDEBAR_COUNTS", counts });
+      }).catch(() => {});
+    }
+  }, [state.feeds]); // reload when feeds change
+
+  // ---- 选中的 feed/tag/starred/all 变化 → 加载 entries ----
   useEffect(() => {
     let cancelled = false;
-    
+
     if (state.selectedTagIds.length > 0) {
       if (isTauri()) {
         import("@tauri-apps/api/core").then(({ invoke }) => {
@@ -279,39 +283,64 @@ export function AppProvider({ children }: { children: ReactNode }) {
       } else {
         dispatch({ type: "SET_ENTRIES", entries: mockApi.filterEntriesByTags(state.selectedTagIds, state.tagMatchMode) });
       }
-    } else if (state.selectedFeedId) {
-      const feedId = state.selectedFeedId;
-      if (isTauri()) {
-        listEntriesReal(feedId, 1, 50)
-          .then((page: EntryPage) => {
-            if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: page.entries });
-          })
-          .catch(() => {
-            if (!cancelled)
-              dispatch({ type: "SET_ENTRIES", entries: mockEntries[feedId] || [] });
-          });
-      } else {
-        dispatch({ type: "SET_ENTRIES", entries: mockEntries[feedId] || [] });
-      }
-    } else if (state.selectedTagId) {
-      if (isTauri()) {
-        import("@tauri-apps/api/core").then(({ invoke }) => {
-          invoke<EntryPage>("list_entries_by_tag", { tagId: state.selectedTagId, page: 1, pageSize: 50 })
+    } else {
+      const sel = state.feedSelection;
+      if (sel.type === "all") {
+        if (isTauri()) {
+          listAllEntriesReal(1, 50)
             .then((page) => {
               if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: page.entries });
             })
             .catch(() => {
               if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: [] });
             });
-        });
+        } else {
+          dispatch({ type: "SET_ENTRIES", entries: Object.values(mockEntries).flat() });
+        }
+      } else if (sel.type === "starred") {
+        if (isTauri()) {
+          listAllEntriesReal(1, 50, "starred")
+            .then((page) => {
+              if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: page.entries });
+            })
+            .catch(() => {
+              if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: [] });
+            });
+        } else {
+          dispatch({ type: "SET_ENTRIES", entries: [] });
+        }
+      } else if (sel.type === "feed") {
+        if (isTauri()) {
+          listEntriesReal(sel.feedId, 1, 50)
+            .then((page: EntryPage) => {
+              if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: page.entries });
+            })
+            .catch(() => {
+              if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: mockEntries[sel.feedId] || [] });
+            });
+        } else {
+          dispatch({ type: "SET_ENTRIES", entries: mockEntries[sel.feedId] || [] });
+        }
+      } else if (sel.type === "tag") {
+        if (isTauri()) {
+          import("@tauri-apps/api/core").then(({ invoke }) => {
+            invoke<EntryPage>("list_entries_by_tag", { tagId: sel.tagId, page: 1, pageSize: 50 })
+              .then((page) => {
+                if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: page.entries });
+              })
+              .catch(() => {
+                if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: [] });
+              });
+          });
+        } else {
+          dispatch({ type: "SET_ENTRIES", entries: [] });
+        }
       } else {
         dispatch({ type: "SET_ENTRIES", entries: [] });
       }
-    } else {
-      dispatch({ type: "SET_ENTRIES", entries: [] });
     }
     return () => { cancelled = true; };
-  }, [state.selectedFeedId, state.selectedTagId, state.selectedTagIds, state.tagMatchMode]);
+  }, [state.feedSelection, state.selectedTagIds, state.tagMatchMode]);
 
   // ---- 搜索 ----
   useEffect(() => {
@@ -333,21 +362,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; };
   }, [state.searchQuery]);
 
+  const selectAll = useCallback(() => {
+    dispatch({ type: "SET_FEED_SELECTION", selection: { type: "all" } });
+  }, []);
+
+  const selectStarred = useCallback(() => {
+    dispatch({ type: "SET_FEED_SELECTION", selection: { type: "starred" } });
+  }, []);
+
   const selectFeed = useCallback((feedId: number) => {
-    dispatch({ type: "SELECT_FEED", feedId });
+    dispatch({ type: "SET_FEED_SELECTION", selection: { type: "feed", feedId } });
+  }, []);
+
+  const selectTagFn = useCallback((tagId: number | null) => {
+    if (tagId) {
+      dispatch({ type: "SET_FEED_SELECTION", selection: { type: "tag", tagId } });
+    }
   }, []);
 
   const selectEntry = useCallback((item: EntryListItem) => {
     if (isTauri()) {
       getEntryReal(item.id)
-        .then((entry) => dispatch({ type: "SELECT_ENTRY", entry }))
+        .then((entry) => dispatch({ type: "SET_SELECTED_ENTRY", entry }))
         .catch(() => {
           const fallback = mockApi.getEntry(item.id);
-          dispatch({ type: "SELECT_ENTRY", entry: fallback || null });
+          dispatch({ type: "SET_SELECTED_ENTRY", entry: fallback || null });
         });
     } else {
       const fallback = mockApi.getEntry(item.id);
-      dispatch({ type: "SELECT_ENTRY", entry: fallback || null });
+      dispatch({ type: "SET_SELECTED_ENTRY", entry: fallback || null });
     }
   }, []);
 
@@ -413,7 +456,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const markEntryRead = useCallback((id: number) => {
-    // Find the entry's feed ID from current entries or selected entry
     const entry = state.entries.find(e => e.id === id);
     const feedId = entry?.feedId ?? state.selectedEntry?.feedId ?? 0;
     if (isTauri()) {
@@ -425,6 +467,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [state.entries, state.selectedEntry]);
 
+  const toggleStarFn = useCallback(async (entryId: number) => {
+    try {
+      const starred = await toggleStarReal(entryId);
+      dispatch({ type: "TOGGLE_STAR", entryId });
+      // Reload sidebar counts
+      if (isTauri()) {
+        const counts = await getSidebarCountsReal();
+        dispatch({ type: "SET_SIDEBAR_COUNTS", counts });
+      }
+      // If viewing starred and unstarred, remove from list
+      if (state.feedSelection.type === "starred" && !starred) {
+        dispatch({ type: "SET_ENTRIES", entries: state.entries.filter(e => e.id !== entryId) });
+      }
+    } catch (e) {
+      toast(t("收藏操作失败: ") + String(e), "error");
+    }
+  }, [state.feedSelection.type, state.entries]);
+
   const markAllRead = useCallback((feedId: number) => {
     if (isTauri()) {
       import("@tauri-apps/api/core").then(({ invoke }) => {
@@ -435,8 +495,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const selectTag = useCallback((tagId: number | null) => {
-    dispatch({ type: "SELECT_TAG", tagId });
-  }, []);
+    selectTagFn(tagId);
+  }, [selectTagFn]);
 
   const reloadTags = useCallback(() => {
     if (isTauri()) {
@@ -474,6 +534,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider
       value={{
         ...state,
+        selectAll,
+        selectStarred,
         selectFeed,
         selectEntry,
         setViewMode,
@@ -486,6 +548,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         reloadFeeds,
         markEntryRead,
         markAllRead,
+        toggleStar: toggleStarFn,
         selectTag,
         reloadTags,
         setSidebarMode,

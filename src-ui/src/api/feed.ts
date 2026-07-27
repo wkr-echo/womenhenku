@@ -1,4 +1,4 @@
-import type { Feed, Entry, Content, EntryPage, Provider, Summary, Note, FeedSummary, ImportResult, Tag, TagAlias, DuplicateTagPair } from "@/lib/types";
+import type { Feed, Entry, Content, EntryPage, Provider, Summary, Note, FeedSummary, ImportResult, Tag, TagAlias, DuplicateTagPair, SidebarCounts } from "@/lib/types";
 import { mockAddTag, mockListTags, mockGetTag, mockUpdateTag, mockDeleteTag, mockAddTagAlias, mockRemoveTagAlias, mockGetTagAliases, mockMergeTags, mockDetectDuplicateTags, mockFindUnusedTags, mockDeleteUnusedTags, mockGetEntryTags, mockTagEntry, mockUntagEntry } from "./mock";
 import { mockGetLlmUsageStats, mockGetDailyLlmUsage, mockGetProviderStats, mockGetModelStats } from "./provider-mock";
 
@@ -85,6 +85,25 @@ export async function markRead(id: number): Promise<void> {
 
 export async function markUnread(id: number): Promise<void> {
   return invoke("mark_unread", { id });
+}
+
+export async function toggleStar(entryId: number): Promise<boolean> {
+  return invoke<boolean>("toggle_star", { entryId });
+}
+
+export async function getSidebarCounts(): Promise<SidebarCounts> {
+  if (isTauri()) {
+    return invoke<SidebarCounts>("get_sidebar_counts");
+  }
+  return { totalUnread: 0, totalStarred: 0, starredUnread: 0 };
+}
+
+export async function listAllEntries(
+  page: number = 1,
+  pageSize: number = 20,
+  filter?: string
+): Promise<EntryPage> {
+  return invoke<EntryPage>("list_all_entries", { page, pageSize, filter });
 }
 
 export async function searchEntries(

@@ -5,15 +5,16 @@ import { ReaderView } from "./ReaderView";
 import { SettingsPageView } from "./SettingsPageView";
 
 export function ContentAreaView() {
-  const { viewMode, entries, selectedEntry, selectedFeedId, markAllRead, selectEntry } = useApp();
+  const { viewMode, entries, selectedEntry, feedSelection, markAllRead, selectEntry } = useApp();
 
   if (viewMode === "settings") {
     return <SettingsPageView />;
   }
 
   const handleMarkAllRead = () => {
-    if (!selectedFeedId) return;
-    markAllRead(selectedFeedId);
+    if (feedSelection.type === "feed") {
+      markAllRead(feedSelection.feedId);
+    }
   };
 
   return (

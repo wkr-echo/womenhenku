@@ -171,6 +171,8 @@ function EntryItem({
   onClick: () => void;
   onCheck: () => void;
 }) {
+  const { toggleStar } = useApp();
+
   return (
     <div
       onClick={onClick}
@@ -181,6 +183,19 @@ function EntryItem({
           : "border-l-transparent hover:bg-[var(--bg-secondary)]"
       )}
     >
+      {/* Star button */}
+      <button
+        onClick={(e) => { e.stopPropagation(); toggleStar(entry.id); }}
+        className="flex-shrink-0 mt-0.5 text-base leading-none transition-colors hover:scale-110"
+        title={entry.isStarred ? t("取消收藏") : t("收藏")}
+      >
+        {entry.isStarred ? (
+          <span className="text-yellow-400">★</span>
+        ) : (
+          <span className="text-[var(--text-tertiary)] opacity-0 group-hover:opacity-100">☆</span>
+        )}
+      </button>
+
       {/* Checkbox */}
       <input
         type="checkbox"

@@ -99,6 +99,29 @@ pub fn list_all_entries(
         .map_err(|e| e.to_string())
 }
 
+/// Toggle star on an entry. Returns new starred state.
+pub fn toggle_star(pool: &DbPool, entry_id: i64) -> Result<bool, String> {
+    let repo = EntryRepository::new(pool.clone());
+    repo.toggle_star(entry_id).map_err(|e| e.to_string())
+}
+
+/// Get sidebar counts: total unread, total starred, starred unread.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SidebarCounts {
+    pub total_unread: i32,
+    pub total_starred: i32,
+    pub starred_unread: i32,
+}
+
+pub fn get_sidebar_counts(pool: &DbPool) -> Result<SidebarCounts, String> {
+    let repo = EntryRepository::new(pool.clone());
+    let total_unread = repo.count_all_unread().map_err(|e| e.to_string())?;
+    let total_starred = repo.count_starred(false).map_err(|e| e.to_string())?;
+    let starred_unread = repo.count_starred(true).map_err(|e| e.to_string())?;
+    Ok(SidebarCounts { total_unread, total_starred, starred_unread })
+}
+
 /// Get a single entry by id.
 pub fn get_entry(pool: &DbPool, id: i64) -> Result<crate::db::model::Entry, String> {
     let repo = EntryRepository::new(pool.clone());

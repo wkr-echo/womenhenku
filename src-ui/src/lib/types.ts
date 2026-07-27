@@ -38,7 +38,20 @@ export interface EntryListItem {
   summary: string;
   publishedAt: string | null;
   isRead: boolean;
+  isStarred?: boolean;
 }
+
+export interface SidebarCounts {
+  totalUnread: number;
+  totalStarred: number;
+  starredUnread: number;
+}
+
+export type FeedSelection =
+  | { type: "all" }
+  | { type: "starred" }
+  | { type: "feed"; feedId: number }
+  | { type: "tag"; tagId: number };
 
 export interface EntryPage {
   entries: EntryListItem[];

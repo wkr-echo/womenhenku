@@ -242,6 +242,42 @@ impl EntryRepository {
         Ok(())
     }
 
+    /// Toggle star status. Returns the new starred state (true = starred).
+    pub fn toggle_star(&self, id: i64) -> Result<bool, RepositoryError> {
+        let conn = self.pool.get()?;
+        // Atomically toggle and return new value
+        let new_val: i32 = conn.query_row(
+            "UPDATE entries SET is_starred = CASE WHEN is_starred = 0 THEN 1 ELSE 0 END WHERE id = ?1
+             RETURNING is_starred",
+            params![id],
+            |row| row.get(0),
+        )?;
+        Ok(new_val != 0)
+    }
+
+    /// Count starred entries, optionally filtering by unread.
+    pub fn count_starred(&self, unread_only: bool) -> Result<i32, RepositoryError> {
+        let conn = self.pool.get()?;
+        let sql = if unread_only {
+            "SELECT COUNT(*) FROM entries WHERE is_starred = 1 AND is_read = 0"
+        } else {
+            "SELECT COUNT(*) FROM entries WHERE is_starred = 1"
+        };
+        let count: i32 = conn.query_row(sql, [], |row| row.get(0))?;
+        Ok(count)
+    }
+
+    /// Count all unread entries across all feeds.
+    pub fn count_all_unread(&self) -> Result<i32, RepositoryError> {
+        let conn = self.pool.get()?;
+        let count: i32 = conn.query_row(
+            "SELECT COUNT(*) FROM entries WHERE is_read = 0",
+            [],
+            |row| row.get(0),
+        )?;
+        Ok(count)
+    }
+
     pub fn mark_all_read_in_feed(&self, feed_id: i64) -> Result<usize, RepositoryError> {
         let conn = self.pool.get()?;
         let affected = conn.execute(

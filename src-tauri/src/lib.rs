@@ -120,6 +120,8 @@ pub fn run() {
             mark_read,
             mark_unread,
             mark_all_read,
+            toggle_star,
+            get_sidebar_counts,
             // Content
             get_entry_content,
             process_entry_content,
@@ -333,6 +335,18 @@ fn mark_unread(state: State<'_, DbPool>, id: i64) -> Result<(), String> {
 #[tauri::command]
 fn mark_all_read(state: State<'_, DbPool>, feed_id: i64) -> Result<(), String> {
     commands::mark_all_read(&state, feed_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn toggle_star(state: State<'_, DbPool>, entry_id: i64) -> Result<bool, String> {
+    commands::toggle_star(&state, entry_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_sidebar_counts(state: State<'_, DbPool>) -> Result<commands::SidebarCounts, String> {
+    commands::get_sidebar_counts(&state)
 }
 
 // -- Content --
