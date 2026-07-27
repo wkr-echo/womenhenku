@@ -261,6 +261,8 @@ const translations: Record<string, string> = {
   "添加标签失败: ": "Add tag failed: ",
   "全部文章": "All Articles",
   "收藏": "Starred",
+  "Syncing...": "Syncing...",
+  "Sync failed": "Sync failed",
   "添加订阅": "Add Feed",
   "添加订阅源": "Add Feed",
   "添加订阅源失败: ": "Add feed failed: ",

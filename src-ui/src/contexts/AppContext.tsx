@@ -44,6 +44,8 @@ interface State {
   tagMatchMode: "or" | "and";
   isBatchTagging: boolean;
   sidebarCounts: SidebarCounts;
+  syncStatus: "idle" | "syncing" | "failed";
+  syncError: string;
 }
 
 type Action =
@@ -64,7 +66,8 @@ type Action =
   | { type: "TOGGLE_TAG_SELECTION"; tagId: number }
   | { type: "SET_TAG_MATCH_MODE"; mode: "or" | "and" }
   | { type: "SET_BATCH_TAGGING"; isRunning: boolean }
-  | { type: "SET_SIDEBAR_COUNTS"; counts: SidebarCounts };
+  | { type: "SET_SIDEBAR_COUNTS"; counts: SidebarCounts }
+  | { type: "SET_SYNC_STATUS"; status: "idle" | "syncing" | "failed"; error?: string };
 
 const initialState: State = {
   feeds: [],
@@ -81,6 +84,8 @@ const initialState: State = {
   tagMatchMode: "or",
   isBatchTagging: false,
   sidebarCounts: { totalUnread: 0, totalStarred: 0, starredUnread: 0 },
+  syncStatus: "idle",
+  syncError: "",
 };
 
 function reducer(state: State, action: Action): State {
@@ -173,6 +178,8 @@ function reducer(state: State, action: Action): State {
       return { ...state, isBatchTagging: action.isRunning };
     case "SET_SIDEBAR_COUNTS":
       return { ...state, sidebarCounts: action.counts };
+    case "SET_SYNC_STATUS":
+      return { ...state, syncStatus: action.status, syncError: action.error ?? "" };
     default:
       return state;
   }
@@ -195,6 +202,8 @@ interface AppContextType {
   tagMatchMode: "or" | "and";
   isBatchTagging: boolean;
   sidebarCounts: SidebarCounts;
+  syncStatus: "idle" | "syncing" | "failed";
+  syncError: string;
 
   selectAll: () => void;
   selectStarred: () => void;
@@ -445,10 +454,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const refreshAllFn = useCallback(() => {
     if (isTauri()) {
+      dispatch({ type: "SET_SYNC_STATUS", status: "syncing" });
       refreshAllFeedsReal()
         .then(() => listFeedsReal())
-        .then((data) => dispatch({ type: "SET_FEEDS", feeds: data }))
-        .catch((e) => { toast(t("刷新全部失败: ") + String(e), "error"); });
+        .then((data) => {
+          dispatch({ type: "SET_FEEDS", feeds: data });
+          dispatch({ type: "SET_SYNC_STATUS", status: "idle" });
+        })
+        .catch((e) => {
+          dispatch({ type: "SET_SYNC_STATUS", status: "failed", error: String(e) });
+        });
+    } else {
+      dispatch({ type: "SET_SYNC_STATUS", status: "idle" });
     }
   }, []);
 

@@ -25,6 +25,8 @@ export function SidebarView() {
     sidebarMode,
     setSidebarMode,
     sidebarCounts,
+    syncStatus,
+    syncError,
   } = useApp();
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -197,6 +199,23 @@ export function SidebarView() {
           </div>
         )}
       </div>
+
+      {/* Sync status bar */}
+      {syncStatus !== "idle" && (
+        <div className={cn(
+          "px-3 py-2 text-xs border-t border-[var(--border-color)]",
+          syncStatus === "syncing" ? "text-[var(--text-tertiary)]" : "text-red-500 bg-red-50"
+        )}>
+          {syncStatus === "syncing" ? (
+            <span className="flex items-center gap-1.5">
+              <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none"><path stroke="currentColor" strokeWidth="3" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+              {t("Syncing...")}
+            </span>
+          ) : (
+            <span title={syncError}>{t("Sync failed")}: {syncError.length > 40 ? syncError.slice(0, 40) + "..." : syncError}</span>
+          )}
+        </div>
+      )}
 
       {/* Bottom actions */}
       <div className="px-3 py-3 border-t border-[var(--border-color)] flex gap-2">
