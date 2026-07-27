@@ -161,7 +161,12 @@ pub fn to_markdown(html: &str) -> String {
     md = re.replace_all(&md, "![$2]($1)").to_string();
 
     // <pre><code>...</code></pre> → ```\n...\n```
-    let re = regex::Regex::new(r"<pre>\s*<code>([\s\S]*?)</code>\s*</pre>").unwrap();
+    let re = regex::Regex::new(r"<pre>[\s]*<code>([\s\S]*?)</code>[\s]*</pre>").unwrap();
+    md = re.replace_all(&md, "\n```\n$1\n```\n").to_string();
+
+    // <pre>...</pre> without <code> wrapper → ```\n...\n```
+    // Must run AFTER the <pre><code> variant so we don't double-process.
+    let re = regex::Regex::new(r"<pre>([\s\S]*?)</pre>").unwrap();
     md = re.replace_all(&md, "\n```\n$1\n```\n").to_string();
 
     // <code>text</code> → `text` (inline code, only outside <pre>)
@@ -247,7 +252,8 @@ pub fn render(markdown: &str) -> String {
     .reader-theme h1, .reader-theme h2, .reader-theme h3, .reader-theme h4, .reader-theme h5, .reader-theme h6 {{ font-family: inherit; margin-top: 1.5em; margin-bottom: 0.5em; }}
     .reader-theme p {{ margin-bottom: 1em; }}
     .reader-theme a {{ color: var(--mercury-link-color); }}
-    .reader-theme pre {{ background: var(--mercury-code-bg); padding: 1em; border-radius: 6px; overflow-x: auto; font-family: var(--reader-code-font, monospace); }}
+    .reader-theme pre {{ background: var(--mercury-code-bg); padding: 1em; border-radius: 6px; overflow-x: auto; font-family: var(--reader-code-font, monospace); white-space: pre; }}
+    .reader-theme pre code {{ background: none; padding: 0; border-radius: 0; font-size: inherit; white-space: pre; }}
     .reader-theme code {{ background: var(--mercury-code-bg); padding: 0.2em 0.4em; border-radius: 3px; font-size: 0.9em; font-family: var(--reader-code-font, monospace); }}
     .reader-theme blockquote {{ border-left: 3px solid var(--mercury-blockquote-border); padding-left: 1em; margin-left: 0; color: var(--mercury-text-secondary); }}
     .reader-theme table {{ border-collapse: collapse; width: 100%; margin-bottom: 1em; }}
@@ -462,5 +468,61 @@ print(add(1, "world"))   # TypeError</code></pre>
         assert!(!result.cleaned_html.is_empty());
         // Sidebar/ads should be removed
         assert!(!result.cleaned_html.contains("侧边栏广告"));
+    }
+
+    // === Code block preservation tests ===
+
+    /// Standard <pre><code> pattern — should work
+    #[test]
+    fn test_to_markdown_pre_code_standard() {
+        let html = "<p>Intro</p><pre><code>def add(a, b):\n    return a + b\n\nprint(add(1, 2))\nprint(add(\"hello\", \"world\"))</code></pre><p>Outro</p>";
+        let md = to_markdown(html);
+        eprintln!("=== MARKDOWN (standard pre+code) ===\n{}", md);
+        // Should contain fenced code block, not inline backticks
+        assert!(md.contains("```"), "Should have fenced code block, got: {}", &md[..md.len().min(300)]);
+        assert!(md.contains("def add"), "Should preserve code content");
+        assert!(md.contains("return a + b"), "Should preserve newlines in code");
+    }
+
+    /// <pre> WITHOUT <code> wrapper — common real-world pattern
+    #[test]
+    fn test_to_markdown_pre_without_code() {
+        let html = "<p>Intro</p><pre>def add(a, b):\n    return a + b\n\nprint(add(1, 2))</pre><p>Outro</p>";
+        let md = to_markdown(html);
+        eprintln!("=== MARKDOWN (pre without code) ===\n{}", md);
+        assert!(md.contains("```"), "Should convert bare <pre> to fenced code block, got: {}", &md[..md.len().min(300)]);
+        assert!(md.contains("def add"), "Should preserve code content");
+        assert!(md.contains("return a + b"), "Should preserve newlines");
+    }
+
+    /// <pre> with whitespace+text between <pre> and <code>
+    #[test]
+    fn test_to_markdown_pre_with_leading_text() {
+        let html = "<pre>  <code>line1\nline2\nline3</code></pre>";
+        let md = to_markdown(html);
+        eprintln!("=== MARKDOWN (pre with leading whitespace before code) ===\n{}", md);
+        assert!(md.contains("```"), "Should produce fenced code block, got: {}", &md[..md.len().min(300)]);
+        assert!(md.contains("line1"), "Should contain code content");
+    }
+
+    /// Full pipeline: <pre> only (no <code>), verify rendered output preserves newlines
+    #[test]
+    fn test_full_pipeline_pre_without_code_rendered() {
+        let html = r#"<html><body><div>
+<p>Some text</p>
+<pre>def add(a, b):
+    return a + b
+
+print(add(1, 2))
+print(add("hello", "world"))</pre>
+<p>More text</p>
+</div></body></html>"#;
+        let result = run_full_pipeline(html, "https://example.com/code2")
+            .expect("Pipeline failed");
+        eprintln!("=== RENDERED (pre without code) ===\n{}", &result.rendered_html[..result.rendered_html.len().min(800)]);
+        assert!(result.rendered_html.contains("def add"), "Rendered should contain code. Got: {}", &result.rendered_html[..result.rendered_html.len().min(500)]);
+        assert!(result.rendered_html.contains("return a + b"), "Rendered should preserve multi-line code");
+        // Should be wrapped in <pre> by comrak
+        assert!(result.rendered_html.contains("<pre>") || result.rendered_html.contains("<code"), "Should have code markup");
     }
 }
