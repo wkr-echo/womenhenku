@@ -5,7 +5,7 @@ import { ReaderView } from "./ReaderView";
 import { SettingsPageView } from "./SettingsPageView";
 
 export function ContentAreaView() {
-  const { viewMode, entries, selectedEntry, feedSelection, feeds, sidebarCounts, markAllRead, selectEntry } = useApp();
+  const { viewMode, entries, entriesTotal, selectedEntry, feedSelection, feeds, sidebarCounts, markAllRead, selectEntry } = useApp();
 
   if (viewMode === "settings") {
     return <SettingsPageView />;
@@ -41,7 +41,7 @@ export function ContentAreaView() {
         {/* Toolbar */}
         <div className="px-4 py-3 border-b border-[var(--border-color)] flex items-center justify-between">
           <h2 className="text-sm font-semibold">
-            {entries.length > 0 ? t("文章 ({count})").replace("{count}", String(entries.length)) : t("文章")}
+            {entriesTotal > 0 ? t("文章 ({count})").replace("{count}", String(entriesTotal)) : t("文章")}
           </h2>
           <div className="flex items-center gap-2">
             <span className="text-xs text-[var(--text-tertiary)]">

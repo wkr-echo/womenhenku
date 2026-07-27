@@ -35,6 +35,7 @@ interface State {
   selectedEntry: Entry | null;
   viewMode: ViewMode;
   entries: EntryListItem[];
+  entriesTotal: number;
   searchQuery: string;
   sidebarCollapsed: boolean;
   tags: Tag[];
@@ -50,7 +51,7 @@ type Action =
   | { type: "SET_FEED_SELECTION"; selection: FeedSelection }
   | { type: "SET_SELECTED_ENTRY"; entry: Entry | null }
   | { type: "SET_VIEW_MODE"; mode: ViewMode }
-  | { type: "SET_ENTRIES"; entries: EntryListItem[] }
+  | { type: "SET_ENTRIES"; entries: EntryListItem[]; total: number }
   | { type: "SET_SEARCH_QUERY"; query: string }
   | { type: "TOGGLE_SIDEBAR" }
   | { type: "ADD_FEED"; feed: FeedSummary }
@@ -71,6 +72,7 @@ const initialState: State = {
   selectedEntry: null,
   viewMode: "list",
   entries: [],
+  entriesTotal: 0,
   searchQuery: "",
   sidebarCollapsed: false,
   tags: [],
@@ -90,7 +92,7 @@ function reducer(state: State, action: Action): State {
     case "SET_VIEW_MODE":
       return { ...state, viewMode: action.mode };
     case "SET_ENTRIES":
-      return { ...state, entries: action.entries };
+      return { ...state, entries: action.entries, entriesTotal: action.total };
     case "SET_SEARCH_QUERY":
       return { ...state, searchQuery: action.query };
     case "TOGGLE_SIDEBAR":
@@ -184,6 +186,7 @@ interface AppContextType {
   selectedEntry: Entry | null;
   viewMode: ViewMode;
   entries: EntryListItem[];
+  entriesTotal: number;
   searchQuery: string;
   sidebarCollapsed: boolean;
   tags: Tag[];
@@ -274,14 +277,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
             pageSize: 50 
           })
             .then((page) => {
-              if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: page.entries });
+              if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: page.entries, total: page.total });
             })
             .catch(() => {
-              if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: [] });
+              if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: [], total: 0 });
             });
         });
       } else {
-        dispatch({ type: "SET_ENTRIES", entries: mockApi.filterEntriesByTags(state.selectedTagIds, state.tagMatchMode) });
+        const mockEntries2 = mockApi.filterEntriesByTags(state.selectedTagIds, state.tagMatchMode);
+        dispatch({ type: "SET_ENTRIES", entries: mockEntries2, total: mockEntries2.length });
       }
     } else {
       const sel = state.feedSelection;
@@ -289,54 +293,55 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (isTauri()) {
           listAllEntriesReal(1, 50)
             .then((page) => {
-              if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: page.entries });
+              if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: page.entries, total: page.total });
             })
             .catch(() => {
-              if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: [] });
+              if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: [], total: 0 });
             });
         } else {
-          dispatch({ type: "SET_ENTRIES", entries: Object.values(mockEntries).flat() });
+          const allMock = Object.values(mockEntries).flat();
+          dispatch({ type: "SET_ENTRIES", entries: allMock, total: allMock.length });
         }
       } else if (sel.type === "starred") {
         if (isTauri()) {
           listAllEntriesReal(1, 50, "starred")
             .then((page) => {
-              if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: page.entries });
+              if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: page.entries, total: page.total });
             })
             .catch(() => {
-              if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: [] });
+              if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: [], total: 0 });
             });
         } else {
-          dispatch({ type: "SET_ENTRIES", entries: [] });
+          dispatch({ type: "SET_ENTRIES", entries: [], total: 0 });
         }
       } else if (sel.type === "feed") {
         if (isTauri()) {
           listEntriesReal(sel.feedId, 1, 50)
             .then((page: EntryPage) => {
-              if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: page.entries });
+              if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: page.entries, total: page.total });
             })
             .catch(() => {
-              if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: mockEntries[sel.feedId] || [] });
+              if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: mockEntries[sel.feedId] || [], total: (mockEntries[sel.feedId] || []).length });
             });
         } else {
-          dispatch({ type: "SET_ENTRIES", entries: mockEntries[sel.feedId] || [] });
+          dispatch({ type: "SET_ENTRIES", entries: mockEntries[sel.feedId] || [], total: (mockEntries[sel.feedId] || []).length });
         }
       } else if (sel.type === "tag") {
         if (isTauri()) {
           import("@tauri-apps/api/core").then(({ invoke }) => {
             invoke<EntryPage>("list_entries_by_tag", { tagId: sel.tagId, page: 1, pageSize: 50 })
               .then((page) => {
-                if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: page.entries });
+                if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: page.entries, total: page.total });
               })
               .catch(() => {
-                if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: [] });
+                if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: [], total: 0 });
               });
           });
         } else {
-          dispatch({ type: "SET_ENTRIES", entries: [] });
+          dispatch({ type: "SET_ENTRIES", entries: [], total: 0 });
         }
       } else {
-        dispatch({ type: "SET_ENTRIES", entries: [] });
+        dispatch({ type: "SET_ENTRIES", entries: [], total: 0 });
       }
     }
     return () => { cancelled = true; };
@@ -350,14 +355,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (isTauri()) {
       searchEntriesReal(state.searchQuery, 1, 50)
         .then((page: EntryPage) => {
-          if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: page.entries });
+          if (!cancelled) dispatch({ type: "SET_ENTRIES", entries: page.entries, total: page.total });
         })
         .catch(() => {
           if (!cancelled)
-            dispatch({ type: "SET_ENTRIES", entries: mockApi.searchEntries(state.searchQuery) });
+            dispatch({ type: "SET_ENTRIES", entries: mockApi.searchEntries(state.searchQuery), total: mockApi.searchEntries(state.searchQuery).length });
         });
     } else {
-      dispatch({ type: "SET_ENTRIES", entries: mockApi.searchEntries(state.searchQuery) });
+      dispatch({ type: "SET_ENTRIES", entries: mockApi.searchEntries(state.searchQuery), total: mockApi.searchEntries(state.searchQuery).length });
     }
     return () => { cancelled = true; };
   }, [state.searchQuery]);
@@ -431,7 +436,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       refreshFeedReal(id)
         .then(() => {
           listEntriesReal(id, 1, 50)
-            .then((page: EntryPage) => dispatch({ type: "SET_ENTRIES", entries: page.entries }))
+            .then((page: EntryPage) => dispatch({ type: "SET_ENTRIES", entries: page.entries, total: page.total }))
             .catch((e) => { toast(t("加载文章列表失败: ") + String(e), "error"); });
         })
         .catch((e) => { toast(t("刷新订阅源失败: ") + String(e), "error"); });
@@ -478,7 +483,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       // If viewing starred and unstarred, remove from list
       if (state.feedSelection.type === "starred" && !starred) {
-        dispatch({ type: "SET_ENTRIES", entries: state.entries.filter(e => e.id !== entryId) });
+        dispatch({ type: "SET_ENTRIES", entries: state.entries.filter(e => e.id !== entryId), total: state.entries.filter(e => e.id !== entryId).length });
       }
     } catch (e) {
       toast(t("收藏操作失败: ") + String(e), "error");
