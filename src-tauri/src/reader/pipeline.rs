@@ -60,15 +60,42 @@ pub fn extract(raw_html: &str, url: &str) -> String {
     let span_re = regex::Regex::new(r"</?span[^>]*>").unwrap();
     let code_re = regex::Regex::new(r"</?code[^>]*>").unwrap();
 
+    // Phase 0.5: Strip known non-content wrappers that confuse Readability.
+    // <topcomment> + class="comment" cause Readability to treat the
+    // entire section as user comments and drop it (e.g. antirez.com).
+    let wrapper_re = regex::Regex::new(r"</?topcomment[^>]*>").unwrap();
+    let comment_re = regex::Regex::new(r#"<article[^>]*class="[^"]*comment[^"]*"[^>]*>"#).unwrap();
+
     let cleaned_html = pre_re.replace_all(raw_html, |caps: &regex::Captures| {
         let inner = caps.get(1).map(|m| m.as_str()).unwrap_or("");
         let cleaned = span_re.replace_all(inner, "");
         let cleaned = code_re.replace_all(&cleaned, "");
-        format!("<pre><code>{}</code></pre>", cleaned)
+        // Heuristic: 2+ paragraph breaks → article text, not code.
+        // Code blocks rarely have multiple blank-line-separated paragraphs.
+        // (antirez.com puts entire article body inside <pre>)
+        let para_count = cleaned.matches("\n\n").count();
+        if para_count >= 2 || cleaned.len() > 500 {
+            let paragraphs: Vec<&str> = cleaned.split("\n\n").collect();
+            let mut html_parts = Vec::new();
+            for p in paragraphs {
+                let trimmed = p.trim();
+                if !trimmed.is_empty() {
+                    // Preserve single newlines as <br> within paragraphs
+                    let with_br = trimmed.replace('\n', "<br>");
+                    html_parts.push(format!("<p>{}</p>", with_br));
+                }
+            }
+            html_parts.join("\n")
+        } else {
+            format!("<pre>{}</pre>", cleaned)
+        }
     }).to_string();
 
     // --- Phase 1: Run Readability on cleaned HTML ---
-    let mut cursor = Cursor::new(cleaned_html.as_bytes());
+    let html_for_readability = wrapper_re.replace_all(&cleaned_html, "").to_string();
+    let html_for_readability = comment_re.replace_all(&html_for_readability, "").to_string();
+    let html_for_readability = html_for_readability.replace("</article>", "");
+    let mut cursor = Cursor::new(html_for_readability.as_bytes());
     let parsed_url = match url::Url::parse(url) {
         Ok(u) => u,
         Err(_) => {
@@ -640,5 +667,54 @@ print(add("hello", "world"))</pre>
         assert!(result.markdown.contains("Feature three"), "Feature three missing");
         let para_count = result.markdown.matches("\n\n").count();
         assert!(para_count >= 3, "Should have 3+ para breaks, got {}: \n{}", para_count, result.markdown);
+    }
+
+    /// antirez.com style: entire article body in <pre> tag
+    /// Readability must not drop <pre> when it's the main article content.
+    #[test]
+    fn test_full_pipeline_antirez_pre_body() {
+        let html = r#"<!DOCTYPE html><html><head><title>Test</title></head><body>
+<div id="container">
+<header><h1><a href="/">blog</a></h1><nav></nav></header>
+<div id="content">
+<section id="newslist"><article><h2><a href="/news/1">Article Title</a></h2></article></section>
+<topcomment><article class="comment">
+<span class="info"><span class="username">author</span> 2 days ago.</span>
+<pre>This is the full article content. It has multiple paragraphs.
+
+Second paragraph with more text and some <a href="https://example.com">links</a>.
+
+Third paragraph with enough text for Readability scoring.</pre>
+</article></topcomment>
+</div></div></body></html>"#;
+        // Manually run Phase 0 (pre-cleaning regex) to see what Readability receives
+        let pre_re = regex::Regex::new(r"(?s)<pre[^>]*>(.*?)</pre>").unwrap();
+        let span_re = regex::Regex::new(r"</?span[^>]*>").unwrap();
+        let code_re = regex::Regex::new(r"</?code[^>]*>").unwrap();
+        let cleaned_html = pre_re.replace_all(html, |caps: &regex::Captures| {
+            let inner = caps.get(1).map(|m| m.as_str()).unwrap_or("");
+            let cleaned = span_re.replace_all(inner, "");
+            let cleaned = code_re.replace_all(&cleaned, "");
+            if cleaned.contains("\n\n") || cleaned.len() > 500 {
+                let paragraphs: Vec<&str> = cleaned.split("\n\n").collect();
+                let mut html_parts = Vec::new();
+                for p in paragraphs {
+                    let trimmed = p.trim();
+                    if !trimmed.is_empty() {
+                        let with_br = trimmed.replace('\n', "<br>");
+                        html_parts.push(format!("<p>{}</p>", with_br));
+                    }
+                }
+                html_parts.join("\n")
+            } else {
+                format!("<pre>{}</pre>", cleaned)
+            }
+        }).to_string();
+        eprintln!("=== INPUT TO READABILITY ===\n{}", &cleaned_html[..cleaned_html.len().min(800)]);
+
+        let extracted = super::extract(html, "https://antirez.com/news/1");
+        eprintln!("=== EXTRACTED ===\n{}", &extracted[..extracted.len().min(500)]);
+        assert!(extracted.contains("full article content"),
+            "Readability dropped pre-wrapped article. Got:\n{}", &extracted[..extracted.len().min(400)]);
     }
 }
