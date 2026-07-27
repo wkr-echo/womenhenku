@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from "react";
-import { cn } from "@/lib/utils";
 
 interface ToastItem {
   id: number;
@@ -37,15 +36,19 @@ export function ToastContainer() {
       {toasts.map((t) => (
         <div
           key={t.id}
-          className={cn(
-            "px-4 py-3 rounded-lg shadow-lg text-sm font-medium animate-fade-in max-w-sm",
-            {
-              "bg-green-600 text-white": t.type === "success",
-              "bg-red-600 text-white": t.type === "error",
-              "bg-[var(--bg-tertiary)] text-[var(--text-primary)] border border-[var(--border-color)]":
-                t.type === "info",
-            }
-          )}
+          style={{
+            padding: "12px 16px",
+            borderRadius: 8,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            fontSize: 14,
+            fontWeight: 500,
+            maxWidth: 320,
+            color: "#fff",
+            backgroundColor:
+              t.type === "success" ? "#16a34a" :
+              t.type === "error" ? "#dc2626" :
+              "var(--bg-tertiary)",
+          }}
         >
           {t.message}
         </div>
