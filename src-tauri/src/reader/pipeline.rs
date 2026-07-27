@@ -307,8 +307,8 @@ pub fn render(markdown: &str) -> String {
     .reader-theme h1, .reader-theme h2, .reader-theme h3, .reader-theme h4, .reader-theme h5, .reader-theme h6 {{ font-family: inherit; margin-top: 1.5em; margin-bottom: 0.5em; }}
     .reader-theme p {{ margin-bottom: 1em; }}
     .reader-theme a {{ color: var(--mercury-link-color); }}
-    .reader-theme pre {{ background: var(--mercury-code-bg); padding: 1em; border-radius: 6px; overflow-x: auto; font-family: var(--reader-code-font, monospace); white-space: pre; }}
-    .reader-theme pre code {{ background: none; padding: 0; border-radius: 0; font-size: inherit; white-space: pre; }}
+    .reader-theme pre {{ background: var(--mercury-code-bg); padding: 1em; border-radius: 6px; overflow-x: auto; font-family: var(--reader-code-font, monospace); white-space: pre-wrap; word-break: break-all; max-width: 100%; }}
+    .reader-theme pre code {{ background: none; padding: 0; border-radius: 0; font-size: inherit; white-space: pre-wrap; word-break: break-all; }}
     .reader-theme code {{ background: var(--mercury-code-bg); padding: 0.2em 0.4em; border-radius: 3px; font-size: 0.9em; font-family: var(--reader-code-font, monospace); }}
     .reader-theme blockquote {{ border-left: 3px solid var(--mercury-blockquote-border); padding-left: 1em; margin-left: 0; color: var(--mercury-text-secondary); }}
     .reader-theme table {{ border-collapse: collapse; width: 100%; margin-bottom: 1em; }}

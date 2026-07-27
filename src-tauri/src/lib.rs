@@ -18,7 +18,12 @@ use tauri::Emitter;
 
 #[cfg(not(feature = "tauri-runtime"))]
 pub fn run() {
-    tracing_subscriber::fmt::init();
+    // Set html5ever to error-only — its "weird namespace" warnings
+    // on standard HTML5 elements are harmless but noisy.
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"))
+        .add_directive("html5ever=error".parse().unwrap());
+    tracing_subscriber::fmt().with_env_filter(filter).init();
     tracing::info!("Womenhenku starting (standalone mode)...");
 
     let db_path = db::default_db_path();
@@ -39,7 +44,10 @@ pub fn run() {
 
 #[cfg(feature = "tauri-runtime")]
 pub fn run() {
-    tracing_subscriber::fmt::init();
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"))
+        .add_directive("html5ever=error".parse().unwrap());
+    tracing_subscriber::fmt().with_env_filter(filter).init();
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())

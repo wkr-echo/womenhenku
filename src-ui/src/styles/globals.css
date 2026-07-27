@@ -304,6 +304,10 @@
   font-family: var(--reader-code-font, "JetBrains Mono", monospace);
   background: var(--code-bg);
   @apply rounded-lg p-4 my-4 overflow-x-auto text-sm;
+  max-width: 100%;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-wrap: break-word;
 }
 .reader-content code {
   font-family: var(--reader-code-font, "JetBrains Mono", monospace);

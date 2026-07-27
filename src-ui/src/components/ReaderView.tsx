@@ -88,8 +88,8 @@ export function ReaderView() {
         return;
       }
 
-      // Must match Rust reader::service::PIPELINE_VERSION (currently 10)
-      const PIPELINE_VERSION = 10;
+      // Must match Rust reader::service::PIPELINE_VERSION (currently 11)
+      const PIPELINE_VERSION = 11;
       const hasContent = (c: Content) =>
         (!!c.renderedHtml || !!c.cleanedHtml || !!c.rawHtml)
         && c.readabilityVersion >= PIPELINE_VERSION;
