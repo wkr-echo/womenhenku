@@ -544,8 +544,9 @@ export function ReaderView() {
         {/* Slide-out side panel */}
         <div
           className={`border-l border-[var(--border-color)] bg-[var(--bg-primary)] overflow-y-auto transition-all duration-200 ease-in-out flex-shrink-0 ${
-            isPanelOpen ? "w-[400px]" : "w-0 border-l-0"
+            isPanelOpen ? "" : "w-0 border-l-0"
           }`}
+          style={isPanelOpen ? { width: "min(400px, 35vw)" } : undefined}
         >
           {isPanelOpen && (
             <div className="w-[400px]">

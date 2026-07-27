@@ -19,7 +19,10 @@ export function ContentAreaView() {
   return (
     <div className="flex-1 flex">
       {/* Column 2: Entry list */}
-      <div className="w-[320px] border-r border-[var(--border-color)] flex flex-col bg-[var(--bg-primary)]">
+      <div
+        className="flex-shrink border-r border-[var(--border-color)] flex flex-col bg-[var(--bg-primary)]"
+        style={{ width: "min(320px, 24vw)" }}
+      >
         {/* Toolbar */}
         <div className="px-4 py-3 border-b border-[var(--border-color)] flex items-center justify-between">
           <h2 className="text-sm font-semibold">
