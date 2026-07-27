@@ -44,9 +44,28 @@ const ALLOWED_ATTRS: &[&str] = &["href", "src", "alt", "title"];
 
 /// Extract the main content from raw HTML using the Mozilla Readability algorithm.
 /// Falls back to the original HTML if extraction fails.
-/// Note: Readability natively preserves <pre> blocks with correct formatting.
+/// Note: Readability natively preserves <pre> blocks but may strip whitespace
+/// text nodes between inline elements (e.g. syntax-highlighting <span> tags).
+/// To prevent code block corruption, we extract <pre> blocks BEFORE Readability
+/// and re-inject them after.
 pub fn extract(raw_html: &str, url: &str) -> String {
-    let mut cursor = Cursor::new(raw_html.as_bytes());
+    // --- Phase 0: Extract <pre> blocks from raw HTML ---
+    // Regex preserves ALL whitespace between tags (unlike Readability's
+    // DOM-based processing which may collapse inter-element whitespace).
+    let pre_re = regex::Regex::new(r"(?s)<pre[^>]*>(.*?)</pre>").unwrap();
+    let mut pre_blocks: Vec<String> = Vec::new();
+
+    let protected_html = pre_re.replace_all(raw_html, |caps: &regex::Captures| {
+        let idx = pre_blocks.len();
+        let inner = caps.get(1).map(|m| m.as_str().to_string()).unwrap_or_default();
+        pre_blocks.push(inner);
+        // Placeholder with meaningful text — Readability is less likely to strip
+        // a paragraph that looks like natural language.
+        format!("<p>PRE_BLOCK_PLACEHOLDER_{}_RESTORE_PRE_CONTENT_HERE</p>", idx)
+    }).to_string();
+
+    // --- Phase 1: Run Readability on protected HTML ---
+    let mut cursor = Cursor::new(protected_html.as_bytes());
     let parsed_url = match url::Url::parse(url) {
         Ok(u) => u,
         Err(_) => {
@@ -61,11 +80,28 @@ pub fn extract(raw_html: &str, url: &str) -> String {
         }
         Err(e) => {
             tracing::warn!("Readability extraction failed ({}), using raw HTML", e);
-            raw_html.to_string()
+            return raw_html.to_string();
         }
     };
 
-    extracted
+    // --- Phase 2: Restore <pre> blocks ---
+    let restore_re = regex::Regex::new(
+        r"PRE_BLOCK_PLACEHOLDER_(\d+)_RESTORE_PRE_CONTENT_HERE"
+    ).unwrap();
+
+    let restored = restore_re.replace_all(&extracted, |caps: &regex::Captures| {
+        let idx: usize = caps[1].parse().unwrap_or(usize::MAX);
+        if let Some(inner) = pre_blocks.get(idx) {
+            // Strip HTML tags from inner content but preserve all whitespace
+            let tag_re = regex::Regex::new(r"<[^>]*>").unwrap();
+            let cleaned = tag_re.replace_all(inner, "");
+            format!("<pre><code>{}</code></pre>", cleaned)
+        } else {
+            String::new()
+        }
+    }).to_string();
+
+    restored
 }
 
 // ============================================================
@@ -74,6 +110,10 @@ pub fn extract(raw_html: &str, url: &str) -> String {
 
 /// Sanitize HTML by stripping dangerous/irrelevant tags and attributes.
 /// Uses a whitelist approach: only ALLOWED_TAGS and ALLOWED_ATTRS survive.
+///
+/// Note: <pre> block whitespace preservation is handled by extract().
+/// After extract(), <pre> blocks contain clean tag-free text, so scraper
+/// correctly preserves all whitespace.
 pub fn sanitize(html: &str) -> String {
     let document = Html::parse_document(html);
     let body_selector = Selector::parse("body").unwrap();
@@ -503,6 +543,43 @@ print(add(1, "world"))   # TypeError</code></pre>
         eprintln!("=== MARKDOWN (pre with leading whitespace before code) ===\n{}", md);
         assert!(md.contains("```"), "Should produce fenced code block, got: {}", &md[..md.len().min(300)]);
         assert!(md.contains("line1"), "Should contain code content");
+    }
+
+    /// Full pipeline: <pre> with syntax-highlighting <span> children
+    /// (real-world scenario from blogs using Prism/Highlight.js)
+    #[test]
+    fn test_full_pipeline_pre_with_syntax_highlight_spans() {
+        let html = r#"<html><body><div>
+<p>看代码示例。先看动态编程语言 Python 的：</p>
+<pre class="language-python"><code class="language-python"><span class="token keyword">def</span> <span class="token function">add</span><span class="token punctuation">(</span><span class="token parameter">a</span><span class="token punctuation">,</span> <span class="token parameter">b</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">return</span> <span class="token parameter">a</span> <span class="token operator">+</span> <span class="token parameter">b</span>
+
+<span class="token function">add</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">)</span>    <span class="token comment"># &rarr; 3</span>
+<span class="token function">add</span><span class="token punctuation">(</span><span class="token string">"hello"</span><span class="token punctuation">,</span> <span class="token string">"world"</span><span class="token punctuation">)</span>    <span class="token comment"># &rarr; "helloworld"</span>
+<span class="token function">add</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">,</span> <span class="token string">"2"</span><span class="token punctuation">)</span>    <span class="token comment"># &rarr; TypeError</span></code></pre>
+<p>Python 在运行时才进行类型检查。</p>
+</div></body></html>"#;
+        let result = run_full_pipeline(html, "https://example.com/python-syntax")
+            .expect("Pipeline failed");
+
+        // Debug: print each pipeline step
+        eprintln!("=== EXTRACTED (after Readability) ===\n{}", &result.extracted_html[..result.extracted_html.len().min(500)]);
+        eprintln!("=== CLEANED HTML ===\n{}", &result.cleaned_html[..result.cleaned_html.len().min(500)]);
+        eprintln!("=== MARKDOWN ===\n{}", &result.markdown[..result.markdown.len().min(500)]);
+
+        // Verify code content is preserved with spaces
+        assert!(result.cleaned_html.contains("def add"), 
+            "cleaned_html should contain 'def add' with space. Got: {}", 
+            &result.cleaned_html[..result.cleaned_html.len().min(500)]);
+        assert!(result.rendered_html.contains("return a + b"), 
+            "Should contain 'return a + b' with spaces");
+        assert!(result.rendered_html.contains("add(1, 2)"), 
+            "Should contain 'add(1, 2)' with spaces");
+        // Should NOT have compressed tokens
+        assert!(!result.rendered_html.contains("defadd"), 
+            "Should NOT have compressed 'defadd' without space");
+        assert!(!result.rendered_html.contains("returna+b"), 
+            "Should NOT have compressed 'returna+b'");
     }
 
     /// Full pipeline: <pre> only (no <code>), verify rendered output preserves newlines
