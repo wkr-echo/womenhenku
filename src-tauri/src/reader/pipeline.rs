@@ -44,27 +44,28 @@ const ALLOWED_ATTRS: &[&str] = &["href", "src", "alt", "title"];
 
 /// Extract the main content from raw HTML using the Mozilla Readability algorithm.
 /// Falls back to the original HTML if extraction fails.
-/// Note: Readability natively preserves <pre> blocks but may strip whitespace
-/// text nodes between inline elements (e.g. syntax-highlighting <span> tags).
-/// To prevent code block corruption, we extract <pre> blocks BEFORE Readability
-/// and re-inject them after.
+///
+/// CRITICAL: Readability's DOM-based processing drops whitespace text nodes
+/// between inline elements (e.g. <span> tokens inside <pre> from syntax
+/// highlighters like Prism.js/Highlight.js). To prevent code block corruption,
+/// we strip inline formatting tags from <pre> blocks BEFORE Readability runs.
+/// This preserves all whitespace because the text becomes direct children
+/// of <pre>/<code>, which Readability handles correctly.
 pub fn extract(raw_html: &str, url: &str) -> String {
-    // --- Phase 0: Extract <pre> blocks from raw HTML ---
-    // Regex preserves ALL whitespace between tags (unlike Readability's
-    // DOM-based processing which may collapse inter-element whitespace).
+    // --- Phase 0: Clean <pre> blocks in-place ---
+    // Strip all HTML tags from inside <pre> blocks, keeping text + whitespace.
+    // This prevents Readability from dropping inter-element whitespace.
     let pre_re = regex::Regex::new(r"(?s)<pre[^>]*>(.*?)</pre>").unwrap();
-    let mut pre_blocks: Vec<String> = Vec::new();
+    let tag_re = regex::Regex::new(r"<[^>]*>").unwrap();
 
-    let protected_html = pre_re.replace_all(raw_html, |caps: &regex::Captures| {
-        let idx = pre_blocks.len();
-        let inner = caps.get(1).map(|m| m.as_str().to_string()).unwrap_or_default();
-        pre_blocks.push(inner);
-        // Short placeholder — keeps Readability's text analysis intact
-        format!("<p>PREBLOCK_{}_RESTORE</p>", idx)
+    let cleaned_html = pre_re.replace_all(raw_html, |caps: &regex::Captures| {
+        let inner = caps.get(1).map(|m| m.as_str()).unwrap_or("");
+        let cleaned = tag_re.replace_all(inner, "");
+        format!("<pre><code>{}</code></pre>", cleaned)
     }).to_string();
 
-    // --- Phase 1: Run Readability on protected HTML ---
-    let mut cursor = Cursor::new(protected_html.as_bytes());
+    // --- Phase 1: Run Readability on cleaned HTML ---
+    let mut cursor = Cursor::new(cleaned_html.as_bytes());
     let parsed_url = match url::Url::parse(url) {
         Ok(u) => u,
         Err(_) => {
@@ -83,24 +84,7 @@ pub fn extract(raw_html: &str, url: &str) -> String {
         }
     };
 
-    // --- Phase 2: Restore <pre> blocks ---
-    let restore_re = regex::Regex::new(
-        r"PREBLOCK_(\d+)_RESTORE"
-    ).unwrap();
-
-    let restored = restore_re.replace_all(&extracted, |caps: &regex::Captures| {
-        let idx: usize = caps[1].parse().unwrap_or(usize::MAX);
-        if let Some(inner) = pre_blocks.get(idx) {
-            // Strip HTML tags from inner content but preserve all whitespace
-            let tag_re = regex::Regex::new(r"<[^>]*>").unwrap();
-            let cleaned = tag_re.replace_all(inner, "");
-            format!("<pre><code>{}</code></pre>", cleaned)
-        } else {
-            String::new()
-        }
-    }).to_string();
-
-    restored
+    extracted
 }
 
 // ============================================================
