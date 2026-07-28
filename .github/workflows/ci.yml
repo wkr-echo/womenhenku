@@ -78,7 +78,6 @@ jobs:
   package:
     name: Package ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    needs: build-and-test
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
     strategy:
       fail-fast: false
