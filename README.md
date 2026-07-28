@@ -1,4 +1,4 @@
-# womenhenku — Mercury RSS 阅读器跨平台复刻
+# Platinum — Mercury RSS 阅读器跨平台复刻
 
 [![Rust](https://img.shields.io/badge/Rust-1.80%2B-orange)](https://www.rust-lang.org/)
 [![Tauri](https://img.shields.io/badge/Tauri-2.x-blue)](https://tauri.app/)
