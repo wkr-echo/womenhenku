@@ -149,19 +149,28 @@ impl LlmUsageRepository {
 
     pub fn get_daily_usage(&self, days: i64, agent_type: Option<&str>) -> Result<Vec<DailyUsage>, RepositoryError> {
         let conn = self.pool.get()?;
+        // Ensure table exists
+        let _ = conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS usage_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_type TEXT NOT NULL, total_tokens INTEGER, prompt_tokens INTEGER,
+                completion_tokens INTEGER, request_status TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );"
+        );
 
         if let Some(at) = agent_type {
             let sql = format!(
-                "SELECT DATE(ts) as date, COALESCE(SUM(total_tokens), 0), COALESCE(SUM(prompt_tokens), 0), COALESCE(SUM(completion_tokens), 0), COUNT(*) {} AND agent_type = ? GROUP BY DATE(ts) ORDER BY date",
-                usage_source(&conn, days, false)
+                "SELECT DATE(created_at) as date, COALESCE(SUM(total_tokens), 0), COALESCE(SUM(prompt_tokens), 0), COALESCE(SUM(completion_tokens), 0), COUNT(*) FROM usage_events WHERE created_at >= datetime('now', '-{} days') AND task_type = ? GROUP BY DATE(created_at) ORDER BY date",
+                days
             );
             let mut stmt = conn.prepare(&sql)?;
             let rows = stmt.query_map(params![at], map_daily_usage)?;
             rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
         } else {
             let sql = format!(
-                "SELECT DATE(ts) as date, COALESCE(SUM(total_tokens), 0), COALESCE(SUM(prompt_tokens), 0), COALESCE(SUM(completion_tokens), 0), COUNT(*) {} GROUP BY DATE(ts) ORDER BY date",
-                usage_source(&conn, days, false)
+                "SELECT DATE(created_at) as date, COALESCE(SUM(total_tokens), 0), COALESCE(SUM(prompt_tokens), 0), COALESCE(SUM(completion_tokens), 0), COUNT(*) FROM usage_events WHERE created_at >= datetime('now', '-{} days') GROUP BY DATE(created_at) ORDER BY date",
+                days
             );
             let mut stmt = conn.prepare(&sql)?;
             let rows = stmt.query_map([], map_daily_usage)?;
