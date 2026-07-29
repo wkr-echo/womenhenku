@@ -1711,6 +1711,7 @@ function TokenUsage() {
         getLlmAgentUsage(days).catch(e => { console.error("agent failed", e); return []; }),
       ]);
       setDailyUsage(daily);
+      console.log("Daily usage data:", JSON.stringify(daily));
       setStats(statsData);
       setProviderUsage(providers);
       setModelUsage(models);
@@ -1785,6 +1786,7 @@ function TokenUsage() {
   };
 
   const maxDailyValue = dailyUsage.length > 0 ? Math.max(...dailyUsage.map(getBarValue)) : 1;
+  console.log("Daily chart: items=", dailyUsage.length, "maxVal=", maxDailyValue, "values=", dailyUsage.map(getBarValue));
 
   return (
     <div className="max-w-3xl space-y-6">
