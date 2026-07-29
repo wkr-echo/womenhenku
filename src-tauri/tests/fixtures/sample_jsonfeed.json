@@ -1,0 +1,22 @@
+{
+  "version": "https://jsonfeed.org/version/1.1",
+  "title": "Example JSON Feed",
+  "home_page_url": "https://example.com/jsonfeed",
+  "feed_url": "https://example.com/jsonfeed/feed.json",
+  "items": [
+    {
+      "id": "1",
+      "url": "https://example.com/jsonfeed/1",
+      "title": "JSON Feed Item One",
+      "date_published": "2026-07-14T10:00:00Z",
+      "summary": "Summary of json feed item one."
+    },
+    {
+      "id": "2",
+      "url": "https://example.com/jsonfeed/2",
+      "title": "JSON Feed Item Two",
+      "date_published": "2026-07-15T14:00:00Z",
+      "summary": "Summary of json feed item two."
+    }
+  ]
+}

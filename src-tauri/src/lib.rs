@@ -1,0 +1,993 @@
+pub mod agent;
+pub mod commands;
+pub mod db;
+pub mod digest;
+pub mod feed;
+pub mod notes;
+pub mod platform;
+pub mod reader;
+pub mod usage;
+
+#[cfg(feature = "tauri-runtime")]
+use std::str::FromStr;
+#[cfg(feature = "tauri-runtime")]
+use tauri::Emitter;
+
+// ============================================================
+// Non-Tauri entry point (for cargo test / standalone binary)
+// ============================================================
+
+#[cfg(not(feature = "tauri-runtime"))]
+pub fn run() {
+    // Set html5ever to error-only — its "weird namespace" warnings
+    // on standard HTML5 elements are harmless but noisy.
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"))
+        .add_directive("html5ever=error".parse().unwrap());
+    tracing_subscriber::fmt().with_env_filter(filter).init();
+    tracing::info!("Womenhenku starting (standalone mode)...");
+
+    let db_path = db::default_db_path();
+    match db::initialize_database(&db_path) {
+        Ok(_pool) => tracing::info!("Database initialized at: {}", db_path.display()),
+        Err(e) => {
+            tracing::error!("Failed to initialize database: {}", e);
+            std::process::exit(1);
+        }
+    }
+
+    tracing::info!("Womenhenku shutdown complete.");
+}
+
+// ============================================================
+// Tauri runtime (--features tauri-runtime)
+// ============================================================
+
+#[cfg(feature = "tauri-runtime")]
+pub fn run() {
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"))
+        .add_directive("html5ever=error".parse().unwrap());
+    tracing_subscriber::fmt().with_env_filter(filter).init();
+    tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
+        .setup(|app| {
+            let db_path = db::default_db_path();
+            let pool = db::initialize_database(&db_path)
+                .expect("Failed to initialize database");
+
+            // Spawn background auto-sync task (every 30 minutes)
+            let sync_pool = pool.clone();
+            tauri::async_runtime::spawn(async move {
+                let mut interval = tokio::time::interval(
+                    std::time::Duration::from_secs(30 * 60)
+                );
+                interval.tick().await; // skip first immediate tick
+                loop {
+                    interval.tick().await;
+                    tracing::info!("Auto-sync: refreshing all feeds...");
+                    let svc = crate::feed::service::FeedService::new(sync_pool.clone());
+                    if let Err(e) = svc.refresh_all_feeds().await {
+                        tracing::warn!("Auto-sync failed: {}", e);
+                    }
+                }
+            });
+
+            // Spawn background auto-cleanup for old usage events (6 months retention)
+            let cleanup_pool = pool.clone();
+            tauri::async_runtime::spawn(async move {
+                match crate::usage::recorder::cleanup_old_events(&cleanup_pool, 180) {
+                    Ok(n) if n > 0 => tracing::info!("Cleaned up {} old usage events", n),
+                    Err(e) => tracing::warn!("Usage cleanup failed: {}", e),
+                    _ => {}
+                }
+            });
+
+            // 初始化 Prompt 管理器
+            let mut prompt_dirs = Vec::new();
+            if let Ok(dir) = app.path().resource_dir() {
+                prompt_dirs.push(dir.join("resources"));
+            }
+            prompt_dirs.push(std::path::PathBuf::from("resources"));
+            if let Ok(cwd) = std::env::current_dir() {
+                prompt_dirs.push(cwd.join("resources"));
+            }
+
+            let mut prompt_manager_opt = None;
+            for dir in &prompt_dirs {
+                if dir.join("prompts").exists() {
+                    if let Ok(mgr) = agent::prompt::PromptManager::load(dir) {
+                        prompt_manager_opt = Some(mgr);
+                        tracing::info!("Loaded prompts from: {:?}", dir.join("prompts"));
+                        break;
+                    }
+                }
+            }
+
+            let prompt_manager = std::sync::Arc::new(
+                prompt_manager_opt.unwrap_or_else(|| {
+                    tracing::warn!("No prompt files found, using built-in defaults");
+                    agent::prompt::PromptManager::empty()
+                }),
+            );
+
+            // 初始化 Agent Service
+            let agent_service = std::sync::Arc::new(
+                agent::service::AgentService::new(pool.clone(), prompt_manager.clone()),
+            );
+
+            app.manage(pool);
+            app.manage(agent_service);
+            app.manage(prompt_manager);
+            tracing::info!("Tauri + database + agent initialized");
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            // Feed management
+            list_feeds,
+            get_feed,
+            add_feed,
+            remove_feed,
+            refresh_feed,
+            refresh_all_feeds,
+            // Entry queries
+            list_entries,
+            count_entries_by_date_range,
+            list_all_entries,
+            get_entry,
+            mark_read,
+            mark_unread,
+            mark_all_read,
+            toggle_star,
+            get_sidebar_counts,
+            // Content
+            get_entry_content,
+            process_entry_content,
+            // OPML
+            import_opml,
+            export_opml,
+            // Search (Stage 2)
+            search_entries,
+            // Provider management
+            add_provider,
+            list_providers,
+            update_provider,
+            delete_provider,
+            add_provider_model,
+            list_provider_models,
+            delete_provider_model,
+            validate_provider,
+            // Agent (Stage 3)
+            generate_summary,
+            get_summary,
+            cancel_summary,
+            clear_summary,
+            translate_entry,
+            get_translation,
+            cancel_translation,
+            clear_translation,
+            retry_failed_segments,
+            // Settings
+            get_setting,
+            set_setting,
+            // Notes (Stage 4)
+            save_note,
+            get_note,
+            delete_note,
+            // Digest export (Stage 4)
+            export_single_digest,
+            export_multi_digest,
+            // File utilities
+            write_text_file,
+            // Pipeline
+            get_pipeline_version,
+            // Fonts (Stage 2)
+            list_system_fonts,
+            // System
+            open_url,
+            // Tags (Stage 5)
+            add_tag,
+            list_tags,
+            get_tag,
+            update_tag,
+            delete_tag,
+            tag_entry,
+            untag_entry,
+            get_entry_tags,
+            get_tags_with_count,
+            get_tag_stats,
+            list_entries_by_tag,
+            list_entries_by_tags,
+            // Tags Enhancements (Stage 5)
+            update_tag_status,
+            merge_tags,
+            add_tag_alias,
+            remove_tag_alias,
+            get_tag_aliases,
+            save_tag_recommendations,
+            get_tag_recommendations,
+            generate_tag_recommendations,
+            analyze_entries_for_tags,
+            count_batch_tag_candidates,
+            apply_batch_tags,
+            tag_entries_batch,
+            find_potential_duplicates,
+            find_unused_tags,
+            delete_unused_tags,
+            get_tag_by_name,
+            // LLM Usage Stats (Stage 5)
+            insert_llm_usage_event,
+            get_llm_usage_stats,
+            get_llm_daily_usage,
+            get_llm_provider_usage,
+            get_llm_model_usage,
+            get_llm_agent_usage,
+            cleanup_old_llm_events,
+            // New usage_events table commands
+            cleanup_old_usage_events,
+            clear_all_usage_events,
+            // Settings (Stage 5)
+            delete_setting,
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
+
+// ============================================================
+// Tauri Command wrappers
+// ============================================================
+
+#[cfg(feature = "tauri-runtime")]
+use tauri::Manager;
+#[cfg(feature = "tauri-runtime")]
+use tauri::State;
+#[cfg(feature = "tauri-runtime")]
+use crate::db::DbPool;
+
+// -- Feed management --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn list_feeds(state: State<'_, DbPool>) -> Result<Vec<crate::db::model::FeedSummary>, String> {
+    commands::list_feeds(&state)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_feed(state: State<'_, DbPool>, id: i64) -> Result<crate::db::model::Feed, String> {
+    commands::get_feed(&state, id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn add_feed(state: State<'_, DbPool>, url: String) -> Result<crate::db::model::Feed, String> {
+    commands::add_feed(&state, &url).await
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn remove_feed(state: State<'_, DbPool>, id: i64) -> Result<(), String> {
+    commands::remove_feed(&state, id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn refresh_feed(app: tauri::AppHandle, state: State<'_, DbPool>, id: i64) -> Result<usize, String> {
+    let new_count = commands::refresh_feed(&state, id).await?;
+    if new_count > 0 {
+        use tauri_plugin_notification::NotificationExt;
+        let feed_name = commands::get_feed(&state, id)
+            .map(|f| f.title)
+            .unwrap_or_else(|_| "?".to_string());
+        let _ = app.notification()
+            .builder()
+            .title(format!("{} 篇新文章", new_count))
+            .body(format!("来自 {}", feed_name))
+            .show();
+    }
+    Ok(new_count)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn refresh_all_feeds(app: tauri::AppHandle, state: State<'_, DbPool>) -> Result<usize, String> {
+    let total_new = commands::refresh_all_feeds(&state).await?;
+    if total_new > 0 {
+        use tauri_plugin_notification::NotificationExt;
+        let _ = app.notification()
+            .builder()
+            .title(format!("{} 篇新文章", total_new))
+            .body("所有订阅源已刷新")
+            .show();
+    }
+    Ok(total_new)
+}
+
+// -- Entry queries --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn list_entries(
+    state: State<'_, DbPool>,
+    feed_id: i64,
+    page: i32,
+    page_size: i32,
+    filter: Option<String>,
+) -> Result<crate::db::model::EntryPage, String> {
+    commands::list_entries(&state, feed_id, page, page_size, filter.as_deref())
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn count_entries_by_date_range(state: State<'_, DbPool>, days: i64) -> Result<i64, String> {
+    commands::count_entries_by_date_range(&state, days)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn list_all_entries(
+    state: State<'_, DbPool>,
+    page: i32,
+    page_size: i32,
+    filter: Option<String>,
+) -> Result<crate::db::model::EntryPage, String> {
+    commands::list_all_entries(&state, page, page_size, filter.as_deref())
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_entry(state: State<'_, DbPool>, id: i64) -> Result<crate::db::model::Entry, String> {
+    commands::get_entry(&state, id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn mark_read(state: State<'_, DbPool>, id: i64) -> Result<(), String> {
+    commands::mark_read(&state, id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn mark_unread(state: State<'_, DbPool>, id: i64) -> Result<(), String> {
+    commands::mark_unread(&state, id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn mark_all_read(state: State<'_, DbPool>, feed_id: i64) -> Result<(), String> {
+    commands::mark_all_read(&state, feed_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn toggle_star(state: State<'_, DbPool>, entry_id: i64) -> Result<bool, String> {
+    commands::toggle_star(&state, entry_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_sidebar_counts(state: State<'_, DbPool>) -> Result<commands::SidebarCounts, String> {
+    commands::get_sidebar_counts(&state)
+}
+
+// -- Content --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_entry_content(state: State<'_, DbPool>, entry_id: i64) -> Result<crate::db::model::Content, String> {
+    commands::get_entry_content(&state, entry_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn process_entry_content(state: State<'_, DbPool>, entry_id: i64, url: String) -> Result<crate::db::model::Content, String> {
+    commands::process_entry_content(&state, entry_id, &url)
+}
+
+// -- OPML --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn import_opml(
+    app: tauri::AppHandle,
+    state: State<'_, DbPool>,
+    file_path: String,
+) -> Result<Vec<crate::feed::opml::ImportResult>, String> {
+    let outlines = crate::feed::opml::parse_opml_file(std::path::Path::new(&file_path))
+        .map_err(|e| e.to_string())?;
+    let pool = state.inner().clone();
+    let result = tokio::task::spawn_blocking(move || {
+        crate::feed::opml::import_feeds(&pool, &outlines, &|r| {
+            let _ = app.emit("opml-import-progress", r.clone());
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(result)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn export_opml(state: State<'_, DbPool>, file_path: String) -> Result<(), String> {
+    let pool = state.inner().clone();
+    tokio::task::spawn_blocking(move || commands::export_opml(&pool, &file_path))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+// -- Pipeline version --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_pipeline_version() -> i32 {
+    commands::get_pipeline_version()
+}
+
+// -- System fonts (Stage 2) --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn list_system_fonts() -> Result<Vec<String>, String> {
+    Ok(crate::platform::font::list_fonts())
+}
+
+// -- Open URL in system browser --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn open_url(url: String) -> Result<(), String> {
+    webbrowser::open(&url).map_err(|e| e.to_string())
+}
+
+// -- Search --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn search_entries(
+    state: State<'_, DbPool>,
+    query: String,
+    page: i32,
+    page_size: i32,
+) -> Result<crate::db::model::EntryPage, String> {
+    commands::search_entries(&state, &query, page, page_size)
+}
+
+// -- Notes (Stage 4) --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn save_note(state: State<'_, DbPool>, entry_id: i64, content: String) -> Result<crate::db::model::Note, String> {
+    commands::save_note(&state, entry_id, &content)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_note(state: State<'_, DbPool>, entry_id: i64) -> Result<Option<crate::db::model::Note>, String> {
+    commands::get_note(&state, entry_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn delete_note(state: State<'_, DbPool>, entry_id: i64) -> Result<(), String> {
+    commands::delete_note(&state, entry_id)
+}
+
+// -- Digest export (Stage 4) --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn export_single_digest(state: State<'_, DbPool>, entry_id: i64, format: String) -> Result<String, String> {
+    let fmt = crate::digest::DigestFormat::from_str(&format)?;
+    commands::export_single_digest(&state, entry_id, &fmt)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn export_multi_digest(state: State<'_, DbPool>, entry_ids: Vec<i64>, format: String) -> Result<String, String> {
+    let fmt = crate::digest::DigestFormat::from_str(&format)?;
+    commands::export_multi_digest(&state, &entry_ids, &fmt)
+}
+
+// -- File utilities --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn write_text_file(state: State<'_, DbPool>, path: String, content: String) -> Result<(), String> {
+    let _ = state; // unused but required for Tauri command registration
+    commands::write_text_file(&path, &content)
+}
+
+// -- Tags (Stage 5) --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn add_tag(state: State<'_, DbPool>, name: String, color: String) -> Result<crate::db::model::Tag, String> {
+    commands::add_tag(&state, &name, &color)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn list_tags(state: State<'_, DbPool>) -> Result<Vec<crate::db::model::Tag>, String> {
+    commands::list_tags(&state)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_tag(state: State<'_, DbPool>, id: i64) -> Result<crate::db::model::Tag, String> {
+    commands::get_tag(&state, id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn update_tag(state: State<'_, DbPool>, id: i64, name: String, color: String) -> Result<crate::db::model::Tag, String> {
+    commands::update_tag(&state, id, &name, &color)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn delete_tag(state: State<'_, DbPool>, id: i64) -> Result<(), String> {
+    commands::delete_tag(&state, id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn tag_entry(state: State<'_, DbPool>, entry_id: i64, tag_id: i64) -> Result<(), String> {
+    commands::tag_entry(&state, entry_id, tag_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn untag_entry(state: State<'_, DbPool>, entry_id: i64, tag_id: i64) -> Result<(), String> {
+    commands::untag_entry(&state, entry_id, tag_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_entry_tags(state: State<'_, DbPool>, entry_id: i64) -> Result<Vec<crate::db::model::Tag>, String> {
+    commands::get_entry_tags(&state, entry_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_tags_with_count(state: State<'_, DbPool>) -> Result<Vec<(crate::db::model::Tag, i64)>, String> {
+    commands::get_tags_with_count(&state)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_tag_stats(state: State<'_, DbPool>, tag_id: i64) -> Result<serde_json::Value, String> {
+    commands::get_tag_stats(&state, tag_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn list_entries_by_tag(state: State<'_, DbPool>, tag_id: i64, page: i32, page_size: i32) -> Result<crate::db::model::EntryPage, String> {
+    commands::list_entries_by_tag(&state, tag_id, page, page_size)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn list_entries_by_tags(state: State<'_, DbPool>, tag_ids: Vec<i64>, match_mode: String, page: i32, page_size: i32) -> Result<crate::db::model::EntryPage, String> {
+    commands::list_entries_by_tags(&state, tag_ids, &match_mode, page, page_size)
+}
+
+// -- Tags Enhancements (Stage 5) --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn update_tag_status(state: State<'_, DbPool>, id: i64, is_provisional: bool) -> Result<crate::db::model::Tag, String> {
+    commands::update_tag_status(&state, id, is_provisional)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn merge_tags(state: State<'_, DbPool>, source_id: i64, target_id: i64) -> Result<(), String> {
+    commands::merge_tags(&state, source_id, target_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn add_tag_alias(state: State<'_, DbPool>, tag_id: i64, alias: String) -> Result<crate::db::model::TagAlias, String> {
+    commands::add_tag_alias(&state, tag_id, &alias)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn remove_tag_alias(state: State<'_, DbPool>, tag_id: i64, alias: String) -> Result<(), String> {
+    commands::remove_tag_alias(&state, tag_id, &alias)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_tag_aliases(state: State<'_, DbPool>, tag_id: i64) -> Result<Vec<crate::db::model::TagAlias>, String> {
+    commands::get_tag_aliases(&state, tag_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn save_tag_recommendations(state: State<'_, DbPool>, entry_id: i64, recommendations: Vec<(String, String, f64)>) -> Result<(), String> {
+    commands::save_tag_recommendations(&state, entry_id, recommendations)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_tag_recommendations(state: State<'_, DbPool>, entry_id: i64) -> Result<Vec<crate::db::model::TagRecommendation>, String> {
+    commands::get_tag_recommendations(&state, entry_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn generate_tag_recommendations(state: State<'_, DbPool>, entry_id: i64, existing_tags: Vec<String>) -> Result<Vec<crate::db::model::TagRecommendation>, String> {
+    commands::generate_tag_recommendations(&state, entry_id, existing_tags).await
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn analyze_entries_for_tags(
+    state: State<'_, DbPool>,
+    range: String,
+    skip_batch_tagged: bool,
+    skip_tagged: bool,
+    concurrency: i32,
+) -> Result<Vec<crate::commands::TagProposal>, String> {
+    commands::analyze_entries_for_tags(&state, &range, skip_batch_tagged, skip_tagged, concurrency).await
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn count_batch_tag_candidates(
+    state: State<'_, DbPool>,
+    range: String,
+    skip_batch_tagged: bool,
+    skip_tagged: bool,
+) -> Result<i64, String> {
+    commands::count_batch_tag_candidates(&state, &range, skip_batch_tagged, skip_tagged)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn apply_batch_tags(
+    state: State<'_, DbPool>,
+    range: String,
+    skip_batch_tagged: bool,
+    skip_tagged: bool,
+    kept_tags: Vec<String>,
+    total_proposals: i32,
+) -> Result<crate::commands::BatchTagApplyResult, String> {
+    commands::apply_batch_tags(&state, &range, skip_batch_tagged, skip_tagged, kept_tags, total_proposals as usize).await
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn tag_entries_batch(state: State<'_, DbPool>, entry_ids: Vec<i64>, tag_id: i64) -> Result<(), String> {
+    commands::tag_entries_batch(&state, entry_ids, tag_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn find_potential_duplicates(state: State<'_, DbPool>) -> Result<Vec<(crate::db::model::Tag, crate::db::model::Tag, String)>, String> {
+    commands::find_potential_duplicates(&state)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn find_unused_tags(state: State<'_, DbPool>) -> Result<Vec<crate::db::model::Tag>, String> {
+    commands::find_unused_tags(&state)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn delete_unused_tags(state: State<'_, DbPool>) -> Result<usize, String> {
+    commands::delete_unused_tags(&state)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_tag_by_name(state: State<'_, DbPool>, name: String) -> Result<Option<crate::db::model::Tag>, String> {
+    commands::get_tag_by_name(&state, &name)
+}
+
+// -- LLM Usage Stats (Stage 5) --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn insert_llm_usage_event(state: State<'_, DbPool>, event: crate::db::model::LlmUsageEvent) -> Result<(), String> {
+    commands::insert_llm_usage_event(&state, event)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_llm_usage_stats(state: State<'_, DbPool>, days: i64, agent_type: Option<String>) -> Result<crate::db::model::LlmUsageStats, String> {
+    commands::get_llm_usage_stats(&state, days, agent_type)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_llm_daily_usage(state: State<'_, DbPool>, days: i64, agent_type: Option<String>) -> Result<Vec<crate::db::model::DailyUsage>, String> {
+    commands::get_llm_daily_usage(&state, days, agent_type)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_llm_provider_usage(state: State<'_, DbPool>, days: i64) -> Result<Vec<crate::db::model::ProviderUsage>, String> {
+    commands::get_llm_provider_usage(&state, days)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_llm_model_usage(state: State<'_, DbPool>, days: i64) -> Result<Vec<crate::db::model::ModelUsage>, String> {
+    commands::get_llm_model_usage(&state, days)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_llm_agent_usage(state: State<'_, DbPool>, days: i64) -> Result<Vec<crate::db::model::AgentUsage>, String> {
+    commands::get_llm_agent_usage(&state, days)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn cleanup_old_llm_events(state: State<'_, DbPool>, retention_days: i64) -> Result<usize, String> {
+    commands::cleanup_old_llm_events(&state, retention_days)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn cleanup_old_usage_events(state: State<'_, DbPool>, retention_days: i64) -> Result<usize, String> {
+    commands::cleanup_old_usage_events(&state, retention_days)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn clear_all_usage_events(state: State<'_, DbPool>) -> Result<usize, String> {
+    commands::clear_all_usage_events(&state)
+}
+
+// -- Settings (Stage 5) --
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn delete_setting(state: State<'_, DbPool>, key: String) -> Result<(), String> {
+    commands::delete_setting(&state, &key)
+}
+
+// ============================================================
+// -- Provider management (Stage 3) —
+//    注意：这些命令直接调用 AgentService 的方法，
+//    不经过 commands.rs（遵守阶段隔离规则）
+// ============================================================
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn add_provider(
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    provider: crate::db::model::NewProvider,
+) -> Result<crate::db::model::Provider, String> {
+    agent_service.add_provider(&provider)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn list_providers(
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+) -> Result<Vec<crate::db::model::Provider>, String> {
+    agent_service.list_providers()
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn update_provider(
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    id: i64,
+    update: crate::db::model::UpdateProvider,
+) -> Result<crate::db::model::Provider, String> {
+    agent_service.update_provider(id, &update)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn delete_provider(
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    id: i64,
+) -> Result<(), String> {
+    agent_service.delete_provider(id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn add_provider_model(
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    model: crate::db::model::NewProviderModel,
+) -> Result<crate::db::model::ProviderModel, String> {
+    agent_service.add_provider_model(&model)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn list_provider_models(
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    provider_id: i64,
+) -> Result<Vec<crate::db::model::ProviderModel>, String> {
+    agent_service.list_provider_models(provider_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn delete_provider_model(
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    id: i64,
+) -> Result<(), String> {
+    agent_service.delete_provider_model(id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn validate_provider(
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    base_url: String,
+    api_key: String,
+    model: String,
+) -> Result<bool, String> {
+    agent_service
+        .validate_provider(&base_url, &api_key, &model)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+// ============================================================
+// -- Agent commands (Stage 3) —
+//    注意：同样不经过 commands.rs，直接调用 AgentService
+// ============================================================
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn generate_summary(
+    app: tauri::AppHandle,
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    entry_id: i64,
+    target_language: Option<String>,
+    detail_level: Option<String>,
+    force: Option<bool>,
+) -> Result<(), String> {
+    let app_handle = app.clone();
+
+    let on_event = move |event: crate::agent::client::AiStreamEvent| {
+        let _ = app_handle.emit("ai-stream", serde_json::to_value(&event).unwrap_or_default());
+    };
+
+    let lang = target_language.unwrap_or_else(|| "zh-CN".to_string());
+    let detail = detail_level.unwrap_or_else(|| "standard".to_string());
+
+    agent_service.generate_summary(entry_id, &lang, &detail, force.unwrap_or(false), on_event).await.map_err(|e| e.to_string())
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn get_summary(
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    entry_id: i64,
+) -> Result<Option<String>, String> {
+    agent_service.get_latest_summary_text(entry_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn cancel_summary(
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    entry_id: i64,
+) -> Result<(), String> {
+    agent_service.cancel_summary(entry_id).await.map_err(|e| e.to_string())
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn clear_summary(
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    entry_id: i64,
+) -> Result<(), String> {
+    agent_service.clear_summary(entry_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn translate_entry(
+    app: tauri::AppHandle,
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    entry_id: i64,
+    target_language: Option<String>,
+    concurrency: Option<usize>,
+    force: Option<bool>,
+) -> Result<(), String> {
+    let app_handle = app.clone();
+
+    let on_event = move |event: crate::agent::client::AiStreamEvent| {
+        let _ = app_handle.emit("ai-stream", serde_json::to_value(&event).unwrap_or_default());
+    };
+
+    let lang = target_language.unwrap_or_else(|| "zh-CN".to_string());
+    let conc = concurrency.unwrap_or(3);
+
+    agent_service.translate_entry(entry_id, &lang, conc, force.unwrap_or(false), on_event).await.map_err(|e| e.to_string())
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn get_translation(
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    entry_id: i64,
+) -> Result<Option<String>, String> {
+    agent_service.get_latest_translation_text(entry_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn cancel_translation(
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    entry_id: i64,
+) -> Result<(), String> {
+    agent_service.cancel_translation(entry_id).await.map_err(|e| e.to_string())
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn clear_translation(
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    entry_id: i64,
+) -> Result<(), String> {
+    agent_service.clear_translation(entry_id)
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+async fn retry_failed_segments(
+    app: tauri::AppHandle,
+    agent_service: State<'_, std::sync::Arc<crate::agent::service::AgentService>>,
+    entry_id: i64,
+) -> Result<(), String> {
+    let app_handle = app.clone();
+
+    let on_event = move |event: crate::agent::client::AiStreamEvent| {
+        let _ = app_handle.emit("ai-stream", serde_json::to_value(&event).unwrap_or_default());
+    };
+
+    agent_service
+        .retry_failed_segments(entry_id, on_event)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+// ============================================================
+// -- Settings (Stage 4) --
+// ============================================================
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn get_setting(state: State<'_, DbPool>, key: String) -> Result<Option<String>, String> {
+    let pool = state.inner();
+    let conn = pool.get().map_err(|e| e.to_string())?;
+    let result = conn.query_row(
+        "SELECT value FROM settings WHERE key = ?1",
+        rusqlite::params![key],
+        |row| row.get::<_, String>(0),
+    );
+    match result {
+        Ok(val) => Ok(Some(val)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[cfg(feature = "tauri-runtime")]
+#[tauri::command]
+fn set_setting(state: State<'_, DbPool>, key: String, value: String) -> Result<(), String> {
+    let pool = state.inner();
+    let conn = pool.get().map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT INTO settings (key, value) VALUES (?1, ?2)
+         ON CONFLICT(key) DO UPDATE SET value = ?2",
+        rusqlite::params![key, value],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}

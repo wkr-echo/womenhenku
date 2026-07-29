@@ -1,0 +1,448 @@
+import type { Feed, Entry, Content, EntryPage, Provider, Summary, Note, FeedSummary, ImportResult, Tag, TagAlias, DuplicateTagPair, SidebarCounts } from "@/lib/types";
+import { mockAddTag, mockListTags, mockGetTag, mockUpdateTag, mockDeleteTag, mockAddTagAlias, mockRemoveTagAlias, mockGetTagAliases, mockMergeTags, mockDetectDuplicateTags, mockFindUnusedTags, mockDeleteUnusedTags, mockGetEntryTags, mockTagEntry, mockUntagEntry } from "./mock";
+import { mockGetLlmUsageStats, mockGetDailyLlmUsage, mockGetProviderStats, mockGetModelStats, mockGetAgentUsage } from "./provider-mock";
+
+export function isTauri(): boolean {
+  return typeof window !== "undefined" && ("__TAURI__" in window || "__TAURI_INTERNALS__" in window);
+}
+
+async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  if (isTauri()) {
+    const { invoke: tauriInvoke } = await import("@tauri-apps/api/core");
+    return tauriInvoke<T>(cmd, args);
+  }
+  throw new Error("Not in Tauri environment");
+}
+
+// ============ Feed API ============
+
+export async function addFeed(url: string): Promise<Feed> {
+  return invoke<Feed>("add_feed", { url });
+}
+
+export async function removeFeed(id: number): Promise<void> {
+  return invoke("remove_feed", { id });
+}
+
+export async function refreshFeed(id: number): Promise<void> {
+  return invoke("refresh_feed", { id });
+}
+
+export async function refreshAllFeeds(): Promise<number> {
+  return invoke<number>("refresh_all_feeds");
+}
+
+export async function listFeeds(): Promise<FeedSummary[]> {
+  return invoke<FeedSummary[]>("list_feeds");
+}
+
+export async function importOpml(filePath: string): Promise<ImportResult[]> {
+  return invoke<ImportResult[]>("import_opml", { filePath });
+}
+
+export async function exportOpml(filePath: string): Promise<void> {
+  return invoke("export_opml", { filePath });
+}
+
+// ============ Entry API ============
+
+export async function listEntries(
+  feedId: number,
+  page: number = 1,
+  pageSize: number = 20,
+  filter?: string
+): Promise<EntryPage> {
+  return invoke<EntryPage>("list_entries", {
+    feedId,
+    page,
+    pageSize,
+    filter,
+  });
+}
+
+export async function getEntry(id: number): Promise<Entry> {
+  return invoke<Entry>("get_entry", { id });
+}
+
+export async function getEntryContent(entryId: number): Promise<Content> {
+  return invoke<Content>("get_entry_content", { entryId });
+}
+
+export async function processEntryContent(entryId: number, url: string): Promise<Content> {
+  return invoke<Content>("process_entry_content", { entryId, url });
+}
+
+export async function getPipelineVersion(): Promise<number> {
+  if (isTauri()) {
+    return invoke<number>("get_pipeline_version");
+  }
+  return 7; // fallback for mock/dev mode
+}
+
+export async function markRead(id: number): Promise<void> {
+  return invoke("mark_read", { id });
+}
+
+export async function markUnread(id: number): Promise<void> {
+  return invoke("mark_unread", { id });
+}
+
+export async function toggleStar(entryId: number): Promise<boolean> {
+  return invoke<boolean>("toggle_star", { entryId });
+}
+
+export async function getSidebarCounts(): Promise<SidebarCounts> {
+  if (isTauri()) {
+    return invoke<SidebarCounts>("get_sidebar_counts");
+  }
+  return { totalUnread: 0, totalStarred: 0, starredUnread: 0 };
+}
+
+export async function listAllEntries(
+  page: number = 1,
+  pageSize: number = 20,
+  filter?: string
+): Promise<EntryPage> {
+  return invoke<EntryPage>("list_all_entries", { page, pageSize, filter });
+}
+
+export async function searchEntries(
+  query: string,
+  page: number = 1,
+  pageSize: number = 20
+): Promise<EntryPage> {
+  return invoke<EntryPage>("search_entries", { query, page, pageSize });
+}
+
+// ============ Summary API (deprecated — use api/provider.ts) ============
+
+export async function getSummary(entryId: number): Promise<string | null> {
+  return invoke<string | null>("get_summary", { entryId });
+}
+
+// ============ Note API ============
+
+export async function saveNote(entryId: number, content: string): Promise<void> {
+  return invoke("save_note", { entryId, content });
+}
+
+export async function getNote(entryId: number): Promise<Note | null> {
+  return invoke<Note | null>("get_note", { entryId });
+}
+
+export async function deleteNote(id: number): Promise<void> {
+  return invoke("delete_note", { id });
+}
+
+// ============ Settings API ============
+
+export async function listSystemFonts(): Promise<string[]> {
+  return invoke<string[]>("list_system_fonts");
+}
+
+export async function getTheme(): Promise<string> {
+  return invoke<string>("get_theme");
+}
+
+export async function setTheme(theme: string): Promise<void> {
+  return invoke("set_theme", { theme });
+}
+
+export async function getSetting(key: string): Promise<string | null> {
+  return invoke<string | null>("get_setting", { key });
+}
+
+export async function setSetting(key: string, value: string): Promise<void> {
+  return invoke("set_setting", { key, value });
+}
+
+// ============ Digest API (Stage 4) ============
+
+export async function exportSingleDigest(entryId: number, format: string = "markdown"): Promise<string> {
+  return invoke<string>("export_single_digest", { entryId, format });
+}
+
+export async function exportMultiDigest(entryIds: number[], format: string = "markdown"): Promise<string> {
+  return invoke<string>("export_multi_digest", { entryIds, format });
+}
+
+/// Write text content to a file path on disk.
+export async function writeTextFile(path: string, content: string): Promise<void> {
+  return invoke("write_text_file", { path, content });
+}
+
+// ============ Tags API (Stage 5) ============
+
+export async function addTag(name: string, color: string = "#3b82f6"): Promise<Tag> {
+  if (isTauri()) {
+    return invoke<Tag>("add_tag", { name, color });
+  }
+  return mockAddTag(name, color);
+}
+
+export async function listTags(): Promise<Tag[]> {
+  if (isTauri()) {
+    return invoke<Tag[]>("list_tags");
+  }
+  return mockListTags();
+}
+
+export async function getTag(id: number): Promise<Tag> {
+  if (isTauri()) {
+    return invoke<Tag>("get_tag", { id });
+  }
+  return mockGetTag(id);
+}
+
+export async function updateTag(id: number, name: string, color: string): Promise<Tag> {
+  if (isTauri()) {
+    return invoke<Tag>("update_tag", { id, name, color });
+  }
+  return mockUpdateTag(id, name, color);
+}
+
+export async function deleteTag(id: number): Promise<void> {
+  if (isTauri()) {
+    return invoke("delete_tag", { id });
+  }
+  return mockDeleteTag(id);
+}
+
+export async function tagEntry(entryId: number, tagId: number): Promise<void> {
+  if (isTauri()) {
+    return invoke("tag_entry", { entryId, tagId });
+  }
+  return mockTagEntry(entryId, tagId);
+}
+
+export async function untagEntry(entryId: number, tagId: number): Promise<void> {
+  if (isTauri()) {
+    return invoke("untag_entry", { entryId, tagId });
+  }
+  return mockUntagEntry(entryId, tagId);
+}
+
+export async function getEntryTags(entryId: number): Promise<Tag[]> {
+  if (isTauri()) {
+    return invoke<Tag[]>("get_entry_tags", { entryId });
+  }
+  return mockGetEntryTags(entryId);
+}
+
+export async function getTagsWithCount(): Promise<[Tag, number][]> {
+  return invoke<[Tag, number][]>("get_tags_with_count");
+}
+
+export async function getTagStats(tagId: number): Promise<{ entryCount: number }> {
+  return invoke<{ entryCount: number }>("get_tag_stats", { tagId });
+}
+
+// ============ Tags Enhancements API (Stage 5) ============
+
+export async function updateTagStatus(id: number, isProvisional: boolean): Promise<Tag> {
+  return invoke<Tag>("update_tag_status", { id, isProvisional });
+}
+
+export async function mergeTags(sourceId: number, targetId: number): Promise<void> {
+  if (isTauri()) {
+    return invoke("merge_tags", { sourceId, targetId });
+  }
+  return mockMergeTags(targetId, [sourceId]);
+}
+
+export async function addTagAlias(tagId: number, alias: string): Promise<TagAlias> {
+  if (isTauri()) {
+    return invoke<TagAlias>("add_tag_alias", { tagId, alias });
+  }
+  return mockAddTagAlias(tagId, alias);
+}
+
+export async function removeTagAlias(tagId: number, alias: string): Promise<void> {
+  if (isTauri()) {
+    return invoke("remove_tag_alias", { tagId, alias });
+  }
+  return mockRemoveTagAlias(tagId, alias);
+}
+
+export async function getTagAliases(tagId: number): Promise<TagAlias[]> {
+  if (isTauri()) {
+    return invoke<TagAlias[]>("get_tag_aliases", { tagId });
+  }
+  return mockGetTagAliases(tagId);
+}
+
+export async function saveTagRecommendations(entryId: number, recommendations: [string, string, number][]): Promise<void> {
+  return invoke("save_tag_recommendations", { entryId, recommendations });
+}
+
+export async function getTagRecommendations(entryId: number): Promise<{ id: number; entryId: number; tagName: string; sourceType: string; confidence: number; createdAt: string }[]> {
+  return invoke("get_tag_recommendations", { entryId });
+}
+
+export async function generateTagRecommendations(entryId: number, existingTagNames: string[]): Promise<{ id: number; entryId: number; tagName: string; sourceType: string; confidence: number; createdAt: string }[]> {
+  return invoke("generate_tag_recommendations", { entryId, existingTags: existingTagNames });
+}
+
+export interface TagProposal {
+  tagName: string;
+  hitCount: number;
+  entryCount: number;
+}
+
+export interface BatchTagApplyResult {
+  processed: number;
+  success: number;
+  failed: number;
+  tagAssociations: number;
+  newTags: number;
+  keptProposals: number;
+  discardedProposals: number;
+}
+
+export async function analyzeEntriesForTags(
+  range: string,
+  skipBatchTagged: boolean,
+  skipTagged: boolean,
+  concurrency: number
+): Promise<TagProposal[]> {
+  return invoke<TagProposal[]>("analyze_entries_for_tags", { range, skipBatchTagged, skipTagged, concurrency });
+}
+
+export async function countBatchTagCandidates(
+  range: string,
+  skipBatchTagged: boolean,
+  skipTagged: boolean
+): Promise<number> {
+  return invoke<number>("count_batch_tag_candidates", { range, skipBatchTagged, skipTagged });
+}
+
+export async function applyBatchTags(
+  range: string,
+  skipBatchTagged: boolean,
+  skipTagged: boolean,
+  keptTags: string[],
+  totalProposals: number
+): Promise<BatchTagApplyResult> {
+  return invoke<BatchTagApplyResult>("apply_batch_tags", { range, skipBatchTagged, skipTagged, keptTags, totalProposals });
+}
+
+export async function tagEntriesBatch(entryIds: number[], tagId: number): Promise<void> {
+  return invoke("tag_entries_batch", { entryIds, tagId });
+}
+
+export async function countEntriesByDateRange(days: number): Promise<number> {
+  if (isTauri()) {
+    return invoke<number>("count_entries_by_date_range", { days });
+  }
+  return 42; // mock
+}
+
+export async function findPotentialDuplicates(): Promise<DuplicateTagPair[]> {
+  if (isTauri()) {
+    const result: [Tag, Tag, string][] = await invoke("find_potential_duplicates");
+    return result.map(([tagA, tagB, reason]) => ({ tagA, tagB, reason }));
+  }
+  return mockDetectDuplicateTags();
+}
+
+export async function findUnusedTags(): Promise<Tag[]> {
+  if (isTauri()) {
+    return invoke<Tag[]>("find_unused_tags");
+  }
+  return mockFindUnusedTags();
+}
+
+export async function deleteUnusedTags(): Promise<number> {
+  if (isTauri()) {
+    return invoke<number>("delete_unused_tags");
+  }
+  return mockDeleteUnusedTags();
+}
+
+export async function getTagByName(name: string): Promise<Tag | null> {
+  return invoke<Tag | null>("get_tag_by_name", { name });
+}
+
+// ============ LLM Usage Stats API (Stage 5) ============
+
+export interface LlmUsageStats {
+  totalTokens: number;
+  promptTokens: number;
+  completionTokens: number;
+  requestCount: number;
+  successRate: number;
+  avgTokensPerRequest: number;
+}
+
+export interface DailyUsage {
+  date: string;
+  totalTokens: number;
+  promptTokens: number;
+  completionTokens: number;
+  requestCount: number;
+}
+
+export interface ProviderUsage {
+  providerId: number;
+  providerName: string;
+  totalTokens: number;
+  requestCount: number;
+}
+
+export interface ModelUsage {
+  modelId: number;
+  modelName: string;
+  totalTokens: number;
+  requestCount: number;
+}
+
+export interface AgentUsage {
+  agentType: string;
+  totalTokens: number;
+  requestCount: number;
+}
+
+export async function getLlmUsageStats(days: number = 30, agentType?: string): Promise<LlmUsageStats> {
+  if (isTauri()) {
+    return invoke<LlmUsageStats>("get_llm_usage_stats", { days, agentType });
+  }
+  return mockGetLlmUsageStats(days);
+}
+
+export async function getLlmDailyUsage(days: number = 30, agentType?: string): Promise<DailyUsage[]> {
+  if (isTauri()) {
+    return invoke<DailyUsage[]>("get_llm_daily_usage", { days, agentType });
+  }
+  return mockGetDailyLlmUsage(days);
+}
+
+export async function getLlmProviderUsage(days: number = 30): Promise<ProviderUsage[]> {
+  if (isTauri()) {
+    return invoke<ProviderUsage[]>("get_llm_provider_usage", { days });
+  }
+  return mockGetProviderStats();
+}
+
+export async function getLlmModelUsage(days: number = 30): Promise<ModelUsage[]> {
+  if (isTauri()) {
+    return invoke<ModelUsage[]>("get_llm_model_usage", { days });
+  }
+  return mockGetModelStats();
+}
+
+export async function getLlmAgentUsage(days: number = 30): Promise<AgentUsage[]> {
+  if (isTauri()) {
+    return invoke<AgentUsage[]>("get_llm_agent_usage", { days });
+  }
+  return mockGetAgentUsage();
+}
+
+export async function cleanupOldLlmEvents(retentionDays: number = 90): Promise<number> {
+  return invoke<number>("cleanup_old_llm_events", { retentionDays });
+}
+
+// ============ Settings API (Stage 5) ============
+
+export async function deleteSetting(key: string): Promise<void> {
+  return invoke("delete_setting", { key });
+}
