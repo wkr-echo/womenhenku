@@ -1711,7 +1711,6 @@ function TokenUsage() {
         getLlmAgentUsage(days).catch(e => { console.error("agent failed", e); return []; }),
       ]);
       setDailyUsage(daily);
-      console.log("Daily usage data:", JSON.stringify(daily));
       setStats(statsData);
       setProviderUsage(providers);
       setModelUsage(models);
@@ -1786,7 +1785,6 @@ function TokenUsage() {
   };
 
   const maxDailyValue = dailyUsage.length > 0 ? Math.max(...dailyUsage.map(getBarValue)) : 1;
-  console.log("Daily chart: items=", dailyUsage.length, "maxVal=", maxDailyValue, "values=", dailyUsage.map(getBarValue));
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -1852,7 +1850,7 @@ function TokenUsage() {
       ) : (
         <>
           <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-6">
-            <h3 className="font-medium text-sm mb-4">{t("每日 Token 用量")} ({dailyUsage.length} days, max={maxDailyValue})</h3>
+            <h3 className="font-medium text-sm mb-4">{t("每日 Token 用量")}</h3>
             <div className="h-32 flex items-end gap-2">
               {dailyUsage.map((d, i) => {
                 const value = getBarValue(d);
