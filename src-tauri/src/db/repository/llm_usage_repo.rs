@@ -4,9 +4,21 @@ use crate::db::model::{LlmUsageEvent, LlmUsageStats, DailyUsage, ProviderUsage, 
 use crate::db::DbPool;
 use crate::db::error::RepositoryError;
 
-/// Build a FROM clause that reads from usage_events + optionally llm_usage_events.
-/// Falls back gracefully if the legacy table doesn't exist.
+/// Build a FROM clause. Creates usage_events table if it doesn't exist yet
+/// (safety net in case migration 009 hasn't run).
 fn usage_source(conn: &rusqlite::Connection, days: i64, extra_cols: bool) -> String {
+    // Ensure usage_events table exists (defensive — migration 009 should have created it)
+    let _ = conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS usage_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_type TEXT NOT NULL, total_tokens INTEGER, prompt_tokens INTEGER,
+            completion_tokens INTEGER, request_status TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            provider_id INTEGER, provider_name_snapshot TEXT, provider_base_url_snapshot TEXT,
+            provider_host_snapshot TEXT, model_id INTEGER, model_name_snapshot TEXT
+        );"
+    );
+
     let has_legacy: bool = conn
         .query_row(
             "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='llm_usage_events'",

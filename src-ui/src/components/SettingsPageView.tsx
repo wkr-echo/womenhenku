@@ -1704,11 +1704,11 @@ function TokenUsage() {
     setLoading(true);
     try {
       const [daily, statsData, providers, models, agents] = await Promise.all([
-        getLlmDailyUsage(days, agentType),
-        getLlmUsageStats(days, agentType),
-        getLlmProviderUsage(days),
-        getLlmModelUsage(days),
-        getLlmAgentUsage(days),
+        getLlmDailyUsage(days, agentType).catch(e => { console.error("daily failed", e); return []; }),
+        getLlmUsageStats(days, agentType).catch(e => { console.error("stats failed", e); return null; }),
+        getLlmProviderUsage(days).catch(e => { console.error("provider failed", e); return []; }),
+        getLlmModelUsage(days).catch(e => { console.error("model failed", e); return []; }),
+        getLlmAgentUsage(days).catch(e => { console.error("agent failed", e); return []; }),
       ]);
       setDailyUsage(daily);
       setStats(statsData);
