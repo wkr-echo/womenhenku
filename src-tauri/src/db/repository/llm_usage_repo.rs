@@ -4,19 +4,41 @@ use crate::db::model::{LlmUsageEvent, LlmUsageStats, DailyUsage, ProviderUsage, 
 use crate::db::DbPool;
 use crate::db::error::RepositoryError;
 
-/// UNION query: reads from both new usage_events and legacy llm_usage_events.
-/// Normalizes column names: usage_events(task_type,created_at) + llm_usage_events(agent_type,timestamp)
-fn usage_source(days: i64, extra_cols: bool) -> String {
-    if extra_cols {
-        format!(
-            "FROM (SELECT task_type AS agent_type, total_tokens, prompt_tokens, completion_tokens, request_status, created_at AS ts, provider_id, COALESCE(provider_name_snapshot, '') AS pname, model_id, COALESCE(model_name_snapshot, '') AS mname FROM usage_events UNION ALL SELECT agent_type, total_tokens, prompt_tokens, completion_tokens, request_status, timestamp, provider_id, COALESCE(provider_name, ''), model_id, COALESCE(model_name, '') FROM llm_usage_events) WHERE ts >= datetime('now', '-{} days')",
-            days
+/// Build a FROM clause that reads from usage_events + optionally llm_usage_events.
+/// Falls back gracefully if the legacy table doesn't exist.
+fn usage_source(conn: &rusqlite::Connection, days: i64, extra_cols: bool) -> String {
+    let has_legacy: bool = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='llm_usage_events'",
+            [],
+            |row| row.get::<_, i64>(0),
         )
+        .unwrap_or(0) > 0;
+
+    if has_legacy {
+        if extra_cols {
+            format!(
+                "FROM (SELECT task_type AS agent_type, total_tokens, prompt_tokens, completion_tokens, request_status, created_at AS ts, provider_id, COALESCE(provider_name_snapshot, '') AS pname, model_id, COALESCE(model_name_snapshot, '') AS mname FROM usage_events UNION ALL SELECT agent_type, total_tokens, prompt_tokens, completion_tokens, request_status, timestamp, provider_id, COALESCE(provider_name, ''), model_id, COALESCE(model_name, '') FROM llm_usage_events) WHERE ts >= datetime('now', '-{} days')",
+                days
+            )
+        } else {
+            format!(
+                "FROM (SELECT task_type AS agent_type, total_tokens, prompt_tokens, completion_tokens, request_status, created_at AS ts FROM usage_events UNION ALL SELECT agent_type, total_tokens, prompt_tokens, completion_tokens, request_status, timestamp FROM llm_usage_events) WHERE ts >= datetime('now', '-{} days')",
+                days
+            )
+        }
     } else {
-        format!(
-            "FROM (SELECT task_type AS agent_type, total_tokens, prompt_tokens, completion_tokens, request_status, created_at AS ts FROM usage_events UNION ALL SELECT agent_type, total_tokens, prompt_tokens, completion_tokens, request_status, timestamp FROM llm_usage_events) WHERE ts >= datetime('now', '-{} days')",
-            days
-        )
+        if extra_cols {
+            format!(
+                "FROM (SELECT task_type AS agent_type, total_tokens, prompt_tokens, completion_tokens, request_status, created_at AS ts, provider_id, COALESCE(provider_name_snapshot, '') AS pname, model_id, COALESCE(model_name_snapshot, '') AS mname FROM usage_events) WHERE ts >= datetime('now', '-{} days')",
+                days
+            )
+        } else {
+            format!(
+                "FROM (SELECT task_type AS agent_type, total_tokens, prompt_tokens, completion_tokens, request_status, created_at AS ts FROM usage_events) WHERE ts >= datetime('now', '-{} days')",
+                days
+            )
+        }
     }
 }
 
@@ -58,7 +80,7 @@ impl LlmUsageRepository {
             Some(at) => {
                 let sql = format!(
                     "SELECT COALESCE(SUM(total_tokens), 0), COALESCE(SUM(prompt_tokens), 0), COALESCE(SUM(completion_tokens), 0), COUNT(*), COALESCE(SUM(CASE WHEN request_status IN ('succeeded','success') THEN 1 ELSE 0 END), 0) {} AND agent_type = ?",
-                    usage_source(days, false)
+                    usage_source(&conn, days, false)
                 );
                 let mut stmt = conn.prepare(&sql)?;
                 let mut rows = stmt.query_map(params![at], |row| {
@@ -75,7 +97,7 @@ impl LlmUsageRepository {
             None => {
                 let sql = format!(
                     "SELECT COALESCE(SUM(total_tokens), 0), COALESCE(SUM(prompt_tokens), 0), COALESCE(SUM(completion_tokens), 0), COUNT(*), COALESCE(SUM(CASE WHEN request_status IN ('succeeded','success') THEN 1 ELSE 0 END), 0) {}",
-                    usage_source(days, false)
+                    usage_source(&conn, days, false)
                 );
                 let mut stmt = conn.prepare(&sql)?;
                 let mut rows = stmt.query_map([], |row| {
@@ -119,7 +141,7 @@ impl LlmUsageRepository {
         if let Some(at) = agent_type {
             let sql = format!(
                 "SELECT DATE(ts) as date, COALESCE(SUM(total_tokens), 0), COALESCE(SUM(prompt_tokens), 0), COALESCE(SUM(completion_tokens), 0), COUNT(*) {} AND agent_type = ? GROUP BY DATE(ts) ORDER BY date",
-                usage_source(days, false)
+                usage_source(&conn, days, false)
             );
             let mut stmt = conn.prepare(&sql)?;
             let rows = stmt.query_map(params![at], map_daily_usage)?;
@@ -127,7 +149,7 @@ impl LlmUsageRepository {
         } else {
             let sql = format!(
                 "SELECT DATE(ts) as date, COALESCE(SUM(total_tokens), 0), COALESCE(SUM(prompt_tokens), 0), COALESCE(SUM(completion_tokens), 0), COUNT(*) {} GROUP BY DATE(ts) ORDER BY date",
-                usage_source(days, false)
+                usage_source(&conn, days, false)
             );
             let mut stmt = conn.prepare(&sql)?;
             let rows = stmt.query_map([], map_daily_usage)?;
@@ -140,7 +162,7 @@ impl LlmUsageRepository {
 
         let sql = format!(
             "SELECT provider_id, pname, COALESCE(SUM(total_tokens), 0), COUNT(*) {} GROUP BY provider_id ORDER BY SUM(total_tokens) DESC",
-            usage_source(days, true)
+            usage_source(&conn, days, true)
         );
         let mut stmt = conn.prepare(&sql)?;
 
@@ -161,7 +183,7 @@ impl LlmUsageRepository {
 
         let sql = format!(
             "SELECT model_id, mname, COALESCE(SUM(total_tokens), 0), COUNT(*) {} GROUP BY model_id ORDER BY SUM(total_tokens) DESC",
-            usage_source(days, true)
+            usage_source(&conn, days, true)
         );
         let mut stmt = conn.prepare(&sql)?;
 
@@ -182,7 +204,7 @@ impl LlmUsageRepository {
 
         let sql = format!(
             "SELECT agent_type, COALESCE(SUM(total_tokens), 0), COUNT(*) {} GROUP BY agent_type ORDER BY SUM(total_tokens) DESC",
-            usage_source(days, false)
+            usage_source(&conn, days, false)
         );
         let mut stmt = conn.prepare(&sql)?;
 

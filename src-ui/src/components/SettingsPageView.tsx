@@ -1717,6 +1717,12 @@ function TokenUsage() {
       setAgentUsage(agents);
     } catch (e: any) {
       console.error("Failed to load LLM usage data", e);
+      // Show error state instead of blank page
+      setDailyUsage([]);
+      setStats(null);
+      setProviderUsage([]);
+      setModelUsage([]);
+      setAgentUsage([]);
     } finally {
       setLoading(false);
     }
