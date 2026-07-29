@@ -314,7 +314,7 @@ pub fn render(markdown: &str) -> String {
     .reader-theme table {{ border-collapse: collapse; width: 100%; margin-bottom: 1em; }}
     .reader-theme th, .reader-theme td {{ border: 1px solid var(--mercury-border-color); padding: 0.5em 0.75em; text-align: left; }}
     .reader-theme th {{ background: var(--mercury-bg-secondary); }}
-    .reader-theme img {{ max-width: 100%; height: auto; }}
+    .reader-theme img {{ max-width: 100%; height: auto; -webkit-user-drag: none; -webkit-touch-callout: none; user-select: none; }}
     .reader-theme ul, .reader-theme ol {{ padding-left: 1.5em; margin-bottom: 1em; }}
     .reader-theme hr {{ border: none; border-top: 1px solid var(--mercury-border-color); margin: 2em 0; }}
   </style>

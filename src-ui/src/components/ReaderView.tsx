@@ -287,6 +287,15 @@ export function ReaderView() {
     setSidePanel((prev) => (prev === panel ? null : panel));
   };
 
+  // Prevent WebView default image viewer on click
+  const handleContentClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName === "IMG") {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  };
+
   const handleExportArticle = async (format: ExportFormat) => {
     setExporting(true);
     try {
@@ -501,7 +510,7 @@ export function ReaderView() {
                 <div className="translation-bilingual space-y-6">
                   {segments.map((seg, i) => (
                     <div key={i} className="grid grid-cols-2 gap-4 items-start">
-                      <div className="reader-content" dangerouslySetInnerHTML={{ __html: seg.source }} />
+                      <div className="reader-content" dangerouslySetInnerHTML={{ __html: seg.source }} onClick={handleContentClick} />
                       <div className={`reader-content ${
                         seg.status === "pending" ? "text-[var(--text-tertiary)]" :
                         seg.status === "streaming" ? "text-[var(--text-secondary)]" :
@@ -524,6 +533,7 @@ export function ReaderView() {
                 <div
                   className="reader-content"
                   dangerouslySetInnerHTML={{ __html: (content.renderedHtml || content.cleanedHtml || content.rawHtml)! }}
+                  onClick={handleContentClick}
                 />
               )
             ) : (
