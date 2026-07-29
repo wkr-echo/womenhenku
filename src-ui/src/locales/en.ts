@@ -217,6 +217,7 @@ const translations: Record<string, string> = {
   "已连接": "Connected",
   "已选 {count} 篇": "{count} selected",
   "已选择": "Selected",
+  "已显示全部文章": "All articles loaded",
   "平台": "Platform",
   "并发同步数": "Concurrent Syncs",
   "快速保存": "Quick Save",

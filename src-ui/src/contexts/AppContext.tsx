@@ -36,6 +36,8 @@ interface State {
   viewMode: ViewMode;
   entries: EntryListItem[];
   entriesTotal: number;
+  currentPage: number;
+  isLoadingMore: boolean;
   searchQuery: string;
   sidebarCollapsed: boolean;
   tags: Tag[];
@@ -67,7 +69,10 @@ type Action =
   | { type: "SET_TAG_MATCH_MODE"; mode: "or" | "and" }
   | { type: "SET_BATCH_TAGGING"; isRunning: boolean }
   | { type: "SET_SIDEBAR_COUNTS"; counts: SidebarCounts }
-  | { type: "SET_SYNC_STATUS"; status: "idle" | "syncing" | "failed"; error?: string };
+  | { type: "SET_SYNC_STATUS"; status: "idle" | "syncing" | "failed"; error?: string }
+  | { type: "APPEND_ENTRIES"; entries: EntryListItem[] }
+  | { type: "SET_PAGE"; page: number }
+  | { type: "SET_LOADING_MORE"; loading: boolean };
 
 const initialState: State = {
   feeds: [],
@@ -76,6 +81,8 @@ const initialState: State = {
   viewMode: "list",
   entries: [],
   entriesTotal: 0,
+  currentPage: 1,
+  isLoadingMore: false,
   searchQuery: "",
   sidebarCollapsed: false,
   tags: [],
@@ -97,7 +104,11 @@ function reducer(state: State, action: Action): State {
     case "SET_VIEW_MODE":
       return { ...state, viewMode: action.mode };
     case "SET_ENTRIES":
-      return { ...state, entries: action.entries, entriesTotal: action.total };
+      return { ...state, entries: action.entries, entriesTotal: action.total, currentPage: 1 };
+    case "APPEND_ENTRIES":
+      return { ...state, entries: [...state.entries, ...action.entries], isLoadingMore: false };
+    case "SET_LOADING_MORE":
+      return { ...state, isLoadingMore: action.loading };
     case "SET_SEARCH_QUERY":
       return { ...state, searchQuery: action.query };
     case "TOGGLE_SIDEBAR":
@@ -194,6 +205,8 @@ interface AppContextType {
   viewMode: ViewMode;
   entries: EntryListItem[];
   entriesTotal: number;
+  currentPage: number;
+  isLoadingMore: boolean;
   searchQuery: string;
   sidebarCollapsed: boolean;
   tags: Tag[];
@@ -226,6 +239,8 @@ interface AppContextType {
   toggleTagSelection: (tagId: number) => void;
   setTagMatchMode: (mode: "or" | "and") => void;
   setBatchTagging: (isRunning: boolean) => void;
+  loadMore: () => void;
+  hasMore: boolean;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -548,6 +563,50 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "SET_VIEW_MODE", mode });
   }, []);
 
+  const loadMore = useCallback(() => {
+    if (state.isLoadingMore) return;
+    const nextPage = state.currentPage + 1;
+    dispatch({ type: "SET_LOADING_MORE", loading: true });
+
+    const sel = state.feedSelection;
+    const fetchPage = (): Promise<EntryPage> => {
+      if (state.selectedTagIds.length > 0) {
+        return import("@tauri-apps/api/core").then(({ invoke }) =>
+          invoke<EntryPage>("list_entries_by_tags", {
+            tagIds: state.selectedTagIds,
+            matchMode: state.tagMatchMode,
+            page: nextPage,
+            pageSize: 50,
+          })
+        );
+      }
+      if (sel.type === "all") return listAllEntriesReal(nextPage, 50);
+      if (sel.type === "starred") return listAllEntriesReal(nextPage, 50, "starred");
+      if (sel.type === "feed") return listEntriesReal(sel.feedId, nextPage, 50);
+      if (sel.type === "tag") {
+        return import("@tauri-apps/api/core").then(({ invoke }) =>
+          invoke<EntryPage>("list_entries_by_tag", { tagId: sel.tagId, page: nextPage, pageSize: 50 })
+        );
+      }
+      return Promise.resolve({ entries: [], total: state.entriesTotal, page: nextPage, pageSize: 50 });
+    };
+
+    fetchPage()
+      .then((page) => {
+        if (page.entries.length > 0) {
+          dispatch({ type: "APPEND_ENTRIES", entries: page.entries });
+          dispatch({ type: "SET_PAGE", page: nextPage });
+        } else {
+          dispatch({ type: "SET_LOADING_MORE", loading: false });
+        }
+      })
+      .catch(() => {
+        dispatch({ type: "SET_LOADING_MORE", loading: false });
+      });
+  }, [state.feedSelection, state.selectedTagIds, state.tagMatchMode, state.currentPage, state.isLoadingMore, state.entriesTotal]);
+
+  const hasMore = state.entries.length < state.entriesTotal;
+
   const setSearchQuery = useCallback((query: string) => {
     dispatch({ type: "SET_SEARCH_QUERY", query });
   }, []);
@@ -577,6 +636,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         toggleTagSelection,
         setTagMatchMode,
         setBatchTagging,
+        loadMore,
+        hasMore,
       }}
     >
       {children}

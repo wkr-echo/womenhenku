@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { cn, formatDate, truncate, t } from "@/lib/utils";
 import { exportMultiDigest, writeTextFile } from "@/api/feed";
@@ -7,9 +7,10 @@ import { toast } from "@/components/ui/Toast";
 import type { EntryListItem } from "@/lib/types";
 
 export function EntryListView() {
-  const { entries, selectedEntry, selectEntry, searchQuery } = useApp();
+  const { entries, selectedEntry, selectEntry, searchQuery, loadMore, hasMore, isLoadingMore } = useApp();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [exporting, setExporting] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   const toggleSelect = (id: number) => {
     setSelectedIds((prev) => {
@@ -21,6 +22,22 @@ export function EntryListView() {
   };
 
   const clearSelection = () => setSelectedIds(new Set());
+
+  // Infinite scroll: observe sentinel element to trigger loadMore
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && hasMore && !isLoadingMore) {
+          loadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, isLoadingMore, loadMore]);
 
   const handleBatchExport = async (format: "markdown" | "html") => {
     if (selectedIds.size === 0) return;
@@ -93,6 +110,15 @@ export function EntryListView() {
               onCheck={() => toggleSelect(entry.id)}
             />
           ))}
+          {/* Sentinel for infinite scroll + loading indicator */}
+          <div ref={sentinelRef} className="py-4 flex items-center justify-center">
+            {isLoadingMore && (
+              <span className="text-xs text-[var(--text-tertiary)]">{t("加载中...")}</span>
+            )}
+            {!hasMore && entries.length > 0 && (
+              <span className="text-xs text-[var(--text-tertiary)]">{t("已显示全部文章")}</span>
+            )}
+          </div>
         </div>
       </div>
 
