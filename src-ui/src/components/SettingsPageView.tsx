@@ -1857,7 +1857,15 @@ function TokenUsage() {
                 const height = (value / maxDailyValue) * 100;
                 return (
                   <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                    <div className="w-full rounded-t bg-[var(--accent-color)] transition-all" style={{ height: `${height}%`, minHeight: "4px" }} />
+                    <div
+                      className="w-full rounded-t transition-all"
+                      style={{
+                        height: `${height}%`,
+                        minHeight: value > 0 ? "4px" : "0px",
+                        backgroundColor: value > 0 ? "var(--accent-color)" : "transparent",
+                        border: "1px solid var(--accent-color)",
+                      }}
+                    />
                     <span className="text-xs text-[var(--text-tertiary)]">{d.date}</span>
                   </div>
                 );
