@@ -23,20 +23,29 @@ export function EntryListView() {
 
   const clearSelection = () => setSelectedIds(new Set());
 
-  // Infinite scroll: observe sentinel element to trigger loadMore
+  // Infinite scroll: observe sentinel element with debounce to avoid immediate trigger on feed switch
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && hasMore && !isLoadingMore) {
-          loadMore();
-        }
-      },
-      { threshold: 0.1 }
-    );
-    observer.observe(sentinel);
-    return () => observer.disconnect();
+    // Delay observer activation to let the initial render settle
+    const timer = setTimeout(() => {
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting && hasMore && !isLoadingMore) {
+            loadMore();
+          }
+        },
+        { rootMargin: "200px" }
+      );
+      observer.observe(sentinel);
+      // Store observer for cleanup
+      (sentinel as any).__observer = observer;
+    }, 300);
+    return () => {
+      clearTimeout(timer);
+      const obs = (sentinel as any).__observer;
+      if (obs) obs.disconnect();
+    };
   }, [hasMore, isLoadingMore, loadMore]);
 
   const handleBatchExport = async (format: "markdown" | "html") => {

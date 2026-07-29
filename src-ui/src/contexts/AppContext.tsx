@@ -4,6 +4,7 @@ import {
   useReducer,
   useCallback,
   useEffect,
+  useRef,
   type ReactNode,
 } from "react";
 import type { FeedSummary, EntryListItem, Entry, EntryPage, ViewMode, Tag, SidebarCounts, FeedSelection } from "@/lib/types";
@@ -567,9 +568,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "SET_VIEW_MODE", mode });
   }, []);
 
+  // Use a ref for isLoadingMore to avoid recreating loadMore callback on every load state change
+  const isLoadingMoreRef = useRef(false);
+
   const loadMore = useCallback(() => {
-    if (state.isLoadingMore) return;
+    if (isLoadingMoreRef.current) return;
     const nextPage = state.currentPage + 1;
+    isLoadingMoreRef.current = true;
     dispatch({ type: "SET_LOADING_MORE", loading: true });
 
     const sel = state.feedSelection;
@@ -597,6 +602,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     fetchPage()
       .then((page) => {
+        isLoadingMoreRef.current = false;
         if (page.entries.length > 0) {
           dispatch({ type: "APPEND_ENTRIES", entries: page.entries });
           dispatch({ type: "SET_PAGE", page: nextPage });
@@ -605,9 +611,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       })
       .catch(() => {
+        isLoadingMoreRef.current = false;
         dispatch({ type: "SET_LOADING_MORE", loading: false });
       });
-  }, [state.feedSelection, state.selectedTagIds, state.tagMatchMode, state.currentPage, state.isLoadingMore, state.entriesTotal]);
+  }, [state.feedSelection, state.selectedTagIds, state.tagMatchMode, state.currentPage, state.entriesTotal]);
 
   const hasMore = state.entries.length < state.entriesTotal;
 
