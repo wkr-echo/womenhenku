@@ -1858,14 +1858,20 @@ function TokenUsage() {
                 return (
                   <div key={i} className="flex-1 flex flex-col items-center gap-1">
                     <div
-                      className="w-full rounded-t transition-all"
+                      className="w-full rounded-t transition-all flex items-end justify-center overflow-hidden"
                       style={{
                         height: `${height}%`,
-                        minHeight: value > 0 ? "4px" : "0px",
+                        minHeight: value > 0 ? "20px" : "0px",
                         backgroundColor: value > 0 ? "var(--accent-color)" : "transparent",
-                        border: "1px solid var(--accent-color)",
+                        opacity: 0.85,
                       }}
-                    />
+                    >
+                      {value > 0 && height > 5 && (
+                        <span className="text-[10px] text-white font-semibold pb-0.5">
+                          {value >= 1000 ? `${(value/1000).toFixed(0)}k` : value}
+                        </span>
+                      )}
+                    </div>
                     <span className="text-xs text-[var(--text-tertiary)]">{d.date}</span>
                   </div>
                 );
