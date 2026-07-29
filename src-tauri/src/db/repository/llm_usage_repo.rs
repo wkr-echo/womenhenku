@@ -16,7 +16,7 @@ impl LlmUsageRepository {
     pub fn insert_event(&self, event: &LlmUsageEvent) -> Result<(), RepositoryError> {
         let conn = self.pool.get()?;
         conn.execute(
-            "INSERT INTO llm_usage_events (provider_id, provider_name, provider_base_url, provider_host, model_id, model_name, agent_type, prompt_tokens, completion_tokens, total_tokens, request_status, timestamp) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+            "INSERT INTO usage_events (provider_id, provider_name_snapshot, provider_base_url_snapshot, provider_host_snapshot, model_id, model_name_snapshot, task_type, prompt_tokens, completion_tokens, total_tokens, request_status, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             params![
                 event.provider_id,
                 event.provider_name,
@@ -41,7 +41,7 @@ impl LlmUsageRepository {
         let (total_tokens, prompt_tokens, completion_tokens, request_count, success_count) = match agent_type {
             Some(at) => {
                 let sql = format!(
-                    "SELECT COALESCE(SUM(total_tokens), 0), COALESCE(SUM(prompt_tokens), 0), COALESCE(SUM(completion_tokens), 0), COUNT(*), COALESCE(SUM(CASE WHEN request_status = 'success' THEN 1 ELSE 0 END), 0) FROM llm_usage_events WHERE timestamp >= datetime('now', '-{} days') AND agent_type = ?",
+                    "SELECT COALESCE(SUM(total_tokens), 0), COALESCE(SUM(prompt_tokens), 0), COALESCE(SUM(completion_tokens), 0), COUNT(*), COALESCE(SUM(CASE WHEN request_status = 'succeeded' THEN 1 ELSE 0 END), 0) FROM usage_events WHERE created_at >= datetime('now', '-{} days') AND task_type = ?",
                     days
                 );
                 let mut stmt = conn.prepare(&sql)?;
@@ -58,7 +58,7 @@ impl LlmUsageRepository {
             }
             None => {
                 let sql = format!(
-                    "SELECT COALESCE(SUM(total_tokens), 0), COALESCE(SUM(prompt_tokens), 0), COALESCE(SUM(completion_tokens), 0), COUNT(*), COALESCE(SUM(CASE WHEN request_status = 'success' THEN 1 ELSE 0 END), 0) FROM llm_usage_events WHERE timestamp >= datetime('now', '-{} days')",
+                    "SELECT COALESCE(SUM(total_tokens), 0), COALESCE(SUM(prompt_tokens), 0), COALESCE(SUM(completion_tokens), 0), COUNT(*), COALESCE(SUM(CASE WHEN request_status = 'succeeded' THEN 1 ELSE 0 END), 0) FROM usage_events WHERE created_at >= datetime('now', '-{} days')",
                     days
                 );
                 let mut stmt = conn.prepare(&sql)?;
@@ -102,7 +102,7 @@ impl LlmUsageRepository {
 
         if let Some(at) = agent_type {
             let sql = format!(
-                "SELECT DATE(timestamp) as date, COALESCE(SUM(total_tokens), 0), COALESCE(SUM(prompt_tokens), 0), COALESCE(SUM(completion_tokens), 0), COUNT(*) FROM llm_usage_events WHERE timestamp >= datetime('now', '-{} days') AND agent_type = ? GROUP BY DATE(timestamp) ORDER BY date",
+                "SELECT DATE(created_at) as date, COALESCE(SUM(total_tokens), 0), COALESCE(SUM(prompt_tokens), 0), COALESCE(SUM(completion_tokens), 0), COUNT(*) FROM usage_events WHERE created_at >= datetime('now', '-{} days') AND task_type = ? GROUP BY DATE(created_at) ORDER BY date",
                 days
             );
             let mut stmt = conn.prepare(&sql)?;
@@ -110,7 +110,7 @@ impl LlmUsageRepository {
             rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
         } else {
             let sql = format!(
-                "SELECT DATE(timestamp) as date, COALESCE(SUM(total_tokens), 0), COALESCE(SUM(prompt_tokens), 0), COALESCE(SUM(completion_tokens), 0), COUNT(*) FROM llm_usage_events WHERE timestamp >= datetime('now', '-{} days') GROUP BY DATE(timestamp) ORDER BY date",
+                "SELECT DATE(created_at) as date, COALESCE(SUM(total_tokens), 0), COALESCE(SUM(prompt_tokens), 0), COALESCE(SUM(completion_tokens), 0), COUNT(*) FROM usage_events WHERE created_at >= datetime('now', '-{} days') GROUP BY DATE(created_at) ORDER BY date",
                 days
             );
             let mut stmt = conn.prepare(&sql)?;
@@ -123,7 +123,7 @@ impl LlmUsageRepository {
         let conn = self.pool.get()?;
 
         let sql = format!(
-            "SELECT provider_id, provider_name, COALESCE(SUM(total_tokens), 0), COUNT(*) FROM llm_usage_events WHERE timestamp >= datetime('now', '-{} days') GROUP BY provider_id ORDER BY SUM(total_tokens) DESC",
+            "SELECT provider_id, COALESCE(provider_name_snapshot, ''), COALESCE(SUM(total_tokens), 0), COUNT(*) FROM usage_events WHERE created_at >= datetime('now', '-{} days') GROUP BY provider_id ORDER BY SUM(total_tokens) DESC",
             days
         );
         let mut stmt = conn.prepare(&sql)?;
@@ -144,7 +144,7 @@ impl LlmUsageRepository {
         let conn = self.pool.get()?;
 
         let sql = format!(
-            "SELECT model_id, model_name, COALESCE(SUM(total_tokens), 0), COUNT(*) FROM llm_usage_events WHERE timestamp >= datetime('now', '-{} days') GROUP BY model_id ORDER BY SUM(total_tokens) DESC",
+            "SELECT model_id, COALESCE(model_name_snapshot, ''), COALESCE(SUM(total_tokens), 0), COUNT(*) FROM usage_events WHERE created_at >= datetime('now', '-{} days') GROUP BY model_id ORDER BY SUM(total_tokens) DESC",
             days
         );
         let mut stmt = conn.prepare(&sql)?;
@@ -165,7 +165,7 @@ impl LlmUsageRepository {
         let conn = self.pool.get()?;
 
         let sql = format!(
-            "SELECT agent_type, COALESCE(SUM(total_tokens), 0), COUNT(*) FROM llm_usage_events WHERE timestamp >= datetime('now', '-{} days') GROUP BY agent_type ORDER BY SUM(total_tokens) DESC",
+            "SELECT task_type, COALESCE(SUM(total_tokens), 0), COUNT(*) FROM usage_events WHERE created_at >= datetime('now', '-{} days') GROUP BY task_type ORDER BY SUM(total_tokens) DESC",
             days
         );
         let mut stmt = conn.prepare(&sql)?;
@@ -184,7 +184,7 @@ impl LlmUsageRepository {
     pub fn cleanup_old_events(&self, retention_days: i64) -> Result<usize, RepositoryError> {
         let conn = self.pool.get()?;
         let sql = format!(
-            "DELETE FROM llm_usage_events WHERE timestamp < datetime('now', '-{} days')",
+            "DELETE FROM usage_events WHERE created_at < datetime('now', '-{} days')",
             retention_days
         );
         let affected = conn.execute(&sql, [])?;
@@ -193,7 +193,7 @@ impl LlmUsageRepository {
 
     pub fn delete_all_events(&self) -> Result<usize, RepositoryError> {
         let conn = self.pool.get()?;
-        let affected = conn.execute("DELETE FROM llm_usage_events", [])?;
+        let affected = conn.execute("DELETE FROM usage_events", [])?;
         Ok(affected)
     }
 }
@@ -288,7 +288,7 @@ mod tests {
             prompt_tokens: 100,
             completion_tokens: 50,
             total_tokens: 150,
-            request_status: "success".to_string(),
+            request_status: "succeeded".to_string(),
             timestamp: "2026-07-20 10:00:00".to_string(),
             created_at: "2026-07-20 10:00:00".to_string(),
         };
@@ -318,7 +318,7 @@ mod tests {
             prompt_tokens: 200,
             completion_tokens: 100,
             total_tokens: 300,
-            request_status: "success".to_string(),
+            request_status: "succeeded".to_string(),
             timestamp: "2026-07-20 10:00:00".to_string(),
             created_at: "2026-07-20 10:00:00".to_string(),
         };
