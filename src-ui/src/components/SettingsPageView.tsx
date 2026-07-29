@@ -1894,7 +1894,7 @@ function TokenUsage() {
             <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-6">
               <h3 className="font-medium text-sm mb-4">{t("Provider 用量对比")}</h3>
               <div className="space-y-3">
-                {providerUsage.sort((a, b) => b.totalTokens - a.totalTokens).map((item) => {
+                {[...providerUsage].sort((a, b) => b.totalTokens - a.totalTokens).map((item) => {
                   const value = activeMetric === "tokens" ? item.totalTokens : item.requestCount;
                   const maxValue = Math.max(...providerUsage.map(i => activeMetric === "tokens" ? i.totalTokens : i.requestCount));
                   const width = maxValue > 0 ? (value / maxValue) * 100 : 0;
@@ -1919,7 +1919,7 @@ function TokenUsage() {
             <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-6">
               <h3 className="font-medium text-sm mb-4">{t("模型用量对比")}</h3>
               <div className="space-y-3">
-                {modelUsage.sort((a, b) => b.totalTokens - a.totalTokens).map((item) => {
+                {[...modelUsage].sort((a, b) => b.totalTokens - a.totalTokens).map((item) => {
                   const value = activeMetric === "tokens" ? item.totalTokens : item.requestCount;
                   const maxValue = Math.max(...modelUsage.map(i => activeMetric === "tokens" ? i.totalTokens : i.requestCount));
                   const width = maxValue > 0 ? (value / maxValue) * 100 : 0;
@@ -1944,7 +1944,7 @@ function TokenUsage() {
             <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-6">
               <h3 className="font-medium text-sm mb-4">{t("Agent 用量对比")}</h3>
               <div className="space-y-3">
-                {agentUsage.sort((a, b) => b.totalTokens - a.totalTokens).map((item) => {
+                {[...agentUsage].sort((a, b) => b.totalTokens - a.totalTokens).map((item) => {
                   const value = activeMetric === "tokens" ? item.totalTokens : item.requestCount;
                   const maxValue = Math.max(...agentUsage.map(i => activeMetric === "tokens" ? i.totalTokens : i.requestCount));
                   const width = maxValue > 0 ? (value / maxValue) * 100 : 0;

@@ -1,6 +1,6 @@
 import type { Feed, Entry, Content, EntryPage, Provider, Summary, Note, FeedSummary, ImportResult, Tag, TagAlias, DuplicateTagPair, SidebarCounts } from "@/lib/types";
 import { mockAddTag, mockListTags, mockGetTag, mockUpdateTag, mockDeleteTag, mockAddTagAlias, mockRemoveTagAlias, mockGetTagAliases, mockMergeTags, mockDetectDuplicateTags, mockFindUnusedTags, mockDeleteUnusedTags, mockGetEntryTags, mockTagEntry, mockUntagEntry } from "./mock";
-import { mockGetLlmUsageStats, mockGetDailyLlmUsage, mockGetProviderStats, mockGetModelStats } from "./provider-mock";
+import { mockGetLlmUsageStats, mockGetDailyLlmUsage, mockGetProviderStats, mockGetModelStats, mockGetAgentUsage } from "./provider-mock";
 
 export function isTauri(): boolean {
   return typeof window !== "undefined" && ("__TAURI__" in window || "__TAURI_INTERNALS__" in window);
@@ -431,7 +431,10 @@ export async function getLlmModelUsage(days: number = 30): Promise<ModelUsage[]>
 }
 
 export async function getLlmAgentUsage(days: number = 30): Promise<AgentUsage[]> {
-  return invoke<AgentUsage[]>("get_llm_agent_usage", { days });
+  if (isTauri()) {
+    return invoke<AgentUsage[]>("get_llm_agent_usage", { days });
+  }
+  return mockGetAgentUsage();
 }
 
 export async function cleanupOldLlmEvents(retentionDays: number = 90): Promise<number> {

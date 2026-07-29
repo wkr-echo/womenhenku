@@ -106,3 +106,11 @@ export async function mockGetModelStats(): Promise<{ modelId: number; modelName:
     { modelId: 3, modelName: "deepseek-chat", totalTokens: 40000, requestCount: 100 },
   ];
 }
+
+export async function mockGetAgentUsage(): Promise<{ agentType: string; totalTokens: number; requestCount: number }[]> {
+  return [
+    { agentType: "summary", totalTokens: 50000, requestCount: 120 },
+    { agentType: "translation", totalTokens: 60000, requestCount: 80 },
+    { agentType: "tagging", totalTokens: 15000, requestCount: 50 },
+  ];
+}

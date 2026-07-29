@@ -25,7 +25,7 @@ pub fn initialize_database(db_path: &Path) -> Result<DbPool, anyhow::Error> {
 
     let manager = SqliteConnectionManager::file(db_path);
     let pool = Pool::builder()
-        .max_size(4)
+        .max_size(10)
         .build(manager)?;
 
     // Enable WAL mode and foreign keys on a test connection
