@@ -412,7 +412,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const selectEntry = useCallback((item: EntryListItem) => {
     if (isTauri()) {
       getEntryReal(item.id)
-        .then((entry) => dispatch({ type: "SET_SELECTED_ENTRY", entry }))
+        .then((entry) => {
+          dispatch({ type: "SET_SELECTED_ENTRY", entry });
+          markEntryRead(item.id);
+        })
         .catch(() => {
           const fallback = mockApi.getEntry(item.id);
           dispatch({ type: "SET_SELECTED_ENTRY", entry: fallback || null });
@@ -421,6 +424,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const fallback = mockApi.getEntry(item.id);
       dispatch({ type: "SET_SELECTED_ENTRY", entry: fallback || null });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const toggleSidebar = useCallback(() => {
