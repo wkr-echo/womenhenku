@@ -1852,7 +1852,7 @@ function TokenUsage() {
       ) : (
         <>
           <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-6">
-            <h3 className="font-medium text-sm mb-4">{t("每日 Token 用量")}</h3>
+            <h3 className="font-medium text-sm mb-4">{t("每日 Token 用量")} ({dailyUsage.length} days, max={maxDailyValue})</h3>
             <div className="h-32 flex items-end gap-2">
               {dailyUsage.map((d, i) => {
                 const value = getBarValue(d);
